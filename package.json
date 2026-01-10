@@ -1,0 +1,25 @@
+{
+  "name": "papaours",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "wrangler pages deploy dist",
+    "check": "svelte-check --tsconfig ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@tsconfig/svelte": "^5.0.4",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "tslib": "^2.6.3",
+    "typescript": "^5.5.3",
+    "vite": "^6.0.0",
+    "wrangler": "^3.82.0"
+  },
+  "dependencies": {
+    "surrealdb": "^1.0.7"
+  }
+}
