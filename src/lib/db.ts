@@ -4,7 +4,6 @@ const db = new Surreal();
 
 export async function initDB() {
   try {
-    // Connexion à SurrealDB
     await db.connect('http://localhost:8000/rpc', {
       namespace: 'papaours',
       database: 'dbpapaours',

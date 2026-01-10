@@ -26,6 +26,13 @@ dist-ssr
 # Bun
 .bun
 
+# SvelteKit
+.svelte-kit
+build
+
+# Vite
+.vite
+
 # Cloudflare
 .wrangler
 wrangler.toml.backup
