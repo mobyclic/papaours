@@ -5,6 +5,7 @@
     "dev": "bunx --bun vite dev",
     "build": "bunx --bun vite build",
     "preview": "bunx --bun vite preview",
+    "start": "node build/index.js",
     "prepare": "bunx --bun svelte-kit sync || echo ''",
     "check": "bunx --bun svelte-kit sync && bunx --bun svelte-check --tsconfig ./tsconfig.json",
     "db:init": "bun run scripts/init-db.ts"
