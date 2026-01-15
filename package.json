@@ -6,7 +6,8 @@
     "build": "bunx --bun vite build",
     "preview": "bunx --bun vite preview",
     "prepare": "bunx --bun svelte-kit sync || echo ''",
-    "check": "bunx --bun svelte-kit sync && bunx --bun svelte-check --tsconfig ./tsconfig.json"
+    "check": "bunx --bun svelte-kit sync && bunx --bun svelte-check --tsconfig ./tsconfig.json",
+    "db:init": "bun run scripts/init-db.ts"
   },
   "type": "module",
   "devDependencies": {
@@ -27,6 +28,7 @@
     "vite": "^7.3.0"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.969.0",
     "bits-ui": "^2.14.4",
     "clsx": "^2.1.1",
     "lucide-svelte": "^0.562.0",
