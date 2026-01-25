@@ -19,7 +19,7 @@ export const GET: RequestHandler = async () => {
 export const POST: RequestHandler = async ({ request }) => {
   try {
     const data = await request.json();
-    const { title, description, slug, questionType = 'qcm', coverImage, isActive = true, theme, level = 1 } = data;
+    const { title, description, slug, questionType = 'qcm', coverImage, isActive = true, theme, level = 1, shuffleQuestions = false, maxQuestions } = data;
 
     if (!title || !slug) {
       return json({ message: 'Titre et slug requis' }, { status: 400 });
@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     // Créer le quiz
-    const quiz = await db.create('quiz', {
+    const quizData: any = {
       title,
       description: description || null,
       slug,
@@ -48,8 +48,16 @@ export const POST: RequestHandler = async ({ request }) => {
       level,
       isHomepage: false,
       isActive,
+      shuffleQuestions,
       order: 0
-    });
+    };
+    
+    // Ajouter maxQuestions seulement si défini
+    if (maxQuestions && maxQuestions > 0) {
+      quizData.maxQuestions = maxQuestions;
+    }
+    
+    const quiz = await db.create('quiz', quizData);
 
     return json({ success: true, quiz: Array.isArray(quiz) ? quiz[0] : quiz });
   } catch (error) {

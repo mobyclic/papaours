@@ -1,38 +1,42 @@
 import type { PageServerLoad } from './$types';
+import { connectDB } from '$lib/db';
 
 export const load: PageServerLoad = async () => {
-  // Données de test - en production, charger depuis la base de données
-  const quizzes = [
-    {
-      id: 'quiz:1',
-      title: 'Les bases des mathématiques',
-      subject: 'Mathématique',
-      difficulty_level: 'Débutant',
-      question_count: 15,
-      is_active: true,
-      created_at: '2025-01-20T10:00:00Z'
-    },
-    {
-      id: 'quiz:2',
-      title: 'Grammaire française',
-      subject: 'Français',
-      difficulty_level: 'Intermédiaire',
-      question_count: 20,
-      is_active: true,
-      created_at: '2025-01-18T14:30:00Z'
-    },
-    {
-      id: 'quiz:3',
-      title: 'Histoire de France',
-      subject: 'Histoire',
-      difficulty_level: 'Avancé',
-      question_count: 25,
-      is_active: false,
-      created_at: '2025-01-15T09:15:00Z'
-    }
-  ];
+  try {
+    const db = await connectDB();
+    
+    // Récupérer tous les quizzes avec le nombre de questions
+    const quizzesResult = await db.query(`
+      SELECT 
+        *,
+        (SELECT count() FROM question WHERE quizId = $parent.id AND isActive = true)[0].count AS question_count
+      FROM quiz
+      ORDER BY createdAt DESC
+    `);
+    
+    const quizzes = (quizzesResult[0] as any[]) || [];
+    
+    // Adapter les noms de champs pour le template
+    const formattedQuizzes = quizzes.map(quiz => ({
+      id: quiz.id?.toString() || quiz.id,
+      title: quiz.title,
+      slug: quiz.slug,
+      subject: quiz.theme || quiz.subject,
+      difficulty_level: quiz.level || quiz.difficulty_level,
+      question_count: quiz.question_count || 0,
+      is_active: quiz.isActive ?? quiz.is_active ?? true,
+      created_at: quiz.createdAt || quiz.created_at,
+      shuffleQuestions: quiz.shuffleQuestions,
+      maxQuestions: quiz.maxQuestions
+    }));
 
-  return {
-    quizzes
-  };
+    return {
+      quizzes: formattedQuizzes
+    };
+  } catch (error) {
+    console.error('Error loading quizzes:', error);
+    return {
+      quizzes: []
+    };
+  }
 };

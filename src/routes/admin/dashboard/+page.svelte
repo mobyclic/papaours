@@ -1,14 +1,18 @@
 <script lang="ts">
+  import type { PageData } from './$types';
   import { adminUser } from '$lib/stores/adminStore';
 
-  const stats = {
+  let { data }: { data: PageData } = $props();
+  
+  let stats = $derived(data.stats || {
     totalQuiz: 0,
     activeQuiz: 0,
     totalQuestions: 0,
     activeQuestions: 0,
     totalMedia: 0,
-    recentResults: 0
-  };
+    recentResults: 0,
+    totalUsers: 0
+  });
 </script>
 
 <svelte:head>

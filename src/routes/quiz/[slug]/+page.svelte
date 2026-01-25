@@ -2,59 +2,114 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { currentUser } from '$lib/stores/userStore';
   
   let quiz = $state<any>(null);
+  let session = $state<any>(null);
   let questions = $state<any[]>([]);
   let loading = $state(true);
   let error = $state('');
+  let submitting = $state(false);
 
   let currentQuestionIndex = $state(0);
   let selectedAnswer = $state<number | null>(null);
   let showExplanation = $state(false);
+  let lastAnswerCorrect = $state(false);
+  let lastExplanation = $state('');
   let score = $state(0);
   let isQuizFinished = $state(false);
-  let persisted = $state(false);
-  import { currentUser } from '$lib/stores/userStore';
+  let resumed = $state(false);
   
   let currentQuestion = $derived(questions[currentQuestionIndex]);
-  let progress = $derived((currentQuestionIndex / questions.length) * 100);
+  let progress = $derived(questions.length > 0 ? ((currentQuestionIndex) / questions.length) * 100 : 0);
   
   onMount(async () => {
     const slug = $page.params.slug;
+    const sessionId = $page.url.searchParams.get('sessionId');
+    
+    // Si on a un sessionId dans l'URL, charger cette session directement
+    if (sessionId) {
+      await loadSession(sessionId);
+    } else {
+      // Sinon, rediriger vers le dashboard (pas d'accès direct)
+      goto('/dashboard');
+    }
+  });
+  
+  async function loadSession(sessionId: string) {
+    loading = true;
     
     try {
-      const response = await fetch(`/api/quiz/${slug}`);
+      // Récupérer la session existante
+      const cleanSessionId = sessionId.includes(':') ? sessionId.split(':')[1] : sessionId;
+      const response = await fetch(`/api/quiz/session/${cleanSessionId}`);
+      
       if (response.ok) {
         const data = await response.json();
+        session = data.session;
         quiz = data.quiz;
-        questions = data.questions;
+        questions = session.questions || [];
+        currentQuestionIndex = session.answers?.length || 0;
+        score = session.score || 0;
+        resumed = session.answers?.length > 0;
         
         if (questions.length === 0) {
-          error = 'Ce quiz ne contient pas encore de questions.';
+          error = 'Ce quiz ne contient pas de questions.';
         }
       } else {
-        error = 'Quiz non trouvé';
+        error = 'Session non trouvée';
+        setTimeout(() => goto('/dashboard'), 2000);
       }
     } catch (err) {
-      console.error('Erreur chargement quiz:', err);
+      console.error('Erreur chargement session:', err);
       error = 'Erreur de chargement';
     } finally {
       loading = false;
     }
-  });
+  }
   
   function selectAnswer(index: number) {
-    if (showExplanation) return;
+    if (showExplanation || submitting) return;
     selectedAnswer = index;
   }
   
-  function validateAnswer() {
-    if (selectedAnswer === null) return;
+  async function validateAnswer() {
+    if (selectedAnswer === null || !session || submitting) return;
     
-    showExplanation = true;
+    submitting = true;
     
-    if (selectedAnswer === currentQuestion.correctAnswer) {
-      score++;
+    try {
+      const sessionId = session.id.split(':')[1] || session.id;
+      const response = await fetch(`/api/quiz/session/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          questionIndex: currentQuestionIndex,
+          selectedAnswer
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        showExplanation = true;
+        lastAnswerCorrect = data.isCorrect;
+        lastExplanation = data.explanation;
+        score = data.score;
+        session = data.session;
+        
+        if (data.isCompleted) {
+          // Quiz terminé
+        }
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Erreur lors de la validation');
+      }
+    } catch (err) {
+      console.error('Erreur validation:', err);
+      alert('Erreur de connexion');
+    } finally {
+      submitting = false;
     }
   }
   
@@ -63,40 +118,44 @@
       currentQuestionIndex++;
       selectedAnswer = null;
       showExplanation = false;
+      lastAnswerCorrect = false;
+      lastExplanation = '';
     } else {
       isQuizFinished = true;
     }
   }
   
-  function restartQuiz() {
-    currentQuestionIndex = 0;
-    selectedAnswer = null;
-    showExplanation = false;
-    score = 0;
-    isQuizFinished = false;
-    persisted = false;
+  async function restartQuiz() {
+    // Abandonner l'ancienne session si elle existe
+    if (session) {
+      try {
+        const sessionId = session.id.split(':')[1] || session.id;
+        await fetch(`/api/quiz/session/${sessionId}`, { method: 'DELETE' });
+      } catch (e) { /* ignore */ }
+    }
+    
+    // Créer une nouvelle session et rediriger
+    const slug = $page.params.slug;
+    try {
+      const response = await fetch(`/api/quiz/${slug}/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: $currentUser?.id || `anonymous_${Date.now()}` })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Recharger avec la nouvelle session
+        window.location.href = `/quiz/${slug}?sessionId=${data.session.id}`;
+      }
+    } catch (e) {
+      console.error('Erreur restart:', e);
+    }
   }
   
   function goHome() {
     goto('/dashboard');
   }
-
-  $effect.pre(() => {
-    if (isQuizFinished && !persisted && quiz) {
-      const payload = {
-        userId: $currentUser?.id,
-        quizId: quiz.id,
-        score,
-        totalQuestions: questions.length,
-        answers: []
-      };
-      fetch('/api/quiz/result', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).then(() => { persisted = true; }).catch(() => { /* ignore */ });
-    }
-  });
 </script>
 
 <svelte:head>
@@ -135,13 +194,19 @@
             class="flex items-center gap-2 text-gray-600 hover:text-gray-900"
           >
             <span class="text-2xl">←</span>
-            <span>Retour</span>
+            <span>Quitter</span>
           </button>
           <div class="text-right">
             <div class="text-sm text-gray-600">Question {currentQuestionIndex + 1} / {questions.length}</div>
             <div class="text-lg font-bold text-purple-600">Score: {score}</div>
           </div>
         </div>
+        
+        {#if resumed}
+          <div class="mb-4 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
+            📌 Tu reprends ta session en cours
+          </div>
+        {/if}
         
         <!-- Progress bar -->
         <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -181,7 +246,7 @@
             {#each currentQuestion.options as option, index}
               <button
                 onclick={() => selectAnswer(index)}
-                disabled={showExplanation}
+                disabled={showExplanation || submitting}
                 class="w-full p-4 text-left rounded-xl border-2 transition-all
                   {selectedAnswer === index 
                     ? (showExplanation
@@ -192,7 +257,7 @@
                     : (showExplanation && index === currentQuestion.correctAnswer
                       ? 'border-green-500 bg-green-50'
                       : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50')}
-                  {showExplanation ? 'cursor-not-allowed' : 'cursor-pointer'}"
+                  {showExplanation || submitting ? 'cursor-not-allowed' : 'cursor-pointer'}"
               >
                 <div class="flex items-center">
                   <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center mr-3
@@ -221,16 +286,16 @@
 
           <!-- Explanation -->
           {#if showExplanation}
-            <div class="p-4 rounded-xl {selectedAnswer === currentQuestion.correctAnswer ? 'bg-green-50 border-2 border-green-200' : 'bg-orange-50 border-2 border-orange-200'} mb-6">
+            <div class="p-4 rounded-xl {lastAnswerCorrect ? 'bg-green-50 border-2 border-green-200' : 'bg-orange-50 border-2 border-orange-200'} mb-6">
               <div class="flex items-start gap-3">
                 <div class="text-2xl">
-                  {selectedAnswer === currentQuestion.correctAnswer ? '🎉' : '💡'}
+                  {lastAnswerCorrect ? '🎉' : '💡'}
                 </div>
                 <div class="flex-1">
                   <h3 class="font-bold text-lg mb-2">
-                    {selectedAnswer === currentQuestion.correctAnswer ? 'Bravo !' : 'Pas tout à fait...'}
+                    {lastAnswerCorrect ? 'Bravo !' : 'Pas tout à fait...'}
                   </h3>
-                  <p class="text-gray-700">{currentQuestion.explanation}</p>
+                  <p class="text-gray-700">{lastExplanation || currentQuestion.explanation}</p>
                 </div>
               </div>
             </div>
@@ -241,10 +306,10 @@
             {#if !showExplanation}
               <button
                 onclick={validateAnswer}
-                disabled={selectedAnswer === null}
+                disabled={selectedAnswer === null || submitting}
                 class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105"
               >
-                Valider
+                {submitting ? 'Validation...' : 'Valider'}
               </button>
             {:else}
               <button

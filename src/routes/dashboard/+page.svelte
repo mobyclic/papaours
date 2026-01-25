@@ -5,8 +5,14 @@
 
   let quizzes = $state<any[]>([]);
   let userResults = $state<any[]>([]);
+  let activeSessions = $state<any[]>([]); // Sessions en cours
   let loading = $state(true);
   let greeting = $state('');
+  
+  // Modal state
+  let showQuizModal = $state(false);
+  let selectedQuiz = $state<any>(null);
+  let startingQuiz = $state(false);
 
   // Stats calculées
   let totalQuizzesDone = $derived(userResults.length);
@@ -68,7 +74,7 @@
     else greeting = 'Bonsoir';
 
     const uid = $currentUser.id;
-    await Promise.all([loadQuizzes(), loadResults(uid)]);
+    await Promise.all([loadQuizzes(), loadResults(uid), loadActiveSessions(uid)]);
     loading = false;
   });
 
@@ -95,9 +101,66 @@
       console.error('Erreur chargement des résultats', e);
     }
   }
+  
+  async function loadActiveSessions(userId: string) {
+    try {
+      const res = await fetch(`/api/user/sessions?userId=${encodeURIComponent(userId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        activeSessions = data.sessions || [];
+      }
+    } catch (e) {
+      console.error('Erreur chargement des sessions', e);
+    }
+  }
 
   function playQuiz(slug: string) {
-    goto(`/quiz/${slug}`);
+    // Trouver le quiz et ouvrir la modal
+    const quiz = quizzes.find(q => q.slug === slug);
+    if (quiz) {
+      selectedQuiz = quiz;
+      showQuizModal = true;
+    }
+  }
+  
+  function closeQuizModal() {
+    showQuizModal = false;
+    selectedQuiz = null;
+  }
+  
+  async function confirmStartQuiz() {
+    if (!selectedQuiz || startingQuiz) return;
+    
+    startingQuiz = true;
+    
+    try {
+      // Créer la session
+      const response = await fetch(`/api/quiz/${selectedQuiz.slug}/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: $currentUser?.id || `anonymous_${Date.now()}` })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Rediriger vers le quiz avec la session déjà créée
+        goto(`/quiz/${selectedQuiz.slug}?sessionId=${data.session.id}`);
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Erreur lors du démarrage du quiz');
+      }
+    } catch (err) {
+      console.error('Erreur démarrage quiz:', err);
+      alert('Erreur de connexion');
+    } finally {
+      startingQuiz = false;
+    }
+  }
+  
+  function resumeSession(session: any) {
+    // Reprendre une session en cours
+    const quiz = quizzes.find(q => q.id === session.quizId || `quiz:${q.id?.split(':')[1]}` === session.quizId);
+    goto(`/quiz/${quiz?.slug || 'unknown'}?sessionId=${session.id}`);
   }
 
   function handleLogout() {
@@ -207,6 +270,45 @@
           <div class="text-sm text-gray-600">Quiz maîtrisés</div>
         </div>
       </section>
+
+      <!-- Active Sessions - Quiz à reprendre -->
+      {#if activeSessions.length > 0}
+        <section class="mb-8">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="text-2xl">⏸️</span>
+            <h2 class="text-xl font-bold text-gray-800">Reprends où tu t'es arrêté</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {#each activeSessions as session}
+              {@const quiz = quizzes.find(q => q.id === session.quizId || `quiz:${q.id?.split(':')[1]}` === session.quizId)}
+              <div class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl shadow-lg p-5 border-2 border-blue-200 hover:border-blue-400 transition-all transform hover:scale-102">
+                <div class="flex items-start justify-between mb-3">
+                  <span class="text-3xl">{getQuizEmoji(quiz?.theme || 'Musique')}</span>
+                  <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                    En pause
+                  </span>
+                </div>
+                <h3 class="font-bold text-lg text-gray-800 mb-1">{quiz?.title || 'Quiz'}</h3>
+                <p class="text-sm text-gray-600 mb-2">
+                  Progression: <span class="font-bold text-blue-600">{session.progress}/{session.totalQuestions}</span> questions
+                </p>
+                <div class="w-full bg-blue-100 rounded-full h-2 mb-3">
+                  <div 
+                    class="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all"
+                    style="width: {Math.round((session.progress / session.totalQuestions) * 100)}%"
+                  ></div>
+                </div>
+                <button 
+                  onclick={() => resumeSession(session)}
+                  class="w-full py-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all"
+                >
+                  Reprendre ▶️
+                </button>
+              </div>
+            {/each}
+          </div>
+        </section>
+      {/if}
 
       <!-- Continue Learning Section -->
       {#if quizzesInProgress().length > 0}
@@ -418,6 +520,70 @@
         </div>
       </section>
     </div>
+    
+    <!-- Quiz Start Modal -->
+    {#if showQuizModal && selectedQuiz}
+      <div class="fixed inset-0 z-50 flex items-center justify-center">
+        <!-- Backdrop -->
+        <div 
+          class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onclick={closeQuizModal}
+          role="button"
+          tabindex="-1"
+          onkeydown={(e) => e.key === 'Escape' && closeQuizModal()}
+        ></div>
+        
+        <!-- Modal Content -->
+        <div class="relative bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4 transform animate-in zoom-in-95 duration-200">
+          <button
+            onclick={closeQuizModal}
+            class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
+          >
+            ✕
+          </button>
+          
+          <div class="text-center">
+            <div class="text-6xl mb-4">🎯</div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">Prêt à jouer ?</h3>
+            <p class="text-gray-600 mb-4">Tu vas commencer le quiz :</p>
+            
+            <div class="bg-purple-50 rounded-xl p-4 mb-6">
+              <h4 class="font-bold text-purple-800 text-lg">{selectedQuiz.title}</h4>
+              {#if selectedQuiz.description}
+                <p class="text-purple-600 text-sm mt-1">{selectedQuiz.description}</p>
+              {/if}
+              <div class="flex justify-center gap-2 mt-3 text-xs flex-wrap">
+                <span class="px-2 py-1 bg-purple-200 text-purple-800 rounded-full">
+                  {selectedQuiz.maxQuestions || '?'} questions
+                </span>
+                {#if selectedQuiz.theme}
+                  <span class="px-2 py-1 bg-pink-200 text-pink-800 rounded-full">{selectedQuiz.theme}</span>
+                {/if}
+                {#if selectedQuiz.shuffleQuestions}
+                  <span class="px-2 py-1 bg-orange-200 text-orange-800 rounded-full">🎲 Aléatoire</span>
+                {/if}
+              </div>
+            </div>
+            
+            <div class="flex gap-3">
+              <button
+                onclick={closeQuizModal}
+                class="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onclick={confirmStartQuiz}
+                disabled={startingQuiz}
+                class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 disabled:opacity-50"
+              >
+                {startingQuiz ? 'Chargement...' : "🚀 C'est parti !"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    {/if}
   {/if}
 </main>
 

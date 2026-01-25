@@ -1,35 +1,38 @@
 import type { PageServerLoad } from './$types';
+import { connectDB } from '$lib/db';
 
 export const load: PageServerLoad = async () => {
-  // Données de test - en production, charger depuis la base de données
-  const medias = [
-    {
-      id: 'media:1',
-      title: 'Question Image 1',
+  try {
+    const db = await connectDB();
+    
+    // Récupérer les questions qui ont des images
+    const questionsWithMedia = await db.query(`
+      SELECT id, question, imageUrl, imageCaption, createdAt 
+      FROM question 
+      WHERE imageUrl != NONE AND imageUrl != ''
+      ORDER BY createdAt DESC
+    `);
+    
+    const rawQuestions = (questionsWithMedia[0] as any[]) || [];
+    
+    // Formater comme médias
+    const medias = rawQuestions.map((q, idx) => ({
+      id: `media:${idx + 1}`,
+      title: q.imageCaption || q.question?.substring(0, 50) || 'Image sans titre',
       type: 'image',
-      url: 'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=400',
-      size: '245 KB',
-      created_at: '2025-01-20T10:00:00Z'
-    },
-    {
-      id: 'media:2',
-      title: 'Audio Question Français',
-      type: 'audio',
-      url: null,
-      size: '1.2 MB',
-      created_at: '2025-01-18T14:30:00Z'
-    },
-    {
-      id: 'media:3',
-      title: 'Vidéo explicative',
-      type: 'video',
-      url: null,
-      size: '15 MB',
-      created_at: '2025-01-15T09:15:00Z'
-    }
-  ];
+      url: q.imageUrl,
+      size: 'N/A',
+      created_at: q.createdAt,
+      question_id: q.id?.toString()
+    }));
 
-  return {
-    medias
-  };
+    return {
+      medias
+    };
+  } catch (error) {
+    console.error('Error loading medias:', error);
+    return {
+      medias: []
+    };
+  }
 };

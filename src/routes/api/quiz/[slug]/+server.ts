@@ -19,7 +19,7 @@ function shuffleQuestionOptions(question: any): any {
   }
   
   // Créer un tableau d'indices avec les options
-  const optionsWithIndex = question.options.map((opt: string, idx: number) => ({
+  const optionsWithIndex: { text: string; originalIndex: number }[] = question.options.map((opt: string, idx: number) => ({
     text: opt,
     originalIndex: idx
   }));
@@ -29,12 +29,12 @@ function shuffleQuestionOptions(question: any): any {
   
   // Trouver le nouvel index de la bonne réponse
   const newCorrectAnswer = shuffledOptions.findIndex(
-    opt => opt.originalIndex === question.correctAnswer
+    (opt) => opt.originalIndex === question.correctAnswer
   );
   
   return {
     ...question,
-    options: shuffledOptions.map(opt => opt.text),
+    options: shuffledOptions.map((opt) => opt.text),
     correctAnswer: newCorrectAnswer
   };
 }

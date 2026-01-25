@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import { adminUser } from '$lib/stores/adminStore';
+  import { Edit2, Trash2, Plus, Search, ChevronUp, ChevronDown, Eye } from 'lucide-svelte';
   
   interface Question {
     id: string;
@@ -22,14 +22,19 @@
   let questions = $state<Question[]>([]);
   let isLoading = $state(true);
   let showForm = $state(false);
+  let showPreview = $state(false);
+  let previewQuestion = $state<Question | null>(null);
   let editingQuestion = $state<Question | null>(null);
   let currentQuizId = $state<string | null>(null);
   let currentQuiz = $state<any>(null);
+  let search = $state('');
+  let sortColumn = $state<string>('order');
+  let sortDirection = $state<'asc' | 'desc'>('asc');
   
   // Formulaire
   let formData = $state({
     question: '',
-    family: 'cordes' as 'cordes' | 'bois' | 'cuivres' | 'percussions' | 'general',
+    family: 'general' as string,
     difficulty: 'medium' as 'easy' | 'medium' | 'hard',
     options: ['', '', '', ''],
     correctAnswer: 0,
@@ -40,11 +45,42 @@
     order: 0
   });
 
+  // Questions filtrées et triées
+  let filteredQuestions = $derived.by(() => {
+    let result = questions;
+    
+    // Filtre par recherche
+    if (search) {
+      const s = search.toLowerCase();
+      result = result.filter(q => 
+        q.question?.toLowerCase().includes(s) ||
+        q.explanation?.toLowerCase().includes(s)
+      );
+    }
+    
+    // Tri
+    result = [...result].sort((a, b) => {
+      let aVal: unknown = a[sortColumn as keyof Question];
+      let bVal: unknown = b[sortColumn as keyof Question];
+      
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return result;
+  });
+
   onMount(async () => {
-    // Récupérer le quizId depuis l'URL
     currentQuizId = $page.url.searchParams.get('quiz');
     
-    // Charger les infos du quiz si un quizId est fourni
     if (currentQuizId) {
       await loadQuizInfo();
     }
@@ -87,7 +123,7 @@
     editingQuestion = null;
     formData = {
       question: '',
-      family: 'cordes',
+      family: 'general',
       difficulty: 'medium',
       options: ['', '', '', ''],
       correctAnswer: 0,
@@ -104,17 +140,22 @@
     editingQuestion = question;
     formData = {
       question: question.question,
-      family: question.family as any,
-      difficulty: question.difficulty as any,
-      options: [...question.options],
-      correctAnswer: question.correctAnswer,
-      explanation: question.explanation,
+      family: question.family || 'general',
+      difficulty: (question.difficulty as any) || 'medium',
+      options: [...(question.options || ['', '', '', ''])],
+      correctAnswer: question.correctAnswer || 0,
+      explanation: question.explanation || '',
       imageUrl: question.imageUrl || '',
       imageCaption: question.imageCaption || '',
       isActive: question.isActive,
-      order: question.order
+      order: question.order || 0
     };
     showForm = true;
+  }
+
+  function openPreview(question: Question) {
+    previewQuestion = question;
+    showPreview = true;
   }
 
   async function saveQuestion() {
@@ -125,7 +166,6 @@
       
       const method = editingQuestion ? 'PUT' : 'POST';
       
-      // Ajouter le quizId si on est dans le contexte d'un quiz
       const dataToSend = {
         ...formData,
         quizId: currentQuizId ? `quiz:${currentQuizId}` : null
@@ -149,11 +189,12 @@
     }
   }
 
-  async function deleteQuestion(id: string) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette question ?')) return;
+  async function deleteQuestion(question: Question, event: Event) {
+    event.stopPropagation();
+    if (!confirm(`Supprimer la question "${question.question.substring(0, 50)}..." ?`)) return;
     
     try {
-      const response = await fetch(`/api/admin/questions/${id}`, {
+      const response = await fetch(`/api/admin/questions/${question.id}`, {
         method: 'DELETE'
       });
 
@@ -165,7 +206,8 @@
     }
   }
 
-  async function toggleActive(question: Question) {
+  async function toggleActive(question: Question, event: Event) {
+    event.stopPropagation();
     try {
       const response = await fetch(`/api/admin/questions/${question.id}`, {
         method: 'PUT',
@@ -181,174 +223,280 @@
     }
   }
 
-  function getFamilyEmoji(family: string) {
-    const emojis: Record<string, string> = {
-      cordes: '🎻',
-      bois: '🎷',
-      cuivres: '🎺',
-      percussions: '🥁',
-      general: '🎵'
-    };
-    return emojis[family] || '🎵';
+  function handleSort(column: string) {
+    if (sortColumn === column) {
+      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortColumn = column;
+      sortDirection = 'asc';
+    }
+  }
+
+  function truncate(text: string, maxLength: number = 80) {
+    if (!text) return '';
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   }
 </script>
 
 <svelte:head>
-  <title>Gestion des questions - Admin</title>
+  <title>Questions {currentQuiz ? `- ${currentQuiz.title}` : ''} - Admin</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
+<div class="flex-1 p-8 overflow-auto">
   <!-- Header -->
-  <header class="bg-white border-b border-gray-200">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center h-16">
-        <div class="flex items-center gap-4">
-          <button 
-            onclick={() => currentQuizId ? goto('/admin/quiz') : goto('/admin/dashboard')} 
-            class="text-gray-600 hover:text-gray-900"
-          >
-            ← {currentQuizId ? 'Retour aux quiz' : 'Dashboard'}
-          </button>
-          <div>
-            <h1 class="text-2xl font-bold text-gray-900">Gestion des questions</h1>
-            {#if currentQuiz}
-              <p class="text-sm text-gray-600">Quiz : {currentQuiz.title}</p>
-            {/if}
-          </div>
+  <div class="mb-8">
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-2">
+          <button onclick={() => goto('/admin/dashboard')} class="hover:text-purple-600">Dashboard</button>
+          <span>/</span>
+          <button onclick={() => goto('/admin/dashboard/quiz')} class="hover:text-purple-600">Quiz</button>
+          {#if currentQuiz}
+            <span>/</span>
+            <span class="text-gray-900">{currentQuiz.title}</span>
+          {/if}
         </div>
-        <button
-          onclick={openNewQuestionForm}
-          class="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700"
-        >
-          ➕ Nouvelle question
-        </button>
+        <h1 class="text-3xl font-bold text-gray-900">Questions</h1>
+        {#if currentQuiz}
+          <p class="text-gray-600 mt-1">{questions.length} questions dans ce quiz</p>
+        {:else}
+          <p class="text-gray-600 mt-1">Toutes les questions de la plateforme</p>
+        {/if}
       </div>
+      <button
+        onclick={openNewQuestionForm}
+        class="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+      >
+        <Plus class="w-4 h-4" />
+        Nouvelle question
+      </button>
     </div>
-  </header>
+  </div>
 
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <!-- Search -->
+  <div class="mb-6">
+    <div class="relative max-w-md">
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Rechercher une question..."
+        bind:value={search}
+        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+      />
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
     {#if isLoading}
-      <div class="text-center py-12">
-        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      <div class="p-12 text-center">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
         <p class="mt-4 text-gray-600">Chargement...</p>
       </div>
-    {:else if questions.length === 0}
-      <div class="text-center py-12 bg-white rounded-xl shadow">
-        <p class="text-gray-600 mb-4">Aucune question pour le moment</p>
-        <button
-          onclick={openNewQuestionForm}
-          class="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
-        >
-          Créer la première question
-        </button>
+    {:else if filteredQuestions.length === 0}
+      <div class="p-12 text-center">
+        <p class="text-gray-500 mb-4">
+          {search ? 'Aucune question trouvée pour cette recherche' : 'Aucune question pour le moment'}
+        </p>
+        {#if !search}
+          <button
+            onclick={openNewQuestionForm}
+            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            Créer la première question
+          </button>
+        {/if}
       </div>
     {:else}
-      <div class="grid gap-4">
-        {#each questions as question (question.id)}
-          <div class="bg-white rounded-xl shadow p-6 border border-gray-200">
-            <div class="flex items-start justify-between gap-4">
-              <div class="flex-1">
-                <div class="flex items-center gap-3 mb-2">
-                  <span class="text-2xl">{getFamilyEmoji(question.family)}</span>
-                  <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-                    {question.family}
-                  </span>
-                  <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-                    {question.difficulty}
-                  </span>
-                  <button
-                    onclick={() => toggleActive(question)}
-                    class="px-3 py-1 rounded-full text-sm font-medium {question.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}"
+      <table class="w-full">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-12">#</th>
+            <th 
+              class="px-6 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+              onclick={() => handleSort('question')}
+            >
+              <div class="flex items-center gap-1">
+                Question
+                {#if sortColumn === 'question'}
+                  {#if sortDirection === 'asc'}
+                    <ChevronUp class="w-4 h-4" />
+                  {:else}
+                    <ChevronDown class="w-4 h-4" />
+                  {/if}
+                {/if}
+              </div>
+            </th>
+            <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-24">Image</th>
+            <th 
+              class="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100"
+              onclick={() => handleSort('isActive')}
+            >
+              <div class="flex items-center gap-1">
+                Statut
+                {#if sortColumn === 'isActive'}
+                  {#if sortDirection === 'asc'}
+                    <ChevronUp class="w-4 h-4" />
+                  {:else}
+                    <ChevronDown class="w-4 h-4" />
+                  {/if}
+                {/if}
+              </div>
+            </th>
+            <th class="px-6 py-3 text-right text-sm font-semibold text-gray-700 w-32">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each filteredQuestions as question, index (question.id)}
+            <tr 
+              class="border-b border-gray-200 hover:bg-purple-50 transition-colors cursor-pointer"
+              onclick={() => openEditForm(question)}
+            >
+              <td class="px-6 py-4 text-sm text-gray-500">{index + 1}</td>
+              <td class="px-6 py-4">
+                <p class="text-sm font-medium text-gray-900">{truncate(question.question)}</p>
+              </td>
+              <td class="px-6 py-4">
+                {#if question.imageUrl}
+                  <img 
+                    src={question.imageUrl} 
+                    alt="" 
+                    class="w-10 h-10 rounded object-cover"
+                  />
+                {:else}
+                  <span class="text-gray-400 text-sm">—</span>
+                {/if}
+              </td>
+              <td class="px-6 py-4">
+                <button
+                  onclick={(e) => toggleActive(question, e)}
+                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {question.isActive ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+                >
+                  {question.isActive ? 'Actif' : 'Inactif'}
+                </button>
+              </td>
+              <td class="px-6 py-4 text-right">
+                <div class="flex items-center justify-end gap-1">
+                  <button 
+                    class="p-1.5 hover:bg-blue-100 rounded-lg transition-colors" 
+                    title="Voir"
+                    onclick={(e) => { e.stopPropagation(); openPreview(question); }}
                   >
-                    {question.isActive ? '✓ Active' : '✗ Inactive'}
+                    <Eye class="w-4 h-4 text-blue-600" />
+                  </button>
+                  <button 
+                    class="p-1.5 hover:bg-purple-100 rounded-lg transition-colors" 
+                    title="Modifier"
+                    onclick={(e) => { e.stopPropagation(); openEditForm(question); }}
+                  >
+                    <Edit2 class="w-4 h-4 text-purple-600" />
+                  </button>
+                  <button 
+                    class="p-1.5 hover:bg-red-100 rounded-lg transition-colors" 
+                    title="Supprimer"
+                    onclick={(e) => deleteQuestion(question, e)}
+                  >
+                    <Trash2 class="w-4 h-4 text-red-600" />
                   </button>
                 </div>
-                
-                <h3 class="text-lg font-semibold text-gray-900 mb-3">{question.question}</h3>
-                
-                {#if question.imageUrl}
-                  <img src={question.imageUrl} alt={question.imageCaption} class="w-32 h-32 object-cover rounded-lg mb-3" />
-                {/if}
-                
-                <div class="space-y-1 mb-3">
-                  {#each question.options as option, i}
-                    <div class="flex items-center gap-2">
-                      {#if i === question.correctAnswer}
-                        <span class="text-green-500 font-bold">✓</span>
-                      {:else}
-                        <span class="text-gray-300">○</span>
-                      {/if}
-                      <span class={i === question.correctAnswer ? 'font-semibold text-green-700' : 'text-gray-600'}>
-                        {option}
-                      </span>
-                    </div>
-                  {/each}
-                </div>
-                
-                <p class="text-sm text-gray-600 italic">{question.explanation}</p>
-              </div>
-              
-              <div class="flex flex-col gap-2">
-                <button
-                  onclick={() => openEditForm(question)}
-                  class="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
-                >
-                  ✏️ Modifier
-                </button>
-                <button
-                  onclick={() => deleteQuestion(question.id)}
-                  class="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
-                >
-                  🗑️ Supprimer
-                </button>
-              </div>
-            </div>
-          </div>
-        {/each}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+      
+      <!-- Footer avec count -->
+      <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
+        {filteredQuestions.length} question{filteredQuestions.length > 1 ? 's' : ''}
+        {#if search}
+          (filtrées sur {questions.length})
+        {/if}
       </div>
     {/if}
   </div>
 </div>
 
+<!-- Modal Preview -->
+{#if showPreview && previewQuestion}
+  <div 
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+    onclick={() => showPreview = false}
+  >
+    <div 
+      class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <h2 class="text-xl font-bold mb-4">Aperçu de la question</h2>
+      
+      <div class="space-y-4">
+        <p class="text-lg font-medium">{previewQuestion.question}</p>
+        
+        {#if previewQuestion.imageUrl}
+          <img src={previewQuestion.imageUrl} alt={previewQuestion.imageCaption} class="w-full max-h-64 object-contain rounded-lg" />
+        {/if}
+        
+        <div class="space-y-2">
+          {#each previewQuestion.options as option, i}
+            <div class="flex items-center gap-2 p-3 rounded-lg {i === previewQuestion.correctAnswer ? 'bg-green-100 border-2 border-green-500' : 'bg-gray-100'}">
+              {#if i === previewQuestion.correctAnswer}
+                <span class="text-green-600 font-bold">✓</span>
+              {:else}
+                <span class="text-gray-400">○</span>
+              {/if}
+              <span class={i === previewQuestion.correctAnswer ? 'font-semibold text-green-700' : 'text-gray-700'}>
+                {option}
+              </span>
+            </div>
+          {/each}
+        </div>
+        
+        <div class="p-4 bg-blue-50 rounded-lg">
+          <p class="text-sm text-blue-800"><strong>Explication :</strong> {previewQuestion.explanation}</p>
+        </div>
+      </div>
+      
+      <div class="flex gap-3 mt-6">
+        <button
+          onclick={() => { showPreview = false; if (previewQuestion) openEditForm(previewQuestion); }}
+          class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+        >
+          Modifier
+        </button>
+        <button
+          onclick={() => showPreview = false}
+          class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+        >
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <!-- Modal Formulaire -->
 {#if showForm}
-  <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onclick={(e) => e.target === e.currentTarget && (showForm = false)}>
-    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+  <div 
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+    onclick={() => showForm = false}
+  >
+    <div 
+      class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6"
+      onclick={(e) => e.stopPropagation()}
+    >
       <h2 class="text-2xl font-bold mb-6">
         {editingQuestion ? 'Modifier la question' : 'Nouvelle question'}
       </h2>
       
       <form onsubmit={(e) => { e.preventDefault(); saveQuestion(); }} class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Question *</label>
-          <input
-            type="text"
+          <label for="question-text" class="block text-sm font-medium text-gray-700 mb-1">Question *</label>
+          <textarea
+            id="question-text"
             bind:value={formData.question}
             required
+            rows="2"
             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-          />
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Famille *</label>
-            <select bind:value={formData.family} class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-              <option value="cordes">Cordes</option>
-              <option value="bois">Bois</option>
-              <option value="cuivres">Cuivres</option>
-              <option value="percussions">Percussions</option>
-              <option value="general">Général</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Difficulté</label>
-            <select bind:value={formData.difficulty} class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-              <option value="easy">Facile</option>
-              <option value="medium">Moyen</option>
-              <option value="hard">Difficile</option>
-            </select>
-          </div>
+          ></textarea>
         </div>
 
         <div>
@@ -360,7 +508,7 @@
                 name="correctAnswer"
                 checked={formData.correctAnswer === i}
                 onchange={() => formData.correctAnswer = i}
-                class="text-purple-600"
+                class="text-purple-600 w-4 h-4"
               />
               <input
                 type="text"
@@ -375,8 +523,9 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Explication *</label>
+          <label for="explanation" class="block text-sm font-medium text-gray-700 mb-1">Explication *</label>
           <textarea
+            id="explanation"
             bind:value={formData.explanation}
             required
             rows="3"
@@ -384,22 +533,26 @@
           ></textarea>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">URL de l'image</label>
-          <input
-            type="url"
-            bind:value={formData.imageUrl}
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Légende de l'image</label>
-          <input
-            type="text"
-            bind:value={formData.imageCaption}
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-          />
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="imageUrl" class="block text-sm font-medium text-gray-700 mb-1">URL de l'image</label>
+            <input
+              id="imageUrl"
+              type="url"
+              bind:value={formData.imageUrl}
+              placeholder="https://..."
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+          <div>
+            <label for="imageCaption" class="block text-sm font-medium text-gray-700 mb-1">Légende</label>
+            <input
+              id="imageCaption"
+              type="text"
+              bind:value={formData.imageCaption}
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
         </div>
 
         <div class="flex items-center gap-2">
@@ -415,9 +568,9 @@
         <div class="flex gap-3 pt-4">
           <button
             type="submit"
-            class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700"
+            class="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
           >
-            💾 Enregistrer
+            {editingQuestion ? 'Mettre à jour' : 'Créer'}
           </button>
           <button
             type="button"

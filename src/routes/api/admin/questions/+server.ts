@@ -10,9 +10,10 @@ export const GET: RequestHandler = async ({ url }) => {
     
     let result;
     if (quizId) {
+      // Utiliser type::thing pour comparer avec un record<quiz>
       result = await db.query(
-        'SELECT * FROM question WHERE quizId = $quizId ORDER BY order ASC, createdAt DESC',
-        { quizId: `quiz:${quizId}` }
+        'SELECT * FROM question WHERE quizId = type::thing("quiz", $quizId) ORDER BY order ASC, createdAt DESC',
+        { quizId }
       );
     } else {
       result = await db.query('SELECT * FROM question ORDER BY order ASC, createdAt DESC');

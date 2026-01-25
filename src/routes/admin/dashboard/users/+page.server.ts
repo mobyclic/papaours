@@ -1,41 +1,38 @@
 import type { PageServerLoad } from './$types';
+import { connectDB } from '$lib/db';
 
 export const load: PageServerLoad = async () => {
-  // Données de test - en production, charger depuis la base de données
-  const users = [
-    {
-      id: 'user:1',
-      first_name: 'Marie',
-      last_name: 'Dupont',
-      email: 'marie.dupont@example.com',
-      level: 'Intermédiaire',
-      points: 1250,
-      is_active: true,
-      created_at: '2025-01-15T10:00:00Z'
-    },
-    {
-      id: 'user:2',
-      first_name: 'Pierre',
-      last_name: 'Martin',
-      email: 'pierre.martin@example.com',
-      level: 'Débutant',
-      points: 450,
-      is_active: true,
-      created_at: '2025-01-10T14:30:00Z'
-    },
-    {
-      id: 'user:3',
-      first_name: 'Sophie',
-      last_name: 'Bernard',
-      email: 'sophie.bernard@example.com',
-      level: 'Avancé',
-      points: 3200,
-      is_active: true,
-      created_at: '2025-01-05T09:15:00Z'
-    }
-  ];
+  try {
+    const db = await connectDB();
+    
+    // Récupérer tous les utilisateurs
+    const usersResult = await db.query(`
+      SELECT * FROM user ORDER BY createdAt DESC
+    `);
+    
+    const rawUsers = (usersResult[0] as any[]) || [];
+    
+    // Formater les utilisateurs pour le template
+    const users = rawUsers.map(user => ({
+      id: user.id?.toString() || user.id,
+      first_name: user.firstName || user.first_name || user.username || 'Sans nom',
+      last_name: user.lastName || user.last_name || '',
+      email: user.email || '',
+      username: user.username || '',
+      level: user.level || 'Débutant',
+      points: user.points || user.totalPoints || 0,
+      is_active: user.isActive ?? user.is_active ?? true,
+      is_admin: user.isAdmin ?? user.is_admin ?? false,
+      created_at: user.createdAt || user.created_at
+    }));
 
-  return {
-    users
-  };
+    return {
+      users
+    };
+  } catch (error) {
+    console.error('Error loading users:', error);
+    return {
+      users: []
+    };
+  }
 };

@@ -15,7 +15,9 @@
     coverImage: '',
     theme: '',
     level: 1,
-    isActive: true
+    isActive: true,
+    shuffleQuestions: false,
+    maxQuestions: null as number | null
   });
 
   onMount(() => {
@@ -45,7 +47,9 @@
       coverImage: '',
       theme: '',
       level: 1,
-      isActive: true
+      isActive: true,
+      shuffleQuestions: false,
+      maxQuestions: null
     };
     showModal = true;
   }
@@ -60,7 +64,9 @@
       coverImage: q.coverImage || '',
       theme: q.theme || '',
       level: q.level || 1,
-      isActive: q.isActive
+      isActive: q.isActive,
+      shuffleQuestions: q.shuffleQuestions || false,
+      maxQuestions: q.maxQuestions || null
     };
     showModal = true;
   }
@@ -349,6 +355,31 @@
             <label for="isActive" class="text-sm font-medium text-gray-700">
               Quiz actif
             </label>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input
+              type="checkbox"
+              bind:checked={formData.shuffleQuestions}
+              id="shuffleQuestions"
+              class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+            />
+            <label for="shuffleQuestions" class="text-sm font-medium text-gray-700">
+              Questions aléatoires
+            </label>
+          </div>
+
+          <div>
+            <label for="maxQuestions" class="block text-sm font-medium text-gray-700 mb-2">Nombre max de questions (optionnel)</label>
+            <input
+              id="maxQuestions"
+              type="number"
+              min="1"
+              bind:value={formData.maxQuestions}
+              placeholder="Laisser vide pour toutes les questions"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <p class="text-sm text-gray-500 mt-1">Limite le nombre de questions affichées par session</p>
           </div>
         </div>
 

@@ -7,8 +7,8 @@ export const GET: RequestHandler = async ({ params }) => {
     const db = await connectDB();
     
     const result = await db.query<any[]>(
-      'SELECT * FROM $id',
-      { id: `quiz:${params.id}` }
+      'SELECT * FROM type::thing("quiz", $id)',
+      { id: params.id }
     );
 
     const quiz = (result[0] as any[])?.[0];
@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ params }) => {
 export const PUT: RequestHandler = async ({ params, request }) => {
   try {
     const data = await request.json();
-    const { title, description, slug, questionType, coverImage, isActive, order, theme, level } = data;
+    const { title, description, slug, questionType, coverImage, isActive, order, theme, level, shuffleQuestions, maxQuestions } = data;
 
     const db = await connectDB();
 
@@ -54,6 +54,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     if (level !== undefined) updateData.level = level;
     if (isActive !== undefined) updateData.isActive = isActive;
     if (order !== undefined) updateData.order = order;
+    if (shuffleQuestions !== undefined) updateData.shuffleQuestions = shuffleQuestions;
+    if (maxQuestions !== undefined) updateData.maxQuestions = maxQuestions > 0 ? maxQuestions : null;
 
     const result = await db.query<any[]>(
       'UPDATE $id MERGE $data RETURN AFTER',

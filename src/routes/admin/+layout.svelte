@@ -3,8 +3,15 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { loadAdminUser, isAuthenticated } from '$lib/stores/adminStore';
+  import AdminSidebar from "$lib/components/admin-sidebar.svelte";
   
   let mounted = $state(false);
+  
+  // Déterminer si on doit afficher la sidebar (pas sur /admin ni /admin/login)
+  let showSidebar = $derived(
+    $page.url.pathname !== '/admin' && 
+    !$page.url.pathname.startsWith('/admin/dashboard') // Le dashboard a son propre layout avec sidebar
+  );
   
   onMount(() => {
     mounted = true;
@@ -23,7 +30,18 @@
     // return unsubscribe;
   });
 
-  let { children } = $props<{ children: any }>();
+  let { children, data } = $props<{ children: any; data?: any }>();
 </script>
 
-{@render children()}
+{#if showSidebar}
+  <div class="flex h-screen bg-gray-50">
+    <AdminSidebar {data} />
+    <main class="flex-1 flex flex-col overflow-hidden">
+      <div class="flex-1 overflow-y-auto">
+        {@render children()}
+      </div>
+    </main>
+  </div>
+{:else}
+  {@render children()}
+{/if}

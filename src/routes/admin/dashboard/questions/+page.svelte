@@ -31,11 +31,11 @@
     }
     
     if (filterTheme) {
-      result = result.filter(q => q.theme_id === filterTheme);
+      result = result.filter(q => q.theme_name === filterTheme);
     }
     
     if (filterLevel) {
-      result = result.filter(q => q.level_id === filterLevel);
+      result = result.filter(q => q.level_name === filterLevel);
     }
     
     if (filterType) {

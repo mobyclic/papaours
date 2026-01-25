@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageData } from "./$types";
+  import { goto } from "$app/navigation";
   import { Button } from "$lib/components/ui/button";
   import { Plus, Edit2, Trash2, Search } from "lucide-svelte";
 
@@ -16,6 +17,38 @@
       quiz.subject?.toLowerCase().includes(s)
     );
   });
+
+  function editQuiz(quiz: any) {
+    // Extraire l'ID clean (sans "quiz:")
+    const cleanId = quiz.id?.includes(':') ? quiz.id.split(':')[1] : quiz.id;
+    goto(`/admin/questions?quiz=${cleanId}`);
+  }
+
+  async function deleteQuiz(quiz: any, event: Event) {
+    event.stopPropagation();
+    if (!confirm(`Supprimer le quiz "${quiz.title}" et toutes ses questions ?`)) return;
+    
+    try {
+      const cleanId = quiz.id?.includes(':') ? quiz.id.split(':')[1] : quiz.id;
+      const response = await fetch(`/api/admin/quiz/${cleanId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        // Recharger la page pour voir les changements
+        window.location.reload();
+      } else {
+        alert('Erreur lors de la suppression');
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+      alert('Erreur lors de la suppression');
+    }
+  }
+
+  function newQuiz() {
+    goto('/admin/quiz');
+  }
 </script>
 
 <svelte:head>
@@ -30,7 +63,7 @@
         <h1 class="text-3xl font-bold text-gray-900">Quiz</h1>
         <p class="text-gray-600 mt-1">Gérez tous les quiz de la plateforme</p>
       </div>
-      <Button class="bg-purple-600 hover:bg-purple-700">
+      <Button onclick={newQuiz} class="bg-purple-600 hover:bg-purple-700">
         <Plus class="w-4 h-4 mr-2" />
         Nouveau quiz
       </Button>
@@ -65,7 +98,10 @@
       </thead>
       <tbody>
         {#each filteredQuizzes as quiz (quiz.id)}
-          <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+          <tr 
+            class="border-b border-gray-200 hover:bg-purple-50 transition-colors cursor-pointer"
+            onclick={() => editQuiz(quiz)}
+          >
             <td class="px-6 py-4 text-sm font-medium text-gray-900">{quiz.title}</td>
             <td class="px-6 py-4 text-sm text-gray-600">{quiz.subject}</td>
             <td class="px-6 py-4 text-sm">
@@ -83,10 +119,18 @@
             </td>
             <td class="px-6 py-4 text-right">
               <div class="flex items-center justify-end gap-2">
-                <button class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Éditer">
-                  <Edit2 class="w-4 h-4 text-gray-600" />
+                <button 
+                  class="p-1.5 hover:bg-purple-100 rounded-lg transition-colors" 
+                  title="Éditer"
+                  onclick={(e) => { e.stopPropagation(); editQuiz(quiz); }}
+                >
+                  <Edit2 class="w-4 h-4 text-purple-600" />
                 </button>
-                <button class="p-1.5 hover:bg-red-100 rounded-lg transition-colors" title="Supprimer">
+                <button 
+                  class="p-1.5 hover:bg-red-100 rounded-lg transition-colors" 
+                  title="Supprimer"
+                  onclick={(e) => deleteQuiz(quiz, e)}
+                >
                   <Trash2 class="w-4 h-4 text-red-600" />
                 </button>
               </div>
