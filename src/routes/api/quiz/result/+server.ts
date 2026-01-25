@@ -10,12 +10,15 @@ export const POST: RequestHandler = async ({ request }) => {
     }
     const db = await connectDB();
     
+    // Extraire l'ID clean du quiz (sans le préfixe "quiz:")
+    const cleanQuizId = quizId.includes(':') ? quizId.split(':')[1] : quizId;
+    
     // Utiliser une requête SQL brute pour time::now() et les arrays
     const answersJson = JSON.stringify(Array.isArray(answers) ? answers : []);
     const query = `
       CREATE quiz_result SET
         userId = $userId,
-        quizId = $quizId,
+        quizId = type::thing("quiz", $quizId),
         score = $score,
         totalQuestions = $totalQuestions,
         answers = ${answersJson},
@@ -24,7 +27,7 @@ export const POST: RequestHandler = async ({ request }) => {
     
     const created = await db.query(query, {
       userId: userId || 'anonymous',
-      quizId,
+      quizId: cleanQuizId,
       score,
       totalQuestions
     });

@@ -62,6 +62,8 @@ export async function initializeSchema() {
         DEFINE FIELD slug ON quiz TYPE string ASSERT $value != NONE;
         DEFINE FIELD isHomepage ON quiz TYPE bool DEFAULT false;
         DEFINE FIELD isActive ON quiz TYPE bool DEFAULT true;
+        DEFINE FIELD shuffleQuestions ON quiz TYPE bool DEFAULT false;
+        DEFINE FIELD maxQuestions ON quiz TYPE option<number>;
         DEFINE FIELD coverImage ON quiz TYPE option<string>;
         DEFINE FIELD questionType ON quiz TYPE string DEFAULT 'qcm' ASSERT $value INSIDE ['qcm', 'vrai-faux', 'texte-libre'];
         DEFINE FIELD theme ON quiz TYPE option<string>;
