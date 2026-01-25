@@ -13,6 +13,8 @@
   let showExplanation = $state(false);
   let score = $state(0);
   let isQuizFinished = $state(false);
+  let persisted = $state(false);
+  import { currentUser } from '$lib/stores/userStore';
   
   let currentQuestion = $derived(questions[currentQuestionIndex]);
   let progress = $derived((currentQuestionIndex / questions.length) * 100);
@@ -72,11 +74,29 @@
     showExplanation = false;
     score = 0;
     isQuizFinished = false;
+    persisted = false;
   }
   
   function goHome() {
-    goto('/');
+    goto('/dashboard');
   }
+
+  $effect.pre(() => {
+    if (isQuizFinished && !persisted && quiz) {
+      const payload = {
+        userId: $currentUser?.id,
+        quizId: quiz.id,
+        score,
+        totalQuestions: questions.length,
+        answers: []
+      };
+      fetch('/api/quiz/result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(() => { persisted = true; }).catch(() => { /* ignore */ });
+    }
+  });
 </script>
 
 <svelte:head>
@@ -276,7 +296,7 @@
             onclick={goHome}
             class="px-8 py-4 bg-white border-2 border-purple-600 text-purple-600 rounded-xl font-bold hover:bg-purple-50 transition-all"
           >
-            🏠 Accueil
+            🏠 Mon espace
           </button>
         </div>
       </div>

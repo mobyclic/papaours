@@ -19,7 +19,7 @@ export const GET: RequestHandler = async () => {
 export const POST: RequestHandler = async ({ request }) => {
   try {
     const data = await request.json();
-    const { title, description, slug, questionType = 'qcm', coverImage, isActive = true } = data;
+    const { title, description, slug, questionType = 'qcm', coverImage, isActive = true, theme, level = 1 } = data;
 
     if (!title || !slug) {
       return json({ message: 'Titre et slug requis' }, { status: 400 });
@@ -44,6 +44,8 @@ export const POST: RequestHandler = async ({ request }) => {
       slug,
       questionType,
       coverImage: coverImage || null,
+      theme: theme || null,
+      level,
       isHomepage: false,
       isActive,
       order: 0

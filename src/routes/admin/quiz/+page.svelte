@@ -13,6 +13,8 @@
     slug: '',
     questionType: 'qcm',
     coverImage: '',
+    theme: '',
+    level: 1,
     isActive: true
   });
 
@@ -41,6 +43,8 @@
       slug: '',
       questionType: 'qcm',
       coverImage: '',
+      theme: '',
+      level: 1,
       isActive: true
     };
     showModal = true;
@@ -54,6 +58,8 @@
       slug: q.slug,
       questionType: q.questionType || 'qcm',
       coverImage: q.coverImage || '',
+      theme: q.theme || '',
+      level: q.level || 1,
       isActive: q.isActive
     };
     showModal = true;
@@ -250,10 +256,9 @@
       <form onsubmit={(e) => { e.preventDefault(); saveQuiz(); }}>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Titre *
-            </label>
+            <label for="quiz-title" class="block text-sm font-medium text-gray-700 mb-2">Titre *</label>
             <input
+              id="quiz-title"
               type="text"
               bind:value={formData.title}
               oninput={generateSlug}
@@ -263,10 +268,9 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Slug (URL) *
-            </label>
+            <label for="quiz-slug" class="block text-sm font-medium text-gray-700 mb-2">Slug (URL) *</label>
             <input
+              id="quiz-slug"
               type="text"
               bind:value={formData.slug}
               required
@@ -277,10 +281,9 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
+            <label for="quiz-description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
             <textarea
+              id="quiz-description"
               bind:value={formData.description}
               rows="3"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -288,10 +291,9 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Type de questions
-            </label>
+            <label for="quiz-type" class="block text-sm font-medium text-gray-700 mb-2">Type de questions</label>
             <select
+              id="quiz-type"
               bind:value={formData.questionType}
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
@@ -302,15 +304,39 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Image de couverture (URL)
-            </label>
+            <label for="quiz-cover" class="block text-sm font-medium text-gray-700 mb-2">Image de couverture (URL)</label>
             <input
+              id="quiz-cover"
               type="url"
               bind:value={formData.coverImage}
               placeholder="https://..."
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="quiz-theme" class="block text-sm font-medium text-gray-700 mb-2">Thème</label>
+              <input
+                id="quiz-theme"
+                type="text"
+                bind:value={formData.theme}
+                placeholder="Ex: Orchestre, Percussions..."
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label for="quiz-level" class="block text-sm font-medium text-gray-700 mb-2">Niveau</label>
+              <select
+                id="quiz-level"
+                bind:value={formData.level}
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="1">1 - Débutant</option>
+                <option value="2">2 - Intermédiaire</option>
+                <option value="3">3 - Avancé</option>
+              </select>
+            </div>
           </div>
 
           <div class="flex items-center gap-2">

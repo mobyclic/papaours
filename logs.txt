@@ -1,0 +1,28 @@
+2026-01-15T18:38:37.455121974Z [inf]  
+2026-01-15T18:38:40.443330749Z [inf]  [35m[Region: asia-southeast1][0m
+2026-01-15T18:38:40.510321765Z [inf]  
+2026-01-15T18:38:40.510371677Z [inf]  [38;2;125;86;243m╭─────────────────╮[0m
+2026-01-15T18:38:40.510384315Z [inf]  [38;2;125;86;243m│[0m Railpack 0.16.0 [38;2;125;86;243m│[0m
+2026-01-15T18:38:40.510387938Z [inf]  [38;2;125;86;243m╰─────────────────╯[0m
+2026-01-15T18:38:40.510393749Z [inf]  
+2026-01-15T18:38:40.510397227Z [inf]  [97m↳ Detected Node[0m
+2026-01-15T18:38:40.510400249Z [inf]  [97m↳ Using bun package manager[0m
+2026-01-15T18:38:40.510403427Z [inf]  [1;31m✖ No start command was found.[0m
+2026-01-15T18:38:40.510406715Z [inf]  
+2026-01-15T18:38:40.510410111Z [inf]  To configure your start command, Railpack will check:
+2026-01-15T18:38:40.510413175Z [inf]  
+2026-01-15T18:38:40.510416192Z [inf]  1. A "start" script in your package.json:
+2026-01-15T18:38:40.510419290Z [inf]  "scripts": {
+2026-01-15T18:38:40.510422138Z [inf]  "start": "node index.js"
+2026-01-15T18:38:40.510425171Z [inf]  }
+2026-01-15T18:38:40.510428067Z [inf]  
+2026-01-15T18:38:40.510431060Z [inf]  2. A "main" field in your package.json pointing to your entry file:
+2026-01-15T18:38:40.510434122Z [inf]  "main": "src/server.js"
+2026-01-15T18:38:40.510436980Z [inf]  
+2026-01-15T18:38:40.510439750Z [inf]  3. An index.js or index.ts file in your project root
+2026-01-15T18:38:40.510442884Z [inf]  
+2026-01-15T18:38:40.510445910Z [inf]  If you have a static site, you can set the RAILPACK_SPA_OUTPUT_DIR environment variable
+2026-01-15T18:38:40.510448835Z [inf]  containing the directory of your built static files.
+2026-01-15T18:38:40.510452742Z [inf]  
+2026-01-15T18:38:40.510455760Z [inf]  
+2026-01-15T18:38:40.510459164Z [inf]  

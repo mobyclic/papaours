@@ -1,0 +1,105 @@
+<script lang="ts">
+  import type { PageData } from "./$types";
+  import { Button } from "$lib/components/ui/button";
+  import { Plus, Edit2, Trash2, Search } from "lucide-svelte";
+
+  let { data }: { data: PageData } = $props();
+
+  let quizzes = $derived(data.quizzes || []);
+  let search = $state('');
+
+  let filteredQuizzes = $derived.by(() => {
+    if (!search) return quizzes;
+    const s = search.toLowerCase();
+    return quizzes.filter(quiz =>
+      quiz.title?.toLowerCase().includes(s) ||
+      quiz.subject?.toLowerCase().includes(s)
+    );
+  });
+</script>
+
+<svelte:head>
+  <title>Quiz - Administration</title>
+</svelte:head>
+
+<div class="flex-1 p-8 overflow-auto">
+  <!-- Header -->
+  <div class="mb-8">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Quiz</h1>
+        <p class="text-gray-600 mt-1">Gérez tous les quiz de la plateforme</p>
+      </div>
+      <Button class="bg-purple-600 hover:bg-purple-700">
+        <Plus class="w-4 h-4 mr-2" />
+        Nouveau quiz
+      </Button>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="mb-6">
+    <div class="relative">
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Rechercher un quiz..."
+        bind:value={search}
+        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+      />
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+    <table class="w-full">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Titre</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Matière</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Niveau</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Questions</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Statut</th>
+          <th class="px-6 py-3 text-right text-sm font-semibold text-gray-700">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each filteredQuizzes as quiz (quiz.id)}
+          <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-4 text-sm font-medium text-gray-900">{quiz.title}</td>
+            <td class="px-6 py-4 text-sm text-gray-600">{quiz.subject}</td>
+            <td class="px-6 py-4 text-sm">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {quiz.difficulty_level}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-600">{quiz.question_count || 0}</td>
+            <td class="px-6 py-4 text-sm">
+              <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                quiz.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {quiz.is_active ? 'Actif' : 'Inactif'}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <button class="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Éditer">
+                  <Edit2 class="w-4 h-4 text-gray-600" />
+                </button>
+                <button class="p-1.5 hover:bg-red-100 rounded-lg transition-colors" title="Supprimer">
+                  <Trash2 class="w-4 h-4 text-red-600" />
+                </button>
+              </div>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+
+    {#if filteredQuizzes.length === 0}
+      <div class="px-6 py-12 text-center">
+        <p class="text-gray-500 text-sm">Aucun quiz trouvé</p>
+      </div>
+    {/if}
+  </div>
+</div>

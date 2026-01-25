@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ params }) => {
 export const PUT: RequestHandler = async ({ params, request }) => {
   try {
     const data = await request.json();
-    const { title, description, slug, questionType, coverImage, isActive, order } = data;
+    const { title, description, slug, questionType, coverImage, isActive, order, theme, level } = data;
 
     const db = await connectDB();
 
@@ -50,6 +50,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     if (slug !== undefined) updateData.slug = slug;
     if (questionType !== undefined) updateData.questionType = questionType;
     if (coverImage !== undefined) updateData.coverImage = coverImage;
+    if (theme !== undefined) updateData.theme = theme;
+    if (level !== undefined) updateData.level = level;
     if (isActive !== undefined) updateData.isActive = isActive;
     if (order !== undefined) updateData.order = order;
 

@@ -12,16 +12,18 @@
     // Charger l'utilisateur depuis localStorage
     loadAdminUser();
     
-    // Vérifier l'authentification pour les pages protégées
-    const unsubscribe = isAuthenticated.subscribe(value => {
-      // Ne pas rediriger depuis la page de login
-      if (mounted && !value && $page.url.pathname !== '/admin') {
-        goto('/admin');
-      }
-    });
+    // TODO: Ajouter vérification d'authentification en production
+    // const unsubscribe = isAuthenticated.subscribe(value => {
+    //   // Ne pas rediriger depuis la page de login
+    //   if (mounted && !value && $page.url.pathname !== '/admin') {
+    //     goto('/admin');
+    //   }
+    // });
     
-    return unsubscribe;
+    // return unsubscribe;
   });
+
+  let { children } = $props<{ children: any }>();
 </script>
 
-<slot />
+{@render children()}

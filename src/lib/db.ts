@@ -64,6 +64,8 @@ export async function initializeSchema() {
         DEFINE FIELD isActive ON quiz TYPE bool DEFAULT true;
         DEFINE FIELD coverImage ON quiz TYPE option<string>;
         DEFINE FIELD questionType ON quiz TYPE string DEFAULT 'qcm' ASSERT $value INSIDE ['qcm', 'vrai-faux', 'texte-libre'];
+        DEFINE FIELD theme ON quiz TYPE option<string>;
+        DEFINE FIELD level ON quiz TYPE number DEFAULT 1 ASSERT $value >= 1 AND $value <= 3;
         DEFINE FIELD order ON quiz TYPE number DEFAULT 0;
         DEFINE FIELD createdAt ON quiz TYPE datetime DEFAULT time::now();
         DEFINE FIELD updatedAt ON quiz TYPE datetime DEFAULT time::now();
@@ -73,6 +75,23 @@ export async function initializeSchema() {
     } catch (e: any) {
       if (!e.message?.includes('already exists')) throw e;
       console.log('ℹ️  Table quiz exists, skipping...');
+    }
+
+    // Création de la table des utilisateurs
+    try {
+      await db.query(`
+        DEFINE TABLE user SCHEMAFULL PERMISSIONS FULL;
+        DEFINE FIELD email ON user TYPE string ASSERT $value != NONE;
+        DEFINE FIELD passwordHash ON user TYPE option<string>;
+        DEFINE FIELD name ON user TYPE option<string>;
+        DEFINE FIELD is_admin ON user TYPE bool DEFAULT false;
+        DEFINE FIELD createdAt ON user TYPE datetime DEFAULT time::now();
+        DEFINE FIELD updatedAt ON user TYPE datetime DEFAULT time::now();
+        DEFINE INDEX user_email ON user COLUMNS email UNIQUE;
+      `);
+    } catch (e: any) {
+      if (!e.message?.includes('already exists')) throw e;
+      console.log('ℹ️  Table user exists, skipping...');
     }
 
     // Création de la table des questions
@@ -125,6 +144,7 @@ export async function initializeSchema() {
       await db.query(`
         DEFINE TABLE quiz_result SCHEMAFULL PERMISSIONS FULL;
         DEFINE FIELD userId ON quiz_result TYPE string;
+        DEFINE FIELD quizId ON quiz_result TYPE record<quiz>;
         DEFINE FIELD score ON quiz_result TYPE number ASSERT $value != NONE;
         DEFINE FIELD totalQuestions ON quiz_result TYPE number ASSERT $value != NONE;
         DEFINE FIELD answers ON quiz_result TYPE array;

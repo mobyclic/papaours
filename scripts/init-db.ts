@@ -32,7 +32,34 @@ async function main() {
     // 3. Création de l'admin
     console.log('👤 Création de l\'utilisateur admin...');
     const admin = await createInitialAdmin();
-    console.log('✅ Admin créé:', admin.email, '\n');
+    const adminObj = Array.isArray(admin) ? admin[0] : admin;
+    console.log('✅ Admin créé:', adminObj?.email, '\n');
+
+    // 3bis. Créer un quiz par défaut s'il n'existe pas
+    console.log('🧭 Vérification du quiz par défaut...');
+    const existingQuiz = await db.query<any[]>(`SELECT * FROM quiz LIMIT 1`);
+    let defaultQuizId: string;
+
+    if ((existingQuiz[0] as any[])?.length) {
+      defaultQuizId = (existingQuiz[0] as any[])[0].id;
+      console.log('ℹ️  Quiz déjà présent, utilisation de', defaultQuizId);
+    } else {
+      const createdQuiz = await db.create('quiz', {
+        title: 'Quiz de démarrage',
+        description: 'Quiz initial généré par le script',
+        slug: 'quiz-demarrage',
+        questionType: 'qcm',
+        coverImage: null,
+        theme: 'Général',
+        level: 1,
+        isHomepage: true,
+        isActive: true,
+        order: 0
+      });
+      const quizObj = Array.isArray(createdQuiz) ? createdQuiz[0] : createdQuiz;
+      defaultQuizId = quizObj.id;
+      console.log('✅ Quiz créé:', defaultQuizId);
+    }
 
     // 4. Importation des questions initiales
     console.log('📝 Importation des questions initiales...');
@@ -40,19 +67,29 @@ async function main() {
     
     for (const q of quizQuestions) {
       try {
-        await db.create('question', {
+        const payload: Record<string, unknown> = {
           question: q.question,
           family: q.family,
           options: q.options,
           correctAnswer: q.correctAnswer,
           explanation: q.explanation,
-          imageUrl: q.image || null,
-          imageCaption: q.imageCaption || null,
           difficulty: 'medium',
           isActive: true,
           order: q.id,
-          createdBy: admin[0]?.id?.toString() || 'system'
-        });
+          createdBy: adminObj?.id?.toString() || 'system',
+          quizId: defaultQuizId
+        };
+
+        if (q.image) {
+          payload.imageUrl = q.image;
+        }
+
+        // Inclure imageCaption uniquement si présente pour éviter NULL
+        if (q.imageCaption) {
+          payload.imageCaption = q.imageCaption;
+        }
+
+        await db.create('question', payload);
         imported++;
         console.log(`  ✓ Question ${q.id} importée`);
       } catch (error) {
@@ -69,7 +106,7 @@ async function main() {
     console.log('\n📊 Récapitulatif:');
     console.log(`   • Base de données: dbpapaours`);
     console.log(`   • Namespace: papaours`);
-    console.log(`   • Admin: ${admin.email}`);
+    console.log(`   • Admin: ${adminObj?.email}`);
     console.log(`   • Questions: ${imported}`);
     console.log('\n🔐 Identifiants admin:');
     console.log(`   Email: alistair.marca@gmail.com`);
