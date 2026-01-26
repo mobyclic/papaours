@@ -46,7 +46,7 @@ export const load: PageServerLoad = async () => {
     }));
 
     // Récupérer les thèmes uniques depuis les quizzes
-    const quizzesResult = await db.query(`SELECT DISTINCT theme FROM quiz WHERE theme != NONE`);
+    const quizzesResult = await db.query(`SELECT theme FROM quiz WHERE theme IS NOT NONE GROUP BY theme`);
     const rawThemes = (quizzesResult[0] as any[]) || [];
     const themes = rawThemes
       .filter(t => t.theme)

@@ -192,7 +192,7 @@ export async function getUserProgressAll(userId: string): Promise<UserProgress[]
            theme_id.slug as theme_slug
     FROM user_progress 
     WHERE user_id = type::thing('user', $userId)
-    ORDER BY matiere_id.order, theme_id.order
+    ORDER BY matiere_id.pos, theme_id.pos
   `, { userId: cleanUserId });
   
   return (result[0] as any[]) || [];
@@ -242,15 +242,15 @@ export async function getThemesByMatiere(matiereId: string): Promise<Theme[]> {
  */
 export async function getAllNiveaux(): Promise<Niveau[]> {
   const db = await connectDB();
-  const result = await db.query<any[]>('SELECT * FROM niveau ORDER BY order');
+  const result = await db.query<any[]>('SELECT * FROM niveau ORDER BY pos');
   return (result[0] as any[]) || [];
 }
 
 /**
  * Récupère toutes les classes
  */
-export async function getAllClasses(): Promise<{ name: string; slug: string; category: string }[]> {
+export async function getAllClasses(): Promise<{ name: string; slug: string; category_id: string }[]> {
   const db = await connectDB();
-  const result = await db.query<any[]>('SELECT * FROM classe WHERE is_active = true ORDER BY order');
+  const result = await db.query<any[]>('SELECT * FROM classe WHERE is_active = true ORDER BY pos');
   return (result[0] as any[]) || [];
 }

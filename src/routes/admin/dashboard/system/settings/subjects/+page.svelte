@@ -10,7 +10,7 @@
     description?: string;
     icon?: string;
     color?: string;
-    order: number;
+    pos: number;
     is_active: boolean;
   }
 
@@ -111,7 +111,7 @@
         color: formColor,
         icon: formIcon.trim() || null,
         is_active: editingSubject?.is_active ?? true,
-        order: editingSubject?.order ?? 0
+        pos: editingSubject?.pos ?? 0
       };
 
       const url = editingSubject 

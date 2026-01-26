@@ -1,21 +1,26 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import QuestionForm from "$lib/components/question/QuestionForm.svelte";
+  import QuestionEditForm from "$lib/components/question/QuestionEditForm.svelte";
   import { ArrowLeft, Trash2 } from "lucide-svelte";
   import { Button } from "$lib/components/ui/button";
-  import type { Question } from "$lib/types/question";
 
   let { data } = $props();
 
   let showDeleteConfirm = $state(false);
   let isDeleting = $state(false);
+  let isSaving = $state(false);
 
-  async function handleSave(question: Partial<Question>) {
+  async function handleSave(questionData: any) {
+    isSaving = true;
     try {
-      const res = await fetch(`/api/questions/${data.question.id}`, {
+      const questionId = data.question.id?.includes(':') 
+        ? data.question.id.split(':')[1] 
+        : data.question.id;
+        
+      const res = await fetch(`/api/questions/${questionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(question)
+        body: JSON.stringify(questionData)
       });
 
       if (res.ok) {
@@ -27,6 +32,8 @@
     } catch (e) {
       console.error('Error updating question:', e);
       alert('Erreur de connexion');
+    } finally {
+      isSaving = false;
     }
   }
 
@@ -42,7 +49,11 @@
 
     isDeleting = true;
     try {
-      const res = await fetch(`/api/questions/${data.question.id}`, {
+      const questionId = data.question.id?.includes(':') 
+        ? data.question.id.split(':')[1] 
+        : data.question.id;
+        
+      const res = await fetch(`/api/questions/${questionId}`, {
         method: 'DELETE'
       });
 
@@ -113,10 +124,15 @@
   </div>
 
   <!-- Form -->
-  <QuestionForm 
+  <QuestionEditForm 
     question={data.question}
-    themes={data.themes || []}
-    levels={data.levels || []}
+    matieres={data.matieres}
+    themes={data.themes}
+    themesByMatiere={data.themesByMatiere}
+    classes={data.classes}
+    classesByCategory={data.classesByCategory}
+    categoryOrder={data.categoryOrder}
+    niveaux={data.niveaux}
     onSave={handleSave}
     onCancel={handleCancel}
   />

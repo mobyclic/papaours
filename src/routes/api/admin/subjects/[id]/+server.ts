@@ -31,7 +31,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     const db = await connectDB();
     const data = await request.json();
     
-    const { name, description, icon, color, is_active, order } = data;
+    const { name, description, icon, color, is_active, pos } = data;
     
     if (!name || name.trim() === '') {
       return json({ message: 'Le nom est requis' }, { status: 400 });
@@ -64,7 +64,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
         icon = $icon,
         color = $color,
         is_active = $is_active,
-        order = $order,
+        pos = $pos,
         updated_at = time::now()
       RETURN AFTER
     `, {
@@ -74,7 +74,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
       icon: icon || null,
       color: color || '#6366F1',
       is_active: is_active !== false,
-      order: order || 0
+      pos: pos || 0
     });
     
     const subject = (updated[0] as any[])?.[0];

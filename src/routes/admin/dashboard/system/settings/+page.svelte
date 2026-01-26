@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { BookOpen, GraduationCap, Palette, Globe, Languages, ArrowRight } from "lucide-svelte";
+  import { BookOpen, GraduationCap, Palette, Globe, Languages, ArrowRight, School, BarChart3 } from "lucide-svelte";
 
   const settings = [
     { id: 'subjects', name: 'Matières', description: 'Gérer les matières disponibles', icon: BookOpen, href: '/admin/dashboard/system/settings/subjects', color: 'blue' },
-    { id: 'levels', name: 'Niveaux', description: 'Gérer les niveaux de difficulté', icon: GraduationCap, href: '/admin/dashboard/system/settings/levels', color: 'purple' },
-    { id: 'themes', name: 'Thèmes', description: 'Gérer les thèmes de quiz', icon: Palette, href: '/admin/dashboard/system/settings/themes', color: 'green' },
+    { id: 'classes', name: 'Classes', description: 'Gérer les niveaux scolaires (CP, CM1, 6ème...)', icon: School, href: '/admin/dashboard/system/settings/classes', color: 'cyan' },
+    { id: 'levels', name: 'Difficulté', description: 'Gérer les niveaux de difficulté (Facile, Moyen...)', icon: BarChart3, href: '/admin/dashboard/system/settings/levels', color: 'purple' },
+    { id: 'themes', name: 'Thèmes', description: 'Gérer les thèmes par matière', icon: Palette, href: '/admin/dashboard/system/settings/themes', color: 'green' },
     { id: 'countries', name: 'Pays', description: 'Gérer les pays disponibles', icon: Globe, href: '/admin/dashboard/system/settings/countries', color: 'orange' },
     { id: 'languages', name: 'Langues', description: 'Gérer les langues disponibles', icon: Languages, href: '/admin/dashboard/system/settings/languages', color: 'red' },
   ];
@@ -12,6 +13,7 @@
   function getColorClass(color: string) {
     switch (color) {
       case 'blue': return 'bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white';
+      case 'cyan': return 'bg-cyan-100 text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white';
       case 'purple': return 'bg-purple-100 text-purple-600 group-hover:bg-purple-600 group-hover:text-white';
       case 'green': return 'bg-green-100 text-green-600 group-hover:bg-green-600 group-hover:text-white';
       case 'orange': return 'bg-orange-100 text-orange-600 group-hover:bg-orange-600 group-hover:text-white';

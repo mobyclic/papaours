@@ -8,7 +8,7 @@ export const GET: RequestHandler = async () => {
     const db = await connectDB();
     
     const result = await db.query(`
-      SELECT * FROM matiere ORDER BY order ASC, name ASC
+      SELECT * FROM matiere ORDER BY pos ASC, name ASC
     `);
     
     const subjects = result[0] || [];
@@ -51,8 +51,8 @@ export const POST: RequestHandler = async ({ request }) => {
     }
     
     // Obtenir le prochain ordre
-    const maxOrder = await db.query('SELECT math::max(order) as max_order FROM matiere');
-    const nextOrder = ((maxOrder[0] as any[])?.[0]?.max_order || 0) + 1;
+    const maxPos = await db.query('SELECT math::max(pos) as max_pos FROM matiere');
+    const nextPos = ((maxPos[0] as any[])?.[0]?.max_pos || 0) + 1;
     
     // Créer la matière
     const created = await db.query(`
@@ -62,7 +62,7 @@ export const POST: RequestHandler = async ({ request }) => {
         description = $description,
         icon = $icon,
         color = $color,
-        order = $order,
+        pos = $pos,
         is_active = true
     `, {
       name: name.trim(),
@@ -70,7 +70,7 @@ export const POST: RequestHandler = async ({ request }) => {
       description: description || null,
       icon: icon || null,
       color: color || '#6366F1',
-      order: nextOrder
+      pos: nextPos
     });
     
     const subject = (created[0] as any[])?.[0];

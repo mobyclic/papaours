@@ -17,8 +17,10 @@
 
   let { data } = $props<{ data: any }>();
   
-  let subjects = $derived(data?.subjects || ["Mathématique", "Français", "Histoire", "Sciences", "Anglais"]);
-  let questionThemes = $derived(data?.themes || ["Géographie", "Mathématiques", "Histoire", "Sciences", "Français"]);
+  // Thèmes avec nombre de quiz (pour la section Quiz)
+  let themes = $derived(data?.themes || []);
+  // Thèmes avec nombre de questions (pour la section Questions)  
+  let questionThemes = $derived(data?.questionThemes || []);
   
   function handleLogout() {
     logout();
@@ -79,14 +81,15 @@
         </a>
         {#each questionThemes as theme}
           <a
-            href={`/admin/dashboard/questions/theme/${theme.toLowerCase().replace(/\s+/g, '-')}`}
-            class="block px-3 py-2 text-sm rounded-lg hover:bg-gray-100 transition-colors"
-            class:bg-indigo-100={isActive(`/admin/dashboard/questions/theme/${theme.toLowerCase()}`)}
-            class:text-indigo-700={isActive(`/admin/dashboard/questions/theme/${theme.toLowerCase()}`)}
-            class:text-gray-600={!isActive(`/admin/dashboard/questions/theme/${theme.toLowerCase()}`)}
-            class:hover:text-gray-900={!isActive(`/admin/dashboard/questions/theme/${theme.toLowerCase()}`)}
+            href={`/admin/dashboard/questions/theme/${theme.slug}`}
+            class="flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-gray-100 transition-colors"
+            class:bg-indigo-100={isActive(`/admin/dashboard/questions/theme/${theme.slug}`)}
+            class:text-indigo-700={isActive(`/admin/dashboard/questions/theme/${theme.slug}`)}
+            class:text-gray-600={!isActive(`/admin/dashboard/questions/theme/${theme.slug}`)}
+            class:hover:text-gray-900={!isActive(`/admin/dashboard/questions/theme/${theme.slug}`)}
           >
-            {theme}
+            <span>{theme.name}</span>
+            <span class="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full">{theme.questionCount}</span>
           </a>
         {/each}
       </Collapsible.Content>
@@ -113,16 +116,17 @@
         >
           Tous les quiz
         </a>
-        {#each subjects as subject}
+        {#each themes as theme}
           <a
-            href={`/admin/dashboard/quiz/${subject.toLowerCase().replace(/\s+/g, '-')}`}
-            class="block px-3 py-2 text-sm rounded-lg hover:bg-gray-100 transition-colors"
-            class:bg-purple-100={isActive(`/admin/dashboard/quiz/${subject.toLowerCase()}`)}
-            class:text-purple-700={isActive(`/admin/dashboard/quiz/${subject.toLowerCase()}`)}
-            class:text-gray-600={!isActive(`/admin/dashboard/quiz/${subject.toLowerCase()}`)}
-            class:hover:text-gray-900={!isActive(`/admin/dashboard/quiz/${subject.toLowerCase()}`)}
+            href={`/admin/dashboard/quiz/theme/${theme.slug}`}
+            class="flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-gray-100 transition-colors"
+            class:bg-purple-100={isActive(`/admin/dashboard/quiz/theme/${theme.slug}`)}
+            class:text-purple-700={isActive(`/admin/dashboard/quiz/theme/${theme.slug}`)}
+            class:text-gray-600={!isActive(`/admin/dashboard/quiz/theme/${theme.slug}`)}
+            class:hover:text-gray-900={!isActive(`/admin/dashboard/quiz/theme/${theme.slug}`)}
           >
-            {subject}
+            <span>{theme.name}</span>
+            <span class="text-xs bg-purple-200 text-purple-700 px-1.5 py-0.5 rounded-full">{theme.quizCount}</span>
           </a>
         {/each}
       </Collapsible.Content>
