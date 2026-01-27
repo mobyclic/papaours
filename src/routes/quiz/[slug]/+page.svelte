@@ -6,22 +6,25 @@
   
   let quiz = $state<any>(null);
   let session = $state<any>(null);
-  let questions = $state<any[]>([]);
+  let totalQuestions = $state(0);
   let loading = $state(true);
+  let loadingQuestion = $state(false);
   let error = $state('');
   let submitting = $state(false);
 
   let currentQuestionIndex = $state(0);
+  let currentQuestion = $state<any>(null);
+  let currentMetadata = $state<{ difficulty?: string; matiere?: string; themes?: string[]; classeId?: string } | null>(null);
   let selectedAnswer = $state<number | null>(null);
   let showExplanation = $state(false);
   let lastAnswerCorrect = $state(false);
   let lastExplanation = $state('');
+  let lastCorrectAnswer = $state<number | null>(null);
   let score = $state(0);
   let isQuizFinished = $state(false);
   let resumed = $state(false);
   
-  let currentQuestion = $derived(questions[currentQuestionIndex]);
-  let progress = $derived(questions.length > 0 ? ((currentQuestionIndex) / questions.length) * 100 : 0);
+  let progress = $derived(totalQuestions > 0 ? ((currentQuestionIndex) / totalQuestions) * 100 : 0);
   
   onMount(async () => {
     const slug = $page.params.slug;
@@ -48,13 +51,16 @@
         const data = await response.json();
         session = data.session;
         quiz = data.quiz;
-        questions = session.questions || [];
+        totalQuestions = session.totalQuestions || session.questionIds?.length || 0;
         currentQuestionIndex = session.answers?.length || 0;
         score = session.score || 0;
         resumed = session.answers?.length > 0;
         
-        if (questions.length === 0) {
+        if (totalQuestions === 0) {
           error = 'Ce quiz ne contient pas de questions.';
+        } else {
+          // Charger la première question (ou celle en cours)
+          await loadCurrentQuestion(cleanSessionId);
         }
       } else {
         error = 'Session non trouvée';
@@ -65,6 +71,34 @@
       error = 'Erreur de chargement';
     } finally {
       loading = false;
+    }
+  }
+  
+  async function loadCurrentQuestion(sessionId?: string) {
+    loadingQuestion = true;
+    try {
+      const cleanSessionId = sessionId || (session?.id?.includes(':') ? session.id.split(':')[1] : session?.id);
+      const response = await fetch(`/api/quiz/session/${cleanSessionId}/question/${currentQuestionIndex}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        currentQuestion = data.question;
+        currentMetadata = data.metadata || null;
+        
+        // Si la question a déjà été répondue, afficher l'explication
+        if (data.alreadyAnswered && data.previousAnswer) {
+          selectedAnswer = data.previousAnswer.selectedAnswer;
+          lastCorrectAnswer = data.previousAnswer.correctAnswer;
+          showExplanation = true;
+          lastAnswerCorrect = data.previousAnswer.isCorrect;
+        }
+      } else {
+        console.error('Erreur chargement question');
+      }
+    } catch (err) {
+      console.error('Erreur chargement question:', err);
+    } finally {
+      loadingQuestion = false;
     }
   }
   
@@ -95,6 +129,7 @@
         showExplanation = true;
         lastAnswerCorrect = data.isCorrect;
         lastExplanation = data.explanation;
+        lastCorrectAnswer = data.correctAnswer;
         score = data.score;
         session = data.session;
         
@@ -113,13 +148,17 @@
     }
   }
   
-  function nextQuestion() {
-    if (currentQuestionIndex < questions.length - 1) {
+  async function nextQuestion() {
+    if (currentQuestionIndex < totalQuestions - 1) {
       currentQuestionIndex++;
       selectedAnswer = null;
       showExplanation = false;
       lastAnswerCorrect = false;
       lastExplanation = '';
+      lastCorrectAnswer = null;
+      currentQuestion = null;
+      // Charger la question suivante
+      await loadCurrentQuestion();
     } else {
       isQuizFinished = true;
     }
@@ -140,7 +179,10 @@
       const response = await fetch(`/api/quiz/${slug}/session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: $currentUser?.id || `anonymous_${Date.now()}` })
+        body: JSON.stringify({ 
+          userId: $currentUser?.id || `anonymous_${Date.now()}`,
+          classeId: $currentUser?.classe_id || null
+        })
       });
       
       if (response.ok) {
@@ -197,7 +239,7 @@
             <span>Quitter</span>
           </button>
           <div class="text-right">
-            <div class="text-sm text-gray-600">Question {currentQuestionIndex + 1} / {questions.length}</div>
+            <div class="text-sm text-gray-600">Question {currentQuestionIndex + 1} / {totalQuestions}</div>
             <div class="text-lg font-bold text-purple-600">Score: {score}</div>
           </div>
         </div>
@@ -237,6 +279,35 @@
 
         <!-- Question -->
         <div class="p-8">
+          <!-- Métadonnées de la question -->
+          {#if currentMetadata}
+            <div class="flex flex-wrap gap-2 mb-4 text-sm">
+              {#if currentMetadata.matiere}
+                <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
+                  📚 {currentMetadata.matiere}
+                </span>
+              {/if}
+              {#if currentMetadata.difficulty}
+                <span class="px-3 py-1 rounded-full font-medium {
+                  currentMetadata.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
+                  currentMetadata.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-red-100 text-red-700'
+                }">
+                  {currentMetadata.difficulty === 'easy' ? '⭐ Facile' :
+                   currentMetadata.difficulty === 'medium' ? '⭐⭐ Moyen' :
+                   '⭐⭐⭐ Difficile'}
+                </span>
+              {/if}
+              {#if currentMetadata.themes && currentMetadata.themes.length > 0}
+                {#each currentMetadata.themes as theme}
+                  <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full">
+                    🏷️ {theme}
+                  </span>
+                {/each}
+              {/if}
+            </div>
+          {/if}
+          
           <h2 class="text-2xl font-bold text-gray-800 mb-6">
             {currentQuestion.question}
           </h2>
@@ -250,11 +321,11 @@
                 class="w-full p-4 text-left rounded-xl border-2 transition-all
                   {selectedAnswer === index 
                     ? (showExplanation
-                      ? (index === currentQuestion.correctAnswer
+                      ? (index === lastCorrectAnswer
                         ? 'border-green-500 bg-green-50'
                         : 'border-red-500 bg-red-50')
                       : 'border-purple-500 bg-purple-50')
-                    : (showExplanation && index === currentQuestion.correctAnswer
+                    : (showExplanation && index === lastCorrectAnswer
                       ? 'border-green-500 bg-green-50'
                       : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50')}
                   {showExplanation || submitting ? 'cursor-not-allowed' : 'cursor-pointer'}"
@@ -263,15 +334,15 @@
                   <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center mr-3
                     {selectedAnswer === index
                       ? (showExplanation
-                        ? (index === currentQuestion.correctAnswer
+                        ? (index === lastCorrectAnswer
                           ? 'border-green-500 bg-green-500'
                           : 'border-red-500 bg-red-500')
                         : 'border-purple-500 bg-purple-500')
-                      : (showExplanation && index === currentQuestion.correctAnswer
+                      : (showExplanation && index === lastCorrectAnswer
                         ? 'border-green-500 bg-green-500'
                         : 'border-gray-300')}">
                     {#if showExplanation}
-                      {#if index === currentQuestion.correctAnswer}
+                      {#if index === lastCorrectAnswer}
                         <span class="text-white text-lg">✓</span>
                       {:else if selectedAnswer === index}
                         <span class="text-white text-lg">✗</span>
@@ -295,7 +366,7 @@
                   <h3 class="font-bold text-lg mb-2">
                     {lastAnswerCorrect ? 'Bravo !' : 'Pas tout à fait...'}
                   </h3>
-                  <p class="text-gray-700">{lastExplanation || currentQuestion.explanation}</p>
+                  <p class="text-gray-700">{lastExplanation || 'Pas d\'explication disponible.'}</p>
                 </div>
               </div>
             </div>
@@ -316,7 +387,7 @@
                 onclick={nextQuestion}
                 class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105"
               >
-                {currentQuestionIndex < questions.length - 1 ? 'Question suivante →' : 'Voir mes résultats'}
+                {currentQuestionIndex < totalQuestions - 1 ? 'Question suivante →' : 'Voir mes résultats'}
               </button>
             {/if}
           </div>
@@ -328,7 +399,7 @@
     <div class="max-w-2xl mx-auto py-16">
       <div class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-12 text-center border border-purple-200">
         <div class="text-8xl mb-6">
-          {score === questions.length ? '🏆' : score >= questions.length * 0.7 ? '🎉' : score >= questions.length * 0.5 ? '👍' : '💪'}
+          {score === totalQuestions ? '🏆' : score >= totalQuestions * 0.7 ? '🎉' : score >= totalQuestions * 0.5 ? '👍' : '💪'}
         </div>
         
         <h2 class="text-4xl font-bold text-gray-800 mb-4">
@@ -336,15 +407,15 @@
         </h2>
         
         <div class="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-6">
-          {score} / {questions.length}
+          {score} / {totalQuestions}
         </div>
         
         <p class="text-xl text-gray-600 mb-8">
-          {score === questions.length 
+          {score === totalQuestions 
             ? 'Parfait ! Tu es un expert !' 
-            : score >= questions.length * 0.7 
+            : score >= totalQuestions * 0.7 
             ? 'Très bon score ! Continue comme ça !' 
-            : score >= questions.length * 0.5 
+            : score >= totalQuestions * 0.5 
             ? 'Pas mal ! Tu peux encore progresser !'
             : 'Continue à apprendre, tu vas y arriver !'}
         </p>

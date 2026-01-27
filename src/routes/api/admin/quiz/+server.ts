@@ -19,7 +19,17 @@ export const GET: RequestHandler = async () => {
 export const POST: RequestHandler = async ({ request }) => {
   try {
     const data = await request.json();
-    const { title, description, slug, questionType = 'qcm', coverImage, isActive = true, theme, level = 1, shuffleQuestions = false, maxQuestions } = data;
+    const { 
+      title, 
+      description, 
+      slug, 
+      questionType = 'qcm', 
+      coverImage, 
+      isActive = true, 
+      theme_ids,
+      shuffleQuestions = false, 
+      maxQuestions 
+    } = data;
 
     if (!title || !slug) {
       return json({ message: 'Titre et slug requis' }, { status: 400 });
@@ -37,24 +47,69 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ message: 'Ce slug existe déjà' }, { status: 400 });
     }
 
-    // Créer le quiz
+    // Créer le quiz - Ne pas inclure les champs optionnels s'ils sont vides
     const quizData: any = {
       title,
-      description: description || null,
       slug,
       questionType,
-      coverImage: coverImage || null,
-      theme: theme || null,
-      level,
       isHomepage: false,
       isActive,
       shuffleQuestions,
       order: 0
     };
     
+    // Ajouter les champs optionnels seulement s'ils ont une valeur
+    if (description) {
+      quizData.description = description;
+    }
+    if (coverImage) {
+      quizData.coverImage = coverImage;
+    }
+    
     // Ajouter maxQuestions seulement si défini
     if (maxQuestions && maxQuestions > 0) {
       quizData.maxQuestions = maxQuestions;
+    }
+    
+    // Si theme_ids fourni, utiliser une requête SQL pour créer les références correctement
+    if (theme_ids && Array.isArray(theme_ids) && theme_ids.length > 0) {
+      // Nettoyer les IDs
+      const cleanThemeIds = theme_ids.map((tid: string) => 
+        tid.includes(':') ? tid.split(':')[1] : tid
+      );
+      
+      // Construire le tableau de références avec type::thing()
+      const themeRefsStr = cleanThemeIds.map(id => `type::thing("theme", "${id}")`).join(', ');
+      
+      // Créer le quiz avec une requête SQL pour gérer les références
+      const createResult = await db.query(`
+        CREATE quiz SET
+          title = $title,
+          slug = $slug,
+          questionType = $questionType,
+          isHomepage = $isHomepage,
+          isActive = $isActive,
+          shuffleQuestions = $shuffleQuestions,
+          order = $order,
+          ${description ? 'description = $description,' : ''}
+          ${coverImage ? 'coverImage = $coverImage,' : ''}
+          ${maxQuestions ? 'maxQuestions = $maxQuestions,' : ''}
+          theme_ids = [${themeRefsStr}]
+      `, {
+        title: quizData.title,
+        slug: quizData.slug,
+        questionType: quizData.questionType,
+        isHomepage: quizData.isHomepage,
+        isActive: quizData.isActive,
+        shuffleQuestions: quizData.shuffleQuestions,
+        order: quizData.order,
+        ...(description && { description }),
+        ...(coverImage && { coverImage }),
+        ...(maxQuestions && { maxQuestions })
+      });
+      
+      const quiz = (createResult[0] as any[])?.[0];
+      return json({ success: true, quiz });
     }
     
     const quiz = await db.create('quiz', quizData);

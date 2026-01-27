@@ -1,14 +1,23 @@
 import type { PageServerLoad } from './$types';
 import { connectDB } from '$lib/db';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ params }) => {
+  const themeSlug = params.slug;
+  
+  // Convertir le slug en nom de thème (ex: "histoire" -> "Histoire", "physique-chimie" -> "Physique/Chimie")
+  const themeName = themeSlug
+    ?.split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('/') || '';
+
   try {
     const db = await connectDB();
-    
-    // Récupérer tous les quizzes
+
+    // Récupérer les quiz avec matiere_id correspondant au thème
+    // On filtre par le nom de la matière via une sous-requête
     const quizzesResult = await db.query(`
-      SELECT * FROM quiz ORDER BY createdAt DESC
-    `);
+      SELECT * FROM quiz WHERE matiere_id.name = $themeName ORDER BY createdAt DESC
+    `, { themeName });
     
     const quizzes = (quizzesResult[0] as any[]) || [];
     
@@ -50,43 +59,32 @@ export const load: PageServerLoad = async () => {
         theme_count: quiz.theme_ids?.length || 0
       };
     }));
-    
-    // Récupérer les matières pour le formulaire de création
-    const matieresResult = await db.query(`
-      SELECT id, name, slug FROM matiere WHERE is_active = true ORDER BY name ASC
-    `);
-    const matieres = (matieresResult[0] as any[]) || [];
-    
-    // Récupérer les thèmes groupés par matière pour le sélecteur
-    const themesResult = await db.query(`
-      SELECT id, name, slug, matiere_id, matiere_id.name as matiere_name 
-      FROM theme 
-      WHERE is_active = true 
-      ORDER BY matiere_id.name ASC, name ASC
-    `);
-    const themes = (themesResult[0] as any[]) || [];
+
+    // Récupérer toutes les matières pour le filtre
+    const matieresResult = await db.query(`SELECT id, name FROM matiere ORDER BY name`);
+    const rawMatieres = (matieresResult[0] as any[]) || [];
+    const themes = rawMatieres.map((m) => ({
+      id: m.id?.toString() || m.id,
+      name: m.name,
+      slug: m.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-')
+    }));
+
+    // Trouver le thème actuel
+    const currentTheme = themes.find(t => t.slug === themeSlug);
 
     return {
       quizzes: formattedQuizzes,
-      matieres: matieres.map((m: any) => ({
-        id: m.id?.toString() || m.id,
-        name: m.name,
-        slug: m.slug
-      })),
-      themes: themes.map((t: any) => ({
-        id: t.id?.toString() || t.id,
-        name: t.name,
-        slug: t.slug,
-        matiere_id: t.matiere_id?.toString() || '',
-        matiere_name: t.matiere_name || 'Sans matière'
-      }))
+      themes,
+      currentTheme: currentTheme || { id: '', name: themeName, slug: themeSlug },
+      themeSlug
     };
   } catch (error) {
-    console.error('Error loading quizzes:', error);
+    console.error('Error loading quizzes for theme:', error);
     return {
       quizzes: [],
-      matieres: [],
-      themes: []
+      themes: [],
+      currentTheme: { id: '', name: themeName, slug: themeSlug },
+      themeSlug
     };
   }
 };

@@ -100,7 +100,6 @@ export async function initializeSchema() {
     try {
       await db.query(`
         DEFINE TABLE question SCHEMAFULL PERMISSIONS FULL;
-        DEFINE FIELD quizId ON question TYPE record<quiz>;
         DEFINE FIELD question ON question TYPE string ASSERT $value != NONE;
         DEFINE FIELD family ON question TYPE string ASSERT $value INSIDE ['cordes', 'bois', 'cuivres', 'percussions', 'general'];
         DEFINE FIELD options ON question TYPE array ASSERT $value != NONE AND array::len($value) >= 2;
@@ -111,7 +110,9 @@ export async function initializeSchema() {
         DEFINE FIELD imageCloudflareId ON question TYPE option<string>;
         DEFINE FIELD difficulty ON question TYPE string DEFAULT 'medium' ASSERT $value INSIDE ['easy', 'medium', 'hard'];
         DEFINE FIELD isActive ON question TYPE bool DEFAULT true;
-        DEFINE FIELD order ON question TYPE number DEFAULT 0;
+        DEFINE FIELD pos ON question TYPE number DEFAULT 0;
+        DEFINE FIELD matiere_id ON question TYPE option<record<matiere>>;
+        DEFINE FIELD theme_ids ON question TYPE option<array<record<theme>>>;
         DEFINE FIELD createdAt ON question TYPE datetime DEFAULT time::now();
         DEFINE FIELD updatedAt ON question TYPE datetime DEFAULT time::now();
         DEFINE FIELD createdBy ON question TYPE option<string>;

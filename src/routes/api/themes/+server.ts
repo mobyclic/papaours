@@ -20,8 +20,9 @@ export const GET: RequestHandler = async ({ url }) => {
     
     if (matiereId) {
       // Filter by matiere - check both old matiere_id and new matiere_ids
-      query += ' AND (matiere_id = type::thing("matiere", $matiereId) OR $matiereId INSIDE matiere_ids)';
-      params.matiereId = matiereId.includes(':') ? matiereId.split(':')[1] : matiereId;
+      // Use type::thing for both comparisons since matiere_ids contains RecordIds
+      const cleanMatiereId = matiereId.includes(':') ? matiereId.split(':')[1] : matiereId;
+      query += ` AND (matiere_id = type::thing("matiere", "${cleanMatiereId}") OR type::thing("matiere", "${cleanMatiereId}") INSIDE matiere_ids)`;
     }
     
     const result = await db.query<any[]>(query, params);

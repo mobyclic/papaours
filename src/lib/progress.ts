@@ -1,10 +1,17 @@
 import { connectDB } from './db';
 
 /**
- * Système de progression utilisateur par matière/thème
+ * Système de progression utilisateur par matière/thème/classe
  * 
  * Niveaux : débutant → apprenti → confirmé → expert → maître
  * Points requis : 0 → 100 → 300 → 600 → 1000
+ * 
+ * Sélection des questions selon le niveau :
+ * - Débutant : 100% faciles (difficulty 1)
+ * - Apprenti : 70% faciles + 30% moyennes (difficulty 1-2)
+ * - Confirmé : 20% faciles + 60% moyennes + 20% difficiles (difficulty 1-3)
+ * - Expert : 10% faciles + 30% moyennes + 60% difficiles (difficulty 2-3)
+ * - Maître : 100% difficiles (difficulty 3)
  */
 
 export interface UserProgress {
@@ -12,6 +19,7 @@ export interface UserProgress {
   user_id: string;
   matiere_id: string;
   theme_id: string;
+  classe_id: string;
   niveau: 'débutant' | 'apprenti' | 'confirmé' | 'expert' | 'maître';
   points: number;
   quizzes_completed: number;
@@ -20,6 +28,18 @@ export interface UserProgress {
   best_score: number;
   last_quiz_at: Date | null;
 }
+
+/**
+ * Configuration des distributions de difficulté par niveau
+ * difficulty: 1 = facile, 2 = moyen, 3 = difficile
+ */
+export const DIFFICULTY_DISTRIBUTION: Record<string, { easy: number; medium: number; hard: number }> = {
+  'débutant': { easy: 100, medium: 0, hard: 0 },
+  'apprenti': { easy: 70, medium: 30, hard: 0 },
+  'confirmé': { easy: 20, medium: 60, hard: 20 },
+  'expert': { easy: 10, medium: 30, hard: 60 },
+  'maître': { easy: 0, medium: 20, hard: 80 }
+};
 
 export interface Niveau {
   name: string;
@@ -54,46 +74,89 @@ const NIVEAUX_CONFIG: Record<string, { points_min: number; points_max: number }>
 };
 
 /**
- * Récupère ou crée la progression d'un utilisateur pour une matière/thème donnée
+ * Récupère ou crée la progression d'un utilisateur pour une matière/thème/classe donnée
  */
 export async function getOrCreateUserProgress(
   userId: string, 
   matiereId: string, 
-  themeId: string
+  themeId: string,
+  classeId: string
 ): Promise<UserProgress> {
   const db = await connectDB();
   
-  // Chercher la progression existante
+  const cleanUserId = userId.includes(':') ? userId.split(':')[1] : userId;
+  const cleanMatiereId = matiereId.includes(':') ? matiereId.split(':')[1] : matiereId;
+  const cleanThemeId = themeId.includes(':') ? themeId.split(':')[1] : themeId;
+  const cleanClasseId = classeId.includes(':') ? classeId.split(':')[1] : classeId;
+  
+  // Chercher la progression existante (l'index unique est sur user_id, matiere_id, theme_id)
   const existing = await db.query<any[]>(`
     SELECT * FROM user_progress 
     WHERE user_id = type::thing('user', $userId) 
       AND matiere_id = type::thing('matiere', $matiereId)
       AND theme_id = type::thing('theme', $themeId)
   `, { 
-    userId: userId.includes(':') ? userId.split(':')[1] : userId,
-    matiereId: matiereId.includes(':') ? matiereId.split(':')[1] : matiereId,
-    themeId: themeId.includes(':') ? themeId.split(':')[1] : themeId
+    userId: cleanUserId,
+    matiereId: cleanMatiereId,
+    themeId: cleanThemeId
   });
   
   if ((existing[0] as any[])?.length) {
-    return (existing[0] as any[])[0] as UserProgress;
+    const progress = (existing[0] as any[])[0] as UserProgress;
+    // Mettre à jour classe_id si différent (l'utilisateur a changé de classe)
+    if (progress.classe_id?.toString() !== `classe:${cleanClasseId}`) {
+      await db.query(`
+        UPDATE type::thing('user_progress', $id) SET classe_id = type::thing('classe', $classeId)
+      `, { 
+        id: progress.id?.toString().split(':')[1] || progress.id,
+        classeId: cleanClasseId 
+      });
+    }
+    return progress;
   }
   
   // Créer une nouvelle progression (débutant par défaut)
-  const created = await db.create('user_progress', {
-    user_id: userId.includes(':') ? userId : `user:${userId}`,
-    matiere_id: matiereId.includes(':') ? matiereId : `matiere:${matiereId}`,
-    theme_id: themeId.includes(':') ? themeId : `theme:${themeId}`,
-    niveau: 'débutant',
-    points: 0,
-    quizzes_completed: 0,
-    correct_answers: 0,
-    total_answers: 0,
-    best_score: 0,
-    last_quiz_at: null
-  });
-  
-  return Array.isArray(created) ? created[0] as unknown as UserProgress : created as unknown as UserProgress;
+  try {
+    const createResult = await db.query<any[]>(`
+      CREATE user_progress SET
+        user_id = type::thing('user', $userId),
+        matiere_id = type::thing('matiere', $matiereId),
+        theme_id = type::thing('theme', $themeId),
+        classe_id = type::thing('classe', $classeId),
+        niveau = 'débutant',
+        points = 0,
+        quizzes_completed = 0,
+        correct_answers = 0,
+        total_answers = 0,
+        best_score = 0,
+        last_quiz_at = NONE,
+        created_at = time::now(),
+        updated_at = time::now()
+    `, {
+      userId: cleanUserId,
+      matiereId: cleanMatiereId,
+      themeId: cleanThemeId,
+      classeId: cleanClasseId
+    });
+    
+    const created = (createResult[0] as any[])?.[0];
+    return created as UserProgress;
+  } catch (error: any) {
+    // Si doublon (race condition), récupérer l'existant
+    if (error.message?.includes('already contains')) {
+      const retry = await db.query<any[]>(`
+        SELECT * FROM user_progress 
+        WHERE user_id = type::thing('user', $userId) 
+          AND matiere_id = type::thing('matiere', $matiereId)
+          AND theme_id = type::thing('theme', $themeId)
+      `, { userId: cleanUserId, matiereId: cleanMatiereId, themeId: cleanThemeId });
+      
+      if ((retry[0] as any[])?.length) {
+        return (retry[0] as any[])[0] as UserProgress;
+      }
+    }
+    throw error;
+  }
 }
 
 /**
@@ -103,6 +166,7 @@ export async function updateProgressAfterQuiz(
   userId: string,
   matiereId: string,
   themeId: string,
+  classeId: string,
   score: number,
   totalQuestions: number,
   correctAnswers: number
@@ -121,7 +185,7 @@ export async function updateProgressAfterQuiz(
   else pointsEarned = 2; // Points de participation
   
   // Récupérer la progression actuelle
-  const progress = await getOrCreateUserProgress(userId, matiereId, themeId);
+  const progress = await getOrCreateUserProgress(userId, matiereId, themeId, classeId);
   
   // Calculer les nouvelles valeurs
   const newPoints = progress.points + pointsEarned;
@@ -199,16 +263,175 @@ export async function getUserProgressAll(userId: string): Promise<UserProgress[]
 }
 
 /**
- * Récupère le niveau d'un utilisateur pour une matière/thème spécifique
+ * Récupère le niveau d'un utilisateur pour une matière/thème/classe spécifique
  * Retourne 'débutant' si pas encore de progression
  */
 export async function getUserNiveau(
   userId: string, 
   matiereId: string, 
-  themeId: string
+  themeId: string,
+  classeId: string
 ): Promise<string> {
-  const progress = await getOrCreateUserProgress(userId, matiereId, themeId);
+  const progress = await getOrCreateUserProgress(userId, matiereId, themeId, classeId);
   return progress.niveau;
+}
+
+/**
+ * Récupère les progressions d'un utilisateur pour tous les thèmes d'une matière et classe donnée
+ * Utile pour savoir quels niveaux utiliser pour sélectionner les questions
+ */
+export async function getUserProgressByThemes(
+  userId: string,
+  classeId: string,
+  themeIds: string[]
+): Promise<Map<string, UserProgress>> {
+  const db = await connectDB();
+  const cleanUserId = userId.includes(':') ? userId.split(':')[1] : userId;
+  const cleanClasseId = classeId.includes(':') ? classeId.split(':')[1] : classeId;
+  
+  // Construire la requête pour récupérer toutes les progressions des thèmes concernés
+  const themeConditions = themeIds.map((_, i) => `theme_id = type::thing('theme', $theme${i})`).join(' OR ');
+  const params: Record<string, string> = {
+    userId: cleanUserId,
+    classeId: cleanClasseId
+  };
+  themeIds.forEach((id, i) => {
+    params[`theme${i}`] = id.includes(':') ? id.split(':')[1] : id;
+  });
+  
+  const result = await db.query<any[]>(`
+    SELECT * FROM user_progress 
+    WHERE user_id = type::thing('user', $userId)
+      AND classe_id = type::thing('classe', $classeId)
+      AND (${themeConditions})
+  `, params);
+  
+  const progressMap = new Map<string, UserProgress>();
+  for (const p of (result[0] as any[]) || []) {
+    const themeId = p.theme_id?.toString() || p.theme_id;
+    progressMap.set(themeId, p as UserProgress);
+  }
+  
+  return progressMap;
+}
+
+/**
+ * Sélectionne des questions adaptées au niveau de l'utilisateur
+ * 
+ * @param allQuestions - Toutes les questions disponibles
+ * @param userNiveau - Le niveau de l'utilisateur (ou le niveau moyen pour plusieurs thèmes)
+ * @param classeId - L'ID de la classe pour filtrer les difficultés
+ * @param maxQuestions - Nombre max de questions à retourner
+ * @returns Questions sélectionnées et mélangées
+ */
+export function selectQuestionsForLevel(
+  allQuestions: any[],
+  userNiveau: string,
+  classeId: string,
+  maxQuestions: number
+): any[] {
+  const distribution = DIFFICULTY_DISTRIBUTION[userNiveau] || DIFFICULTY_DISTRIBUTION['débutant'];
+  const cleanClasseId = classeId.includes(':') ? classeId : `classe:${classeId}`;
+  
+  // Séparer les questions par difficulté pour cette classe
+  const easyQuestions: any[] = [];
+  const mediumQuestions: any[] = [];
+  const hardQuestions: any[] = [];
+  
+  for (const q of allQuestions) {
+    // Trouver la difficulté pour cette classe
+    const classDiff = (q.class_difficulties || []).find((cd: any) => {
+      const cdClasseId = cd.classe_id?.toString() || cd.classe_id;
+      return cdClasseId === cleanClasseId || cdClasseId === classeId;
+    });
+    
+    if (!classDiff) {
+      // Si pas de difficulté définie pour cette classe, considérer comme facile
+      easyQuestions.push(q);
+      continue;
+    }
+    
+    const difficulty = classDiff.difficulty || 1;
+    if (difficulty === 1) easyQuestions.push(q);
+    else if (difficulty === 2) mediumQuestions.push(q);
+    else hardQuestions.push(q);
+  }
+  
+  // Calculer le nombre de questions par difficulté
+  const totalAvailable = easyQuestions.length + mediumQuestions.length + hardQuestions.length;
+  const targetCount = Math.min(maxQuestions, totalAvailable);
+  
+  let easyCount = Math.round((distribution.easy / 100) * targetCount);
+  let mediumCount = Math.round((distribution.medium / 100) * targetCount);
+  let hardCount = Math.round((distribution.hard / 100) * targetCount);
+  
+  // Ajuster si pas assez de questions d'une difficulté
+  // Redistribuer vers des difficultés adjacentes
+  if (easyCount > easyQuestions.length) {
+    const excess = easyCount - easyQuestions.length;
+    easyCount = easyQuestions.length;
+    mediumCount += excess;
+  }
+  if (mediumCount > mediumQuestions.length) {
+    const excess = mediumCount - mediumQuestions.length;
+    mediumCount = mediumQuestions.length;
+    // Redistribuer vers facile ou difficile selon le niveau
+    if (distribution.easy > distribution.hard) {
+      easyCount = Math.min(easyCount + excess, easyQuestions.length);
+      hardCount += (excess - (easyCount - Math.min(easyCount, easyQuestions.length)));
+    } else {
+      hardCount += excess;
+    }
+  }
+  if (hardCount > hardQuestions.length) {
+    const excess = hardCount - hardQuestions.length;
+    hardCount = hardQuestions.length;
+    mediumCount = Math.min(mediumCount + excess, mediumQuestions.length);
+  }
+  
+  // S'assurer qu'on ne dépasse pas le nombre de questions disponibles
+  easyCount = Math.min(easyCount, easyQuestions.length);
+  mediumCount = Math.min(mediumCount, mediumQuestions.length);
+  hardCount = Math.min(hardCount, hardQuestions.length);
+  
+  // Mélanger et sélectionner
+  const shuffleArray = <T>(arr: T[]): T[] => {
+    const shuffled = [...arr];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+  
+  const selectedEasy = shuffleArray(easyQuestions).slice(0, easyCount);
+  const selectedMedium = shuffleArray(mediumQuestions).slice(0, mediumCount);
+  const selectedHard = shuffleArray(hardQuestions).slice(0, hardCount);
+  
+  // Combiner et mélanger le résultat final
+  const selected = [...selectedEasy, ...selectedMedium, ...selectedHard];
+  return shuffleArray(selected);
+}
+
+/**
+ * Détermine le niveau moyen à utiliser pour un quiz avec plusieurs thèmes
+ */
+export function getAverageNiveau(progressMap: Map<string, UserProgress>, themeIds: string[]): string {
+  const niveauOrder = ['débutant', 'apprenti', 'confirmé', 'expert', 'maître'];
+  let totalScore = 0;
+  let count = 0;
+  
+  for (const themeId of themeIds) {
+    const progress = progressMap.get(themeId) || progressMap.get(`theme:${themeId}`);
+    const niveau = progress?.niveau || 'débutant';
+    totalScore += niveauOrder.indexOf(niveau);
+    count++;
+  }
+  
+  if (count === 0) return 'débutant';
+  
+  const avgIndex = Math.floor(totalScore / count);
+  return niveauOrder[avgIndex] || 'débutant';
 }
 
 /**
@@ -253,4 +476,133 @@ export async function getAllClasses(): Promise<{ name: string; slug: string; cat
   const db = await connectDB();
   const result = await db.query<any[]>('SELECT * FROM classe WHERE is_active = true ORDER BY pos');
   return (result[0] as any[]) || [];
+}
+
+/**
+ * Configuration des points par difficulté de question
+ */
+export const POINTS_PER_DIFFICULTY: Record<number, number> = {
+  1: 5,   // Facile : 5 points
+  2: 10,  // Moyen : 10 points
+  3: 15   // Difficile : 15 points
+};
+
+/**
+ * S'assure que les entrées user_progress existent pour tous les thèmes d'une question
+ * Appelé au début de chaque question (avant de l'afficher)
+ */
+export async function ensureUserProgressForQuestion(
+  userId: string,
+  classeId: string,
+  questionId: string
+): Promise<void> {
+  // Ignorer les utilisateurs anonymes
+  if (userId.startsWith('anonymous_')) return;
+  
+  const db = await connectDB();
+  const cleanQuestionId = questionId.includes(':') ? questionId.split(':')[1] : questionId;
+  
+  // Récupérer la question avec ses thèmes et matière
+  const questionResult = await db.query<any[]>(
+    'SELECT matiere_id, theme_ids FROM type::thing("question", $id)',
+    { id: cleanQuestionId }
+  );
+  
+  const question = (questionResult[0] as any[])?.[0];
+  if (!question || !question.matiere_id || !question.theme_ids?.length) return;
+  
+  const matiereId = question.matiere_id?.toString() || question.matiere_id;
+  
+  // Créer une entrée pour chaque thème de la question
+  for (const themeId of question.theme_ids) {
+    const themeIdStr = themeId?.toString() || themeId;
+    await getOrCreateUserProgress(userId, matiereId, themeIdStr, classeId);
+  }
+}
+
+/**
+ * Met à jour les points de progression après une réponse
+ * +points si correct, -moitié si faux
+ */
+export async function updateProgressAfterAnswer(
+  userId: string,
+  classeId: string,
+  questionId: string,
+  isCorrect: boolean
+): Promise<void> {
+  // Ignorer les utilisateurs anonymes
+  if (userId.startsWith('anonymous_')) return;
+  
+  const db = await connectDB();
+  const cleanQuestionId = questionId.includes(':') ? questionId.split(':')[1] : questionId;
+  
+  // Récupérer la question avec ses thèmes, matière et difficulté
+  const questionResult = await db.query<any[]>(
+    'SELECT matiere_id, theme_ids, difficulty, class_difficulties FROM type::thing("question", $id)',
+    { id: cleanQuestionId }
+  );
+  
+  const question = (questionResult[0] as any[])?.[0];
+  if (!question || !question.matiere_id || !question.theme_ids?.length) return;
+  
+  // Déterminer la difficulté (soit par classe, soit globale)
+  let difficulty = question.difficulty || 1;
+  if (question.class_difficulties && classeId) {
+    const cleanClasseId = classeId.includes(':') ? classeId.split(':')[1] : classeId;
+    const classDiff = question.class_difficulties[cleanClasseId] || question.class_difficulties[`classe:${cleanClasseId}`];
+    if (classDiff) difficulty = classDiff;
+  }
+  
+  // Calculer les points
+  const basePoints = POINTS_PER_DIFFICULTY[difficulty] || 5;
+  const pointsChange = isCorrect ? basePoints : -Math.floor(basePoints / 2);
+  
+  const matiereId = question.matiere_id?.toString() || question.matiere_id;
+  const cleanMatiereId = matiereId.includes(':') ? matiereId.split(':')[1] : matiereId;
+  const cleanClasseId = classeId.includes(':') ? classeId.split(':')[1] : classeId;
+  
+  // Mettre à jour chaque thème
+  for (const themeId of question.theme_ids) {
+    const themeIdStr = themeId?.toString() || themeId;
+    const cleanThemeId = themeIdStr.includes(':') ? themeIdStr.split(':')[1] : themeIdStr;
+    
+    // Récupérer ou créer la progression
+    const progress = await getOrCreateUserProgress(userId, matiereId, themeIdStr, classeId);
+    
+    // Calculer les nouveaux points (minimum 0)
+    const newPoints = Math.max(0, progress.points + pointsChange);
+    const newCorrectAnswers = progress.correct_answers + (isCorrect ? 1 : 0);
+    const newTotalAnswers = progress.total_answers + 1;
+    
+    // Déterminer le nouveau niveau
+    let newNiveau = progress.niveau;
+    for (const [niveau, config] of Object.entries(NIVEAUX_CONFIG)) {
+      if (newPoints >= config.points_min && newPoints <= config.points_max) {
+        newNiveau = niveau as UserProgress['niveau'];
+        break;
+      }
+    }
+    
+    // Mettre à jour dans la base
+    const progressId = typeof progress.id === 'string' && progress.id.includes(':') 
+      ? progress.id.split(':')[1] 
+      : progress.id;
+    
+    await db.query(`
+      UPDATE type::thing('user_progress', $id) SET
+        points = $points,
+        niveau = $niveau,
+        correct_answers = $correct_answers,
+        total_answers = $total_answers,
+        updated_at = time::now()
+    `, {
+      id: progressId,
+      points: newPoints,
+      niveau: newNiveau,
+      correct_answers: newCorrectAnswers,
+      total_answers: newTotalAnswers
+    });
+    
+    console.log(`📊 Progress updated: user=${userId}, theme=${cleanThemeId}, points=${progress.points}→${newPoints} (${isCorrect ? '+' : ''}${pointsChange}), niveau=${newNiveau}`);
+  }
 }

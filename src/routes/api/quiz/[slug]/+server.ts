@@ -55,18 +55,36 @@ export const GET: RequestHandler = async ({ params }) => {
       return json({ message: 'Quiz non trouvé' }, { status: 404 });
     }
 
-    // Récupérer les questions du quiz
-    const questionsResult = await db.query(
-      'SELECT * FROM question WHERE quizId = $quizId AND isActive = true ORDER BY order ASC',
-      { quizId: quiz.id }
-    );
+    // Récupérer les questions correspondant aux thèmes du quiz (prioritaire) ou à la matière
+    let questionsResult;
+    
+    if (quiz.theme_ids && Array.isArray(quiz.theme_ids) && quiz.theme_ids.length > 0) {
+      // Sélectionner par thèmes du quiz
+      const themeConditions = quiz.theme_ids.map((tid: any) => {
+        const cleanId = tid.toString().split(':')[1] || tid.toString();
+        return `type::thing("theme", "${cleanId}") INSIDE theme_ids`;
+      }).join(' OR ');
+      
+      questionsResult = await db.query(
+        `SELECT * FROM question WHERE (${themeConditions}) AND isActive = true ORDER BY rand()`
+      );
+    } else if (quiz.matiere_id) {
+      // Fallback: sélectionner par matière
+      const cleanMatiereId = quiz.matiere_id.toString().split(':')[1] || quiz.matiere_id.toString();
+      questionsResult = await db.query(
+        'SELECT * FROM question WHERE matiere_id = type::thing("matiere", $matiereId) AND isActive = true ORDER BY rand()',
+        { matiereId: cleanMatiereId }
+      );
+    } else {
+      questionsResult = await db.query(
+        'SELECT * FROM question WHERE isActive = true ORDER BY rand()'
+      );
+    }
 
     let questions = questionsResult[0] || [];
     
-    // Mélanger les questions si l'option est activée
-    if (quiz.shuffleQuestions) {
-      questions = shuffleArray(questions as any[]);
-    }
+    // Mélanger les questions (toujours activé maintenant)
+    questions = shuffleArray(questions as any[]);
     
     // Limiter le nombre de questions si maxQuestions est défini
     if (quiz.maxQuestions && quiz.maxQuestions > 0) {

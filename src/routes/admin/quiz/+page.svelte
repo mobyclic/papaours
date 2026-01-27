@@ -1,145 +1,77 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import type { PageData } from "./$types";
+  import { goto } from "$app/navigation";
+  import { Button } from "$lib/components/ui/button";
+  import { Plus, Edit2, Trash2, Search, X, Loader2 } from "lucide-svelte";
+  import * as Dialog from "$lib/components/ui/dialog";
+  import { Input } from "$lib/components/ui/input";
 
-  let quiz = $state<any[]>([]);
-  let loading = $state(true);
+  let { data }: { data: PageData } = $props();
+
+  let quizzes = $derived(data.quizzes || []);
+  let themes = $derived(data.themes || []);
+  let search = $state('');
+  
+  // Grouper les thèmes par matière pour l'affichage
+  let themesByMatiere = $derived.by(() => {
+    const grouped: Record<string, { matiere_name: string; themes: typeof themes }> = {};
+    for (const theme of themes) {
+      const key = theme.matiere_id || 'none';
+      if (!grouped[key]) {
+        grouped[key] = { matiere_name: theme.matiere_name, themes: [] };
+      }
+      grouped[key].themes.push(theme);
+    }
+    return Object.values(grouped);
+  });
+  
+  // Modal state
   let showModal = $state(false);
-  let editingQuiz = $state<any>(null);
-
-  let formData = $state({
-    title: '',
-    description: '',
-    slug: '',
-    questionType: 'qcm',
-    coverImage: '',
-    theme: '',
-    level: 1,
-    isActive: true,
-    shuffleQuestions: false,
-    maxQuestions: null as number | null
+  let formTitle = $state('');
+  let formSlug = $state('');
+  let formDescription = $state('');
+  let formThemeIds = $state<string[]>([]);
+  let formMaxQuestions = $state(10);
+  let formIsActive = $state(true);
+  let isSaving = $state(false);
+  let modalError = $state('');
+  
+  // Matières déduites des thèmes sélectionnés
+  let selectedMatieres = $derived.by(() => {
+    const matiereNames = new Set<string>();
+    for (const themeId of formThemeIds) {
+      const theme = themes.find(t => t.id === themeId);
+      if (theme?.matiere_name) matiereNames.add(theme.matiere_name);
+    }
+    return Array.from(matiereNames);
   });
 
-  onMount(() => {
-    loadQuiz();
+  let filteredQuizzes = $derived.by(() => {
+    if (!search) return quizzes;
+    const s = search.toLowerCase();
+    return quizzes.filter(quiz =>
+      quiz.title?.toLowerCase().includes(s) ||
+      quiz.subject?.toLowerCase().includes(s)
+    );
   });
 
-  async function loadQuiz() {
+  function editQuiz(quiz: any) {
+    const cleanId = quiz.id?.includes(':') ? quiz.id.split(':')[1] : quiz.id;
+    goto(`/admin/questions?quiz=${cleanId}`);
+  }
+
+  async function deleteQuiz(quiz: any, event: Event) {
+    event.stopPropagation();
+    if (!confirm(`Supprimer le quiz "${quiz.title}" et toutes ses questions ?`)) return;
+    
     try {
-      loading = true;
-      const response = await fetch('/api/admin/quiz');
-      const data = await response.json();
-      quiz = data.quiz || [];
-    } catch (error) {
-      console.error('Erreur chargement quiz:', error);
-    } finally {
-      loading = false;
-    }
-  }
-
-  function openNewQuizForm() {
-    editingQuiz = null;
-    formData = {
-      title: '',
-      description: '',
-      slug: '',
-      questionType: 'qcm',
-      coverImage: '',
-      theme: '',
-      level: 1,
-      isActive: true,
-      shuffleQuestions: false,
-      maxQuestions: null
-    };
-    showModal = true;
-  }
-
-  function openEditForm(q: any) {
-    editingQuiz = q;
-    formData = {
-      title: q.title,
-      description: q.description || '',
-      slug: q.slug,
-      questionType: q.questionType || 'qcm',
-      coverImage: q.coverImage || '',
-      theme: q.theme || '',
-      level: q.level || 1,
-      isActive: q.isActive,
-      shuffleQuestions: q.shuffleQuestions || false,
-      maxQuestions: q.maxQuestions || null
-    };
-    showModal = true;
-  }
-
-  function generateSlug() {
-    if (formData.title && !editingQuiz) {
-      formData.slug = formData.title
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-    }
-  }
-
-  async function saveQuiz() {
-    try {
-      const url = editingQuiz 
-        ? `/api/admin/quiz/${editingQuiz.id.split(':')[1]}`
-        : '/api/admin/quiz';
-      
-      const method = editingQuiz ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        showModal = false;
-        await loadQuiz();
-      } else {
-        const error = await response.json();
-        alert(error.message || 'Erreur lors de la sauvegarde');
-      }
-    } catch (error) {
-      console.error('Erreur sauvegarde:', error);
-      alert('Erreur lors de la sauvegarde');
-    }
-  }
-
-  async function setAsHomepage(quizId: string) {
-    if (!confirm('Définir ce quiz comme page d\'accueil ?')) return;
-
-    try {
-      const response = await fetch(`/api/admin/quiz/${quizId.split(':')[1]}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'setHomepage' })
-      });
-
-      if (response.ok) {
-        await loadQuiz();
-      } else {
-        alert('Erreur lors de la mise à jour');
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors de la mise à jour');
-    }
-  }
-
-  async function deleteQuiz(quizId: string, title: string) {
-    if (!confirm(`Supprimer le quiz "${title}" et toutes ses questions ?`)) return;
-
-    try {
-      const response = await fetch(`/api/admin/quiz/${quizId.split(':')[1]}`, {
+      const cleanId = quiz.id?.includes(':') ? quiz.id.split(':')[1] : quiz.id;
+      const response = await fetch(`/api/admin/quiz/${cleanId}`, {
         method: 'DELETE'
       });
-
+      
       if (response.ok) {
-        await loadQuiz();
+        window.location.reload();
       } else {
         alert('Erreur lors de la suppression');
       }
@@ -149,256 +81,299 @@
     }
   }
 
-  function manageQuestions(quizId: string) {
-    goto(`/admin/questions?quiz=${quizId.split(':')[1]}`);
+  function openCreateModal() {
+    formTitle = '';
+    formSlug = '';
+    formDescription = '';
+    formThemeIds = [];
+    formMaxQuestions = 10;
+    formIsActive = true;
+    modalError = '';
+    showModal = true;
+  }
+  
+  function toggleTheme(themeId: string) {
+    if (formThemeIds.includes(themeId)) {
+      formThemeIds = formThemeIds.filter(id => id !== themeId);
+    } else {
+      formThemeIds = [...formThemeIds, themeId];
+    }
+  }
+  
+  function generateSlug(title: string) {
+    return title
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+  
+  // Auto-générer le slug depuis le titre
+  $effect(() => {
+    if (formTitle && !formSlug) {
+      formSlug = generateSlug(formTitle);
+    }
+  });
+
+  async function handleSave() {
+    if (!formTitle.trim()) {
+      modalError = 'Le titre est requis';
+      return;
+    }
+    if (formThemeIds.length === 0) {
+      modalError = 'Sélectionnez au moins un thème';
+      return;
+    }
+
+    isSaving = true;
+    modalError = '';
+
+    try {
+      const payload = {
+        title: formTitle.trim(),
+        slug: formSlug || generateSlug(formTitle),
+        description: formDescription.trim() || null,
+        theme_ids: formThemeIds,
+        maxQuestions: formMaxQuestions,
+        isActive: formIsActive
+      };
+
+      const res = await fetch('/api/admin/quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        modalError = result.error || result.message || 'Erreur lors de la création';
+        return;
+      }
+
+      showModal = false;
+      window.location.reload();
+    } catch (e) {
+      modalError = 'Erreur de connexion au serveur';
+    } finally {
+      isSaving = false;
+    }
   }
 </script>
 
-<div class="p-8">
-  <div class="flex justify-between items-center mb-8">
-    <div>
-      <h1 class="text-3xl font-bold text-gray-800">Gestion des Quiz</h1>
-      <p class="text-gray-600 mt-2">Créez et organisez vos quiz</p>
+<svelte:head>
+  <title>Quiz - Administration</title>
+</svelte:head>
+
+<div class="flex-1 p-8 overflow-auto">
+  <!-- Header -->
+  <div class="mb-8">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Quiz</h1>
+        <p class="text-gray-600 mt-1">Gérez tous les quiz de la plateforme</p>
+      </div>
+      <Button onclick={openCreateModal} class="bg-purple-600 hover:bg-purple-700">
+        <Plus class="w-4 h-4 mr-2" />
+        Nouveau quiz
+      </Button>
     </div>
-    <button
-      onclick={openNewQuizForm}
-      class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-    >
-      + Nouveau Quiz
-    </button>
   </div>
 
-  {#if loading}
-    <div class="text-center py-12">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-      <p class="mt-4 text-gray-600">Chargement...</p>
+  <!-- Search -->
+  <div class="mb-6">
+    <div class="relative">
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Rechercher un quiz..."
+        bind:value={search}
+        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+      />
     </div>
-  {:else if quiz.length === 0}
-    <div class="text-center py-12 bg-gray-50 rounded-lg">
-      <p class="text-gray-600">Aucun quiz créé pour le moment</p>
-      <button
-        onclick={openNewQuizForm}
-        class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-      >
-        Créer mon premier quiz
-      </button>
-    </div>
-  {:else}
-    <div class="grid gap-6">
-      {#each quiz as q}
-        <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-          <div class="flex items-start justify-between">
-            <div class="flex-1">
-              <div class="flex items-center gap-3 mb-2">
-                <h3 class="text-xl font-bold text-gray-800">{q.title}</h3>
-                {#if q.isHomepage}
-                  <span class="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-                    🏠 Page d'accueil
-                  </span>
-                {/if}
-                {#if !q.isActive}
-                  <span class="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">
-                    Inactif
-                  </span>
-                {/if}
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+    <table class="w-full">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Titre</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Matière</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Niveau</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Questions</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Statut</th>
+          <th class="px-6 py-3 text-right text-sm font-semibold text-gray-700">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each filteredQuizzes as quiz (quiz.id)}
+          <tr 
+            class="border-b border-gray-200 hover:bg-purple-50 transition-colors cursor-pointer"
+            onclick={() => editQuiz(quiz)}
+          >
+            <td class="px-6 py-4 text-sm font-medium text-gray-900">{quiz.title}</td>
+            <td class="px-6 py-4 text-sm text-gray-600">{quiz.subject}</td>
+            <td class="px-6 py-4 text-sm">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {quiz.difficulty_level}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-600">{quiz.question_count || 0}</td>
+            <td class="px-6 py-4 text-sm">
+              <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                quiz.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {quiz.is_active ? 'Actif' : 'Inactif'}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <button 
+                  class="p-1.5 hover:bg-purple-100 rounded-lg transition-colors" 
+                  title="Éditer"
+                  onclick={(e) => { e.stopPropagation(); editQuiz(quiz); }}
+                >
+                  <Edit2 class="w-4 h-4 text-purple-600" />
+                </button>
+                <button 
+                  class="p-1.5 hover:bg-red-100 rounded-lg transition-colors" 
+                  title="Supprimer"
+                  onclick={(e) => deleteQuiz(quiz, e)}
+                >
+                  <Trash2 class="w-4 h-4 text-red-600" />
+                </button>
               </div>
-              
-              {#if q.description}
-                <p class="text-gray-600 mb-3">{q.description}</p>
-              {/if}
-              
-              <div class="flex gap-4 text-sm text-gray-500">
-                <span>🔗 /{q.slug}</span>
-                <span>📝 Type: {q.questionType}</span>
-                <span>📅 {new Date(q.createdAt).toLocaleDateString('fr-FR')}</span>
-              </div>
-            </div>
-          </div>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
 
-          <div class="flex gap-2 mt-4">
-            <button
-              onclick={() => manageQuestions(q.id)}
-              class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Questions
-            </button>
-            
-            {#if !q.isHomepage}
-              <button
-                onclick={() => setAsHomepage(q.id)}
-                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Définir comme accueil
-              </button>
-            {/if}
-
-            <button
-              onclick={() => openEditForm(q)}
-              class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-            >
-              Modifier
-            </button>
-
-            <button
-              onclick={() => deleteQuiz(q.id, q.title)}
-              class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 ml-auto"
-            >
-              Supprimer
-            </button>
-          </div>
-        </div>
-      {/each}
-    </div>
-  {/if}
+    {#if filteredQuizzes.length === 0}
+      <div class="px-6 py-12 text-center">
+        <p class="text-gray-500 text-sm">Aucun quiz trouvé</p>
+      </div>
+    {/if}
+  </div>
 </div>
 
-{#if showModal}
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-      <h2 class="text-2xl font-bold mb-6">
-        {editingQuiz ? 'Modifier le quiz' : 'Nouveau quiz'}
-      </h2>
-
-      <form onsubmit={(e) => { e.preventDefault(); saveQuiz(); }}>
-        <div class="space-y-4">
-          <div>
-            <label for="quiz-title" class="block text-sm font-medium text-gray-700 mb-2">Titre *</label>
-            <input
-              id="quiz-title"
-              type="text"
-              bind:value={formData.title}
-              oninput={generateSlug}
-              required
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label for="quiz-slug" class="block text-sm font-medium text-gray-700 mb-2">Slug (URL) *</label>
-            <input
-              id="quiz-slug"
-              type="text"
-              bind:value={formData.slug}
-              required
-              pattern="[a-z0-9-]+"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            <p class="text-sm text-gray-500 mt-1">URL: /quiz/{formData.slug || 'mon-quiz'}</p>
-          </div>
-
-          <div>
-            <label for="quiz-description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea
-              id="quiz-description"
-              bind:value={formData.description}
-              rows="3"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            ></textarea>
-          </div>
-
-          <div>
-            <label for="quiz-type" class="block text-sm font-medium text-gray-700 mb-2">Type de questions</label>
-            <select
-              id="quiz-type"
-              bind:value={formData.questionType}
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="qcm">QCM (Choix multiples)</option>
-              <option value="vrai-faux">Vrai / Faux</option>
-              <option value="texte-libre">Texte libre</option>
-            </select>
-          </div>
-
-          <div>
-            <label for="quiz-cover" class="block text-sm font-medium text-gray-700 mb-2">Image de couverture (URL)</label>
-            <input
-              id="quiz-cover"
-              type="url"
-              bind:value={formData.coverImage}
-              placeholder="https://..."
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label for="quiz-theme" class="block text-sm font-medium text-gray-700 mb-2">Thème</label>
-              <input
-                id="quiz-theme"
-                type="text"
-                bind:value={formData.theme}
-                placeholder="Ex: Orchestre, Percussions..."
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label for="quiz-level" class="block text-sm font-medium text-gray-700 mb-2">Niveau</label>
-              <select
-                id="quiz-level"
-                bind:value={formData.level}
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="1">1 - Débutant</option>
-                <option value="2">2 - Intermédiaire</option>
-                <option value="3">3 - Avancé</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <input
-              type="checkbox"
-              bind:checked={formData.isActive}
-              id="isActive"
-              class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-            />
-            <label for="isActive" class="text-sm font-medium text-gray-700">
-              Quiz actif
-            </label>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <input
-              type="checkbox"
-              bind:checked={formData.shuffleQuestions}
-              id="shuffleQuestions"
-              class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-            />
-            <label for="shuffleQuestions" class="text-sm font-medium text-gray-700">
-              Questions aléatoires
-            </label>
-          </div>
-
-          <div>
-            <label for="maxQuestions" class="block text-sm font-medium text-gray-700 mb-2">Nombre max de questions (optionnel)</label>
-            <input
-              id="maxQuestions"
-              type="number"
-              min="1"
-              bind:value={formData.maxQuestions}
-              placeholder="Laisser vide pour toutes les questions"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            <p class="text-sm text-gray-500 mt-1">Limite le nombre de questions affichées par session</p>
-          </div>
+<!-- Modal de création -->
+<Dialog.Root bind:open={showModal}>
+  <Dialog.Content class="sm:max-w-[500px]">
+    <Dialog.Header>
+      <Dialog.Title>Nouveau quiz</Dialog.Title>
+      <Dialog.Description>
+        Créez un nouveau quiz en renseignant les informations ci-dessous.
+      </Dialog.Description>
+    </Dialog.Header>
+    
+    <div class="space-y-4 py-4">
+      {#if modalError}
+        <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {modalError}
         </div>
-
-        <div class="flex gap-3 mt-6">
-          <button
-            type="submit"
-            class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            {editingQuiz ? 'Mettre à jour' : 'Créer'}
-          </button>
-          <button
-            type="button"
-            onclick={() => showModal = false}
-            class="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-          >
-            Annuler
-          </button>
+      {/if}
+      
+      <div class="space-y-2">
+        <label for="title" class="text-sm font-medium text-gray-700">Titre *</label>
+        <Input 
+          id="title"
+          bind:value={formTitle} 
+          placeholder="Ex: Quiz Histoire de France"
+        />
+      </div>
+      
+      <div class="space-y-2">
+        <label for="slug" class="text-sm font-medium text-gray-700">Slug (URL)</label>
+        <Input 
+          id="slug"
+          bind:value={formSlug} 
+          placeholder="quiz-histoire-france"
+        />
+        <p class="text-xs text-gray-500">Laissez vide pour générer automatiquement</p>
+      </div>
+      
+      <div class="space-y-2">
+        <label for="description" class="text-sm font-medium text-gray-700">Description</label>
+        <textarea
+          id="description"
+          bind:value={formDescription}
+          placeholder="Description optionnelle du quiz..."
+          rows="2"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+        ></textarea>
+      </div>
+      
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-gray-700">Thèmes * <span class="font-normal text-gray-500">({formThemeIds.length} sélectionné{formThemeIds.length > 1 ? 's' : ''})</span></label>
+        <div class="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-3">
+          {#each themesByMatiere as group}
+            <div>
+              <div class="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-1">
+                {group.matiere_name}
+              </div>
+              <div class="flex flex-wrap gap-1">
+                {#each group.themes as theme}
+                  <button
+                    type="button"
+                    onclick={() => toggleTheme(theme.id)}
+                    class="px-2 py-1 text-xs rounded-full border transition-colors {formThemeIds.includes(theme.id) ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400'}"
+                  >
+                    {theme.name}
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/each}
         </div>
-      </form>
+        {#if selectedMatieres.length > 0}
+          <p class="text-xs text-gray-500">
+            Matières concernées : <span class="font-medium">{selectedMatieres.join(', ')}</span>
+          </p>
+        {/if}
+      </div>
+      
+      <div class="space-y-2">
+        <label for="maxQuestions" class="text-sm font-medium text-gray-700">Nombre de questions max</label>
+        <Input 
+          id="maxQuestions"
+          type="number"
+          bind:value={formMaxQuestions} 
+          min="1"
+          max="100"
+        />
+        <p class="text-xs text-gray-500">Limite le nombre de questions par session de quiz</p>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <input 
+          type="checkbox" 
+          id="isActive"
+          bind:checked={formIsActive}
+          class="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+        />
+        <label for="isActive" class="text-sm text-gray-700">Quiz actif</label>
+      </div>
     </div>
-  </div>
-{/if}
+    
+    <Dialog.Footer>
+      <Button variant="outline" onclick={() => showModal = false}>
+        Annuler
+      </Button>
+      <Button 
+        onclick={handleSave}
+        disabled={isSaving}
+        class="bg-purple-600 hover:bg-purple-700"
+      >
+        {#if isSaving}
+          <Loader2 class="w-4 h-4 mr-2 animate-spin" />
+          Création...
+        {:else}
+          Créer le quiz
+        {/if}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

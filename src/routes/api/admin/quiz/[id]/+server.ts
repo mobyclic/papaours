@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ params }) => {
 export const PUT: RequestHandler = async ({ params, request }) => {
   try {
     const data = await request.json();
-    const { title, description, slug, questionType, coverImage, isActive, order, theme, level, shuffleQuestions, maxQuestions } = data;
+    const { title, description, slug, coverImage, isActive, maxQuestions, matiere_id, theme_ids } = data;
 
     const db = await connectDB();
 
@@ -48,18 +48,46 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (slug !== undefined) updateData.slug = slug;
-    if (questionType !== undefined) updateData.questionType = questionType;
     if (coverImage !== undefined) updateData.coverImage = coverImage;
-    if (theme !== undefined) updateData.theme = theme;
-    if (level !== undefined) updateData.level = level;
     if (isActive !== undefined) updateData.isActive = isActive;
-    if (order !== undefined) updateData.order = order;
-    if (shuffleQuestions !== undefined) updateData.shuffleQuestions = shuffleQuestions;
     if (maxQuestions !== undefined) updateData.maxQuestions = maxQuestions > 0 ? maxQuestions : null;
+    
+    // matiere_id doit être traité avec une requête séparée car c'est un record
+    let recordUpdates = '';
+    if (matiere_id !== undefined) {
+      if (matiere_id && matiere_id !== 'null') {
+        const cleanMatiereId = matiere_id.includes(':') ? matiere_id.split(':')[1] : matiere_id;
+        recordUpdates += `, matiere_id = type::thing("matiere", "${cleanMatiereId}")`;
+      } else {
+        recordUpdates += ', matiere_id = NONE';
+      }
+    }
+    
+    // theme_ids - tableau de records
+    if (theme_ids !== undefined) {
+      if (Array.isArray(theme_ids) && theme_ids.length > 0) {
+        const themeRecords = theme_ids.map(tid => {
+          const cleanId = tid.includes(':') ? tid.split(':')[1] : tid;
+          return `type::thing("theme", "${cleanId}")`;
+        }).join(', ');
+        recordUpdates += `, theme_ids = [${themeRecords}]`;
+      } else {
+        recordUpdates += ', theme_ids = NONE';
+      }
+    }
+
+    // Construire les champs à mettre à jour
+    const updateFields = Object.entries(updateData)
+      .map(([key, value]) => {
+        if (typeof value === 'string') return `${key} = "${value}"`;
+        if (typeof value === 'boolean') return `${key} = ${value}`;
+        if (value === null) return `${key} = NONE`;
+        return `${key} = ${value}`;
+      })
+      .join(', ');
 
     const result = await db.query<any[]>(
-      'UPDATE $id MERGE $data RETURN AFTER',
-      { id: `quiz:${params.id}`, data: updateData }
+      `UPDATE quiz:${params.id} SET ${updateFields}${recordUpdates} RETURN AFTER`
     );
 
     const quiz = (result[0] as any[])?.[0];
@@ -103,11 +131,8 @@ export const DELETE: RequestHandler = async ({ params }) => {
   try {
     const db = await connectDB();
 
-    // Supprimer les questions associées
-    await db.query(
-      'DELETE FROM question WHERE quizId = $quizId',
-      { quizId: `quiz:${params.id}` }
-    );
+    // Note: Les questions ne sont plus supprimées avec le quiz
+    // car elles sont liées par thème et peuvent être partagées entre plusieurs quizs
 
     // Supprimer le quiz
     await db.delete(`quiz:${params.id}`);

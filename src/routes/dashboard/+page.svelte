@@ -138,7 +138,10 @@
       const response = await fetch(`/api/quiz/${selectedQuiz.slug}/session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: $currentUser?.id || `anonymous_${Date.now()}` })
+        body: JSON.stringify({ 
+          userId: $currentUser?.id || `anonymous_${Date.now()}`,
+          classeId: $currentUser?.classe_id || null
+        })
       });
       
       if (response.ok) {

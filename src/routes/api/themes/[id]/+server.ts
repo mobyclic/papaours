@@ -36,6 +36,16 @@ export const GET: RequestHandler = async ({ params }) => {
 
 // PATCH /api/themes/[id] - Update a theme
 export const PATCH: RequestHandler = async ({ params, request }) => {
+  return updateTheme(params, request);
+};
+
+// PUT /api/themes/[id] - Update a theme (alias for PATCH)
+export const PUT: RequestHandler = async ({ params, request }) => {
+  return updateTheme(params, request);
+};
+
+// Shared update function
+async function updateTheme(params: { id: string }, request: Request) {
   const db = await getSurrealDB();
   
   try {
@@ -129,8 +139,8 @@ export const DELETE: RequestHandler = async ({ params }) => {
     
     // Check if theme is used by any questions
     const usedBy = await db.query<any[]>(`
-      SELECT count() as count FROM question WHERE $themeId INSIDE theme_ids GROUP ALL
-    `, { themeId: `theme:${cleanId}` });
+      SELECT count() as count FROM question WHERE type::thing("theme", $themeId) INSIDE theme_ids GROUP ALL
+    `, { themeId: cleanId });
     
     const usageCount = (usedBy[0] as any[])?.[0]?.count || 0;
     if (usageCount > 0) {

@@ -7,10 +7,11 @@
   
   let mounted = $state(false);
   
-  // Déterminer si on doit afficher la sidebar (pas sur /admin ni /admin/login)
+  let { data, children } = $props();
+  
+  // Afficher la sidebar sur toutes les pages admin
   let showSidebar = $derived(
-    $page.url.pathname !== '/admin' && 
-    !$page.url.pathname.startsWith('/admin/dashboard') // Le dashboard a son propre layout avec sidebar
+    $page.url.pathname.startsWith('/admin')
   );
   
   onMount(() => {
@@ -29,8 +30,6 @@
     
     // return unsubscribe;
   });
-
-  let { children, data } = $props<{ children: any; data?: any }>();
 </script>
 
 {#if showSidebar}

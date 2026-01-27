@@ -6,6 +6,8 @@ export interface AppUser {
   email: string;
   name?: string;
   is_admin: boolean;
+  classe_id?: string;
+  classe_name?: string;
 }
 
 export const currentUser = writable<AppUser | null>(null);
