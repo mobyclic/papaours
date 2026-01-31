@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
-  import { adminUser } from '$lib/stores/adminStore';
+  import { adminUser } from '$lib/stores/adminStore.svelte';
 
   let { data }: { data: PageData } = $props();
   

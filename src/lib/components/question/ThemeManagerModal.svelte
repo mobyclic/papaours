@@ -333,10 +333,11 @@
           
           <div class="space-y-3">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
+              <label for="edit-theme-name" class="block text-sm font-medium text-gray-700 mb-1">
                 Nom du thème *
               </label>
               <Input
+                id="edit-theme-name"
                 type="text"
                 bind:value={editName}
                 placeholder="Ex: Révolution française, Algèbre linéaire..."
@@ -345,6 +346,7 @@
             </div>
             
             <div>
+              <!-- svelte-ignore a11y_label_has_associated_control -->
               <label class="block text-sm font-medium text-gray-700 mb-2">
                 Matières associées <span class="text-gray-400 font-normal">(optionnel)</span>
               </label>

@@ -12,6 +12,7 @@
   let files = $derived(data.files || []);
   let typeLabel = $derived(data.typeLabel || 'Médias');
   let error = $derived(data.error);
+  let TypeIcon = $derived(getTypeIcon(data.fileType));
 
   let viewMode = $state<'grid' | 'list'>('grid');
   let selectedFiles = $state<Set<string>>(new Set());
@@ -117,8 +118,6 @@
     navigator.clipboard.writeText(url);
     // Could add a toast notification here
   }
-
-  let TypeIcon = $derived(getTypeIcon(data.fileType));
 </script>
 
 <svelte:head>
@@ -135,7 +134,7 @@
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-4">
         <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-          <svelte:component this={TypeIcon} class="w-6 h-6 text-purple-600" />
+          <TypeIcon class="w-6 h-6 text-purple-600" />
         </div>
         <div>
           <h1 class="text-3xl font-bold text-gray-900">{typeLabel}</h1>
@@ -218,7 +217,7 @@
   <!-- Files Grid/List -->
   {#if files.length === 0}
     <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
-      <svelte:component this={TypeIcon} class="w-16 h-16 text-gray-300 mx-auto mb-4" />
+      <TypeIcon class="w-16 h-16 text-gray-300 mx-auto mb-4" />
       <p class="text-gray-500 text-lg mb-2">Aucun fichier de type {typeLabel.toLowerCase()}</p>
       <p class="text-gray-400 text-sm mb-6">Uploadez vos premiers fichiers pour les voir ici</p>
       <label class="cursor-pointer inline-block">
@@ -268,7 +267,7 @@
               <img src={file.url} alt={file.filename} class="w-full h-full object-cover" />
             {:else if file.type === 'video'}
               <!-- svelte-ignore a11y_media_has_caption -->
-              <video src={file.url} class="w-full h-full object-cover" />
+              <video src={file.url} class="w-full h-full object-cover"></video>
             {:else if file.type === 'audio'}
               <Music class="w-12 h-12 text-gray-400" />
             {:else}
@@ -354,7 +353,8 @@
                     {#if file.type === 'photo'}
                       <img src={file.url} alt="" class="w-full h-full object-cover" />
                     {:else}
-                      <svelte:component this={getTypeIcon(file.type)} class="w-5 h-5 text-gray-400" />
+                      {@const FileTypeIcon = getTypeIcon(file.type)}
+                      <FileTypeIcon class="w-5 h-5 text-gray-400" />
                     {/if}
                   </div>
                   <div class="min-w-0">
@@ -395,11 +395,13 @@
 
 <!-- Preview Modal -->
 {#if previewFile}
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div 
     class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-8"
     onclick={() => previewFile = null}
     onkeydown={(e) => e.key === 'Escape' && (previewFile = null)}
     role="dialog"
+    aria-modal="true"
     tabindex="-1"
   >
     <button
@@ -409,6 +411,7 @@
       <X class="w-6 h-6" />
     </button>
     
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div 
       class="max-w-4xl max-h-full overflow-auto bg-white rounded-xl"
       onclick={(e) => e.stopPropagation()}

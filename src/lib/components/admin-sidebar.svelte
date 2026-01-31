@@ -14,7 +14,7 @@
   } from "lucide-svelte";
   import * as Collapsible from "$lib/components/ui/collapsible";
   import { Button } from "$lib/components/ui/button";
-  import { adminUser, logout } from "$lib/stores/adminStore";
+  import { adminUser, logout } from "$lib/stores/adminStore.svelte";
 
   let { data } = $props<{ data: any }>();
   

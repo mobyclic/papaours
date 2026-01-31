@@ -1,8 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { setUser, loadUser, currentUser } from '$lib/stores/userStore';
-  import { setAdminUser } from '$lib/stores/adminStore';
+  import { setUser, loadUser, currentUser } from '$lib/stores/userStore.svelte';
+  import { setAdminUser } from '$lib/stores/adminStore.svelte';
   
   let mode = $state<'login' | 'signup'>('login');
   let pseudo = $state('');

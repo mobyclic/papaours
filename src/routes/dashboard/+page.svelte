@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { currentUser, loadUser, logoutUser } from '$lib/stores/userStore';
+  import { currentUser, loadUser, logoutUser } from '$lib/stores/userStore.svelte';
   import { goto } from '$app/navigation';
 
   let quizzes = $state<any[]>([]);
@@ -13,21 +13,37 @@
   let showQuizModal = $state(false);
   let selectedQuiz = $state<any>(null);
   let startingQuiz = $state(false);
+  
+  // Options de mode pour le quiz
+  let selectedMode = $state<'revision' | 'epreuve'>('revision');
+  let selectedTimeLimit = $state<number | null>(null);
+  let customTimeMinutes = $state(10);
+  
+  // Presets de temps
+  const timePresets = [
+    { label: 'Sans limite', value: null },
+    { label: '5 min', value: 300 },
+    { label: '10 min', value: 600 },
+    { label: '15 min', value: 900 },
+    { label: '20 min', value: 1200 },
+    { label: '30 min', value: 1800 },
+    { label: 'Personnalisé', value: -1 }
+  ];
 
   // Stats calculées
   let totalQuizzesDone = $derived(userResults.length);
-  let averageScore = $derived(() => {
+  let averageScore = $derived.by(() => {
     if (userResults.length === 0) return 0;
     const total = userResults.reduce((acc, r) => acc + (r.score / r.totalQuestions) * 100, 0);
     return Math.round(total / userResults.length);
   });
-  let bestScore = $derived(() => {
+  let bestScore = $derived.by(() => {
     if (userResults.length === 0) return 0;
     return Math.max(...userResults.map(r => Math.round((r.score / r.totalQuestions) * 100)));
   });
 
   // Quiz en cours (non terminés à 100%)
-  let quizzesInProgress = $derived(() => {
+  let quizzesInProgress = $derived.by(() => {
     const completedQuizIds = new Set(
       userResults
         .filter(r => r.score === r.totalQuestions)
@@ -41,13 +57,13 @@
   });
 
   // Quiz pas encore essayés
-  let newQuizzes = $derived(() => {
+  let newQuizzes = $derived.by(() => {
     const triedQuizIds = new Set(userResults.map(r => r.quizId));
     return quizzes.filter(q => !triedQuizIds.has(q.id));
   });
 
   // Quiz maîtrisés (100%)
-  let masteredQuizzes = $derived(() => {
+  let masteredQuizzes = $derived.by(() => {
     const perfectQuizIds = new Set(
       userResults
         .filter(r => r.score === r.totalQuestions)
@@ -126,6 +142,10 @@
   function closeQuizModal() {
     showQuizModal = false;
     selectedQuiz = null;
+    // Reset des options
+    selectedMode = 'revision';
+    selectedTimeLimit = null;
+    customTimeMinutes = 10;
   }
   
   async function confirmStartQuiz() {
@@ -133,14 +153,22 @@
     
     startingQuiz = true;
     
+    // Calculer le timeLimit final
+    let finalTimeLimit = selectedTimeLimit;
+    if (selectedTimeLimit === -1) {
+      finalTimeLimit = customTimeMinutes * 60; // Convertir en secondes
+    }
+    
     try {
-      // Créer la session
+      // Créer la session avec les options de mode
       const response = await fetch(`/api/quiz/${selectedQuiz.slug}/session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId: $currentUser?.id || `anonymous_${Date.now()}`,
-          classeId: $currentUser?.classe_id || null
+          classeId: $currentUser?.classe_id || null,
+          mode: selectedMode,
+          timeLimit: finalTimeLimit
         })
       });
       
@@ -232,6 +260,34 @@
             Connecté en tant que <strong class="text-purple-600">{$currentUser?.name || $currentUser?.email}</strong>
           </span>
           <button 
+            onclick={() => goto('/stats')}
+            class="px-3 py-1.5 text-sm rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+            title="Mes statistiques"
+          >
+            📊 Stats
+          </button>
+          <button 
+            onclick={() => goto('/favorites')}
+            class="px-3 py-1.5 text-sm rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+            title="Mes favoris"
+          >
+            ❤️ Favoris
+          </button>
+          <button 
+            onclick={() => goto('/profile')}
+            class="px-3 py-1.5 text-sm rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+            title="Mon profil"
+          >
+            👤 Profil
+          </button>
+          <button 
+            onclick={() => goto('/settings')}
+            class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            title="Paramètres"
+          >
+            ⚙️
+          </button>
+          <button 
             onclick={handleLogout}
             class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
           >
@@ -259,18 +315,39 @@
         </div>
         <div class="bg-white rounded-2xl shadow-lg p-4 border border-pink-100 text-center transform hover:scale-105 transition-transform">
           <div class="text-3xl mb-2">📊</div>
-          <div class="text-2xl font-bold text-pink-600">{averageScore()}%</div>
+          <div class="text-2xl font-bold text-pink-600">{averageScore}%</div>
           <div class="text-sm text-gray-600">Score moyen</div>
         </div>
         <div class="bg-white rounded-2xl shadow-lg p-4 border border-green-100 text-center transform hover:scale-105 transition-transform">
           <div class="text-3xl mb-2">🏆</div>
-          <div class="text-2xl font-bold text-green-600">{bestScore()}%</div>
+          <div class="text-2xl font-bold text-green-600">{bestScore}%</div>
           <div class="text-sm text-gray-600">Meilleur score</div>
         </div>
-        <div class="bg-white rounded-2xl shadow-lg p-4 border border-yellow-100 text-center transform hover:scale-105 transition-transform">
-          <div class="text-3xl mb-2">⭐</div>
-          <div class="text-2xl font-bold text-yellow-600">{masteredQuizzes().length}</div>
-          <div class="text-sm text-gray-600">Quiz maîtrisés</div>
+        <button 
+          onclick={() => goto('/leaderboard')}
+          class="bg-gradient-to-br from-amber-50 to-orange-100 rounded-2xl shadow-lg p-4 border border-amber-200 text-center transform hover:scale-105 transition-transform hover:border-amber-400"
+        >
+          <div class="text-3xl mb-2">🏅</div>
+          <div class="text-2xl font-bold text-amber-600">Classement</div>
+          <div class="text-sm text-gray-600">Voir le top →</div>
+        </button>
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="mb-8">
+        <div class="bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 rounded-2xl p-1">
+          <div class="bg-white rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h3 class="font-bold text-gray-800">🔍 Envie de découvrir plus de quiz ?</h3>
+              <p class="text-sm text-gray-600">Explore tous les quiz par matière, thème et difficulté</p>
+            </div>
+            <button
+              onclick={() => goto('/explore')}
+              class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all whitespace-nowrap"
+            >
+              Explorer les quiz ✨
+            </button>
+          </div>
         </div>
       </section>
 
@@ -314,14 +391,14 @@
       {/if}
 
       <!-- Continue Learning Section -->
-      {#if quizzesInProgress().length > 0}
+      {#if quizzesInProgress.length > 0}
         <section class="mb-8">
           <div class="flex items-center gap-2 mb-4">
             <span class="text-2xl">🚀</span>
             <h2 class="text-xl font-bold text-gray-800">Continue ton apprentissage</h2>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each quizzesInProgress() as quiz}
+            {#each quizzesInProgress as quiz}
               {@const lastResult = userResults.filter(r => r.quizId === quiz.id).sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0]}
               <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl shadow-lg p-5 border-2 border-orange-200 hover:border-orange-400 transition-all transform hover:scale-102">
                 <div class="flex items-start justify-between mb-3">
@@ -350,14 +427,14 @@
       {/if}
 
       <!-- New Quizzes Section -->
-      {#if newQuizzes().length > 0}
+      {#if newQuizzes.length > 0}
         <section class="mb-8">
           <div class="flex items-center gap-2 mb-4">
             <span class="text-2xl">✨</span>
             <h2 class="text-xl font-bold text-gray-800">Découvre de nouveaux quiz</h2>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each newQuizzes() as quiz}
+            {#each newQuizzes as quiz}
               <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl shadow-lg p-5 border-2 border-purple-200 hover:border-purple-400 transition-all transform hover:scale-102">
                 <div class="flex items-start justify-between mb-3">
                   <span class="text-3xl">{getQuizEmoji(quiz.theme || 'Musique')}</span>
@@ -384,14 +461,14 @@
       {/if}
 
       <!-- Mastered Quizzes Section -->
-      {#if masteredQuizzes().length > 0}
+      {#if masteredQuizzes.length > 0}
         <section class="mb-8">
           <div class="flex items-center gap-2 mb-4">
             <span class="text-2xl">🏆</span>
             <h2 class="text-xl font-bold text-gray-800">Tes quiz maîtrisés</h2>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each masteredQuizzes() as quiz}
+            {#each masteredQuizzes as quiz}
               <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-lg p-5 border-2 border-green-200 hover:border-green-400 transition-all transform hover:scale-102">
                 <div class="flex items-start justify-between mb-3">
                   <span class="text-3xl">{getQuizEmoji(quiz.theme || 'Musique')}</span>
@@ -512,9 +589,9 @@
           <p class="text-lg text-gray-700">
             {#if totalQuizzesDone === 0}
               🌟 Lance-toi dans ton premier quiz et deviens un champion !
-            {:else if averageScore() >= 80}
-              🎉 Bravo ! Tu es un vrai champion avec une moyenne de {averageScore()}% !
-            {:else if averageScore() >= 50}
+            {:else if averageScore >= 80}
+              🎉 Bravo ! Tu es un vrai champion avec une moyenne de {averageScore}% !
+            {:else if averageScore >= 50}
               💪 Continue comme ça ! Tu progresses super bien !
             {:else}
               🌱 Chaque essai te rend plus fort. Continue à apprendre !
@@ -524,7 +601,7 @@
       </section>
     </div>
     
-    <!-- Quiz Start Modal -->
+    <!-- Quiz Start Modal with Mode Selection -->
     {#if showQuizModal && selectedQuiz}
       <div class="fixed inset-0 z-50 flex items-center justify-center">
         <!-- Backdrop -->
@@ -537,7 +614,7 @@
         ></div>
         
         <!-- Modal Content -->
-        <div class="relative bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4 transform animate-in zoom-in-95 duration-200">
+        <div class="relative bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 transform animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
           <button
             onclick={closeQuizModal}
             class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
@@ -545,44 +622,125 @@
             ✕
           </button>
           
-          <div class="text-center">
-            <div class="text-6xl mb-4">🎯</div>
-            <h3 class="text-2xl font-bold text-gray-800 mb-2">Prêt à jouer ?</h3>
-            <p class="text-gray-600 mb-4">Tu vas commencer le quiz :</p>
-            
-            <div class="bg-purple-50 rounded-xl p-4 mb-6">
-              <h4 class="font-bold text-purple-800 text-lg">{selectedQuiz.title}</h4>
-              {#if selectedQuiz.description}
-                <p class="text-purple-600 text-sm mt-1">{selectedQuiz.description}</p>
+          <div class="text-center mb-6">
+            <div class="text-5xl mb-3">🎯</div>
+            <h3 class="text-2xl font-bold text-gray-800">Configurer le quiz</h3>
+          </div>
+          
+          <!-- Quiz Info -->
+          <div class="bg-purple-50 rounded-xl p-4 mb-6">
+            <h4 class="font-bold text-purple-800 text-lg">{selectedQuiz.title}</h4>
+            {#if selectedQuiz.description}
+              <p class="text-purple-600 text-sm mt-1">{selectedQuiz.description}</p>
+            {/if}
+            <div class="flex justify-center gap-2 mt-3 text-xs flex-wrap">
+              <span class="px-2 py-1 bg-purple-200 text-purple-800 rounded-full">
+                {selectedQuiz.maxQuestions || '?'} questions
+              </span>
+              {#if selectedQuiz.theme}
+                <span class="px-2 py-1 bg-pink-200 text-pink-800 rounded-full">{selectedQuiz.theme}</span>
               {/if}
-              <div class="flex justify-center gap-2 mt-3 text-xs flex-wrap">
-                <span class="px-2 py-1 bg-purple-200 text-purple-800 rounded-full">
-                  {selectedQuiz.maxQuestions || '?'} questions
-                </span>
-                {#if selectedQuiz.theme}
-                  <span class="px-2 py-1 bg-pink-200 text-pink-800 rounded-full">{selectedQuiz.theme}</span>
-                {/if}
-                {#if selectedQuiz.shuffleQuestions}
-                  <span class="px-2 py-1 bg-orange-200 text-orange-800 rounded-full">🎲 Aléatoire</span>
-                {/if}
-              </div>
+            </div>
+          </div>
+          
+          <!-- Mode Selection -->
+          <div class="mb-6">
+            <h4 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <span>📝</span> Mode de jeu
+            </h4>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                onclick={() => selectedMode = 'revision'}
+                class="p-4 rounded-xl border-2 transition-all text-left {selectedMode === 'revision' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'}"
+              >
+                <div class="text-2xl mb-1">📖</div>
+                <div class="font-semibold text-gray-800">Révision</div>
+                <p class="text-xs text-gray-500 mt-1">Correction après chaque question</p>
+              </button>
+              <button
+                onclick={() => selectedMode = 'epreuve'}
+                class="p-4 rounded-xl border-2 transition-all text-left {selectedMode === 'epreuve' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}"
+              >
+                <div class="text-2xl mb-1">🏆</div>
+                <div class="font-semibold text-gray-800">Épreuve</div>
+                <p class="text-xs text-gray-500 mt-1">Résultat à la fin, navigation libre</p>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Time Selection -->
+          <div class="mb-6">
+            <h4 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <span>⏱️</span> Temps limite
+            </h4>
+            <div class="grid grid-cols-4 gap-2">
+              {#each timePresets as preset}
+                <button
+                  onclick={() => selectedTimeLimit = preset.value}
+                  class="px-3 py-2 rounded-lg text-sm font-medium transition-all 
+                    {selectedTimeLimit === preset.value 
+                      ? 'bg-orange-500 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+                >
+                  {preset.label}
+                </button>
+              {/each}
             </div>
             
-            <div class="flex gap-3">
-              <button
-                onclick={closeQuizModal}
-                class="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-all"
-              >
-                Annuler
-              </button>
-              <button
-                onclick={confirmStartQuiz}
-                disabled={startingQuiz}
-                class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 disabled:opacity-50"
-              >
-                {startingQuiz ? 'Chargement...' : "🚀 C'est parti !"}
-              </button>
-            </div>
+            <!-- Custom time input -->
+            {#if selectedTimeLimit === -1}
+              <div class="mt-3 flex items-center gap-2 justify-center">
+                <input
+                  type="number"
+                  bind:value={customTimeMinutes}
+                  min="1"
+                  max="120"
+                  class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center"
+                />
+                <span class="text-gray-600">minutes</span>
+              </div>
+            {/if}
+          </div>
+          
+          <!-- Mode Info -->
+          <div class="mb-6 p-3 rounded-lg {selectedMode === 'revision' ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'}">
+            {#if selectedMode === 'revision'}
+              <p class="text-sm text-green-700">
+                <strong>Mode Révision :</strong> Tu verras la correction et l'explication après chaque question. 
+                Idéal pour apprendre !
+              </p>
+            {:else}
+              <p class="text-sm text-blue-700">
+                <strong>Mode Épreuve :</strong> Tu peux naviguer librement entre les questions et modifier tes réponses.
+                Le résultat sera affiché uniquement à la fin. Comme un vrai examen !
+              </p>
+            {/if}
+            {#if selectedTimeLimit && selectedTimeLimit !== -1}
+              <p class="text-sm mt-1 {selectedMode === 'revision' ? 'text-green-600' : 'text-blue-600'}">
+                ⏰ Temps limite : {selectedTimeLimit / 60} minutes
+              </p>
+            {:else if selectedTimeLimit === -1}
+              <p class="text-sm mt-1 {selectedMode === 'revision' ? 'text-green-600' : 'text-blue-600'}">
+                ⏰ Temps limite : {customTimeMinutes} minutes
+              </p>
+            {/if}
+          </div>
+          
+          <!-- Actions -->
+          <div class="flex gap-3">
+            <button
+              onclick={closeQuizModal}
+              class="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-all"
+            >
+              Annuler
+            </button>
+            <button
+              onclick={confirmStartQuiz}
+              disabled={startingQuiz}
+              class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 disabled:opacity-50"
+            >
+              {startingQuiz ? 'Chargement...' : "🚀 C'est parti !"}
+            </button>
           </div>
         </div>
       </div>

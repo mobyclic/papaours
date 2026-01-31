@@ -27,27 +27,43 @@
   }
 
   // Form state - Initialize from question or defaults (captures initial values intentionally)
+  // svelte-ignore state_referenced_locally
   let questionType = $state<QuestionType>(getInitialValue(initialQuestion.type, 'qcm'));
+  // svelte-ignore state_referenced_locally
   let themeId = $state(getInitialValue(initialQuestion.theme_id, ''));
+  // svelte-ignore state_referenced_locally
   let levelId = $state(getInitialValue(initialQuestion.level_id, ''));
+  // svelte-ignore state_referenced_locally
   let defaultLanguage = $state(getInitialValue(initialQuestion.default_language, 'fr'));
+  // svelte-ignore state_referenced_locally
   let selectedLanguages = $state<string[]>(
     initialQuestion.translations?.map(t => t.language) || ['fr']
   );
+  // svelte-ignore state_referenced_locally
   let pointsTotal = $state(getInitialValue(initialQuestion.points_total, 10));
+  // svelte-ignore state_referenced_locally
   let timeLimit = $state<number | undefined>(initialQuestion.time_limit);
+  // svelte-ignore state_referenced_locally
   let difficultyWeight = $state(getInitialValue(initialQuestion.difficulty_weight, 5));
+  // svelte-ignore state_referenced_locally
   let isActive = $state(initialQuestion.is_active ?? true);
+  // svelte-ignore state_referenced_locally
   let requireJustification = $state(getInitialValue(initialQuestion.require_justification, false));
+  // svelte-ignore state_referenced_locally
   let minWords = $state(initialQuestion.min_words);
+  // svelte-ignore state_referenced_locally
   let maxWords = $state(initialQuestion.max_words);
 
   // Media
+  // svelte-ignore state_referenced_locally
   let imageUrl = $state(getInitialValue(initialQuestion.image_url, ''));
+  // svelte-ignore state_referenced_locally
   let audioUrl = $state(getInitialValue(initialQuestion.audio_url, ''));
+  // svelte-ignore state_referenced_locally
   let videoUrl = $state(getInitialValue(initialQuestion.video_url, ''));
 
   // Translations
+  // svelte-ignore state_referenced_locally
   let translations = $state<Record<string, QuestionTranslation>>(
     Object.fromEntries(
       (initialQuestion.translations || [{ language: 'fr', title: '' }])
@@ -56,6 +72,7 @@
   );
 
   // Answers (for QCM, true_false)
+  // svelte-ignore state_referenced_locally
   let answers = $state<Answer[]>(
     initialQuestion.answers || [
       { id: crypto.randomUUID(), text: '', points: 10, is_correct: true, order: 1 },
@@ -64,6 +81,7 @@
   );
 
   // Matching pairs
+  // svelte-ignore state_referenced_locally
   let matchingPairs = $state<MatchingPair[]>(
     initialQuestion.matching_pairs || [
       { id: crypto.randomUUID(), left: '', right: '' },
@@ -72,6 +90,7 @@
   );
 
   // Ordering items
+  // svelte-ignore state_referenced_locally
   let orderingItems = $state<OrderingItem[]>(
     initialQuestion.ordering_items || [
       { id: crypto.randomUUID(), text: '', correct_position: 1 },
@@ -81,6 +100,7 @@
   );
 
   // Media errors
+  // svelte-ignore state_referenced_locally
   let mediaErrors = $state<MediaError[]>(
     initialQuestion.media_errors || []
   );

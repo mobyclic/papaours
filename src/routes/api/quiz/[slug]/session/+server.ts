@@ -28,6 +28,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const userId = body.userId || `anonymous_${crypto.randomUUID()}`;
     const classeId = body.classeId; // Classe de l'utilisateur (obligatoire pour le système adaptatif)
     
+    // Paramètres de mode
+    const mode = body.mode || 'revision'; // 'revision' ou 'epreuve'
+    const timeLimit = body.timeLimit || null; // Temps limite en secondes (null = pas de limite)
+    
+    // Validation du mode
+    if (!['revision', 'epreuve'].includes(mode)) {
+      return json({ message: 'Mode invalide. Utilisez "revision" ou "epreuve".' }, { status: 400 });
+    }
+    
     // Récupérer le quiz par slug
     const quizResult = await db.query<any[]>(
       'SELECT * FROM quiz WHERE slug = $slug AND isActive = true',
@@ -175,6 +184,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
         score = 0,
         totalQuestions = ${selectedQuestions.length},
         status = 'in_progress',
+        mode = "${mode}",
+        timeLimit = ${timeLimit ? timeLimit : 'NONE'},
+        timeRemaining = ${timeLimit ? timeLimit : 'NONE'},
+        timerStartedAt = ${timeLimit ? 'time::now()' : 'NONE'},
+        savedAnswers = {},
         startedAt = time::now()
     `;
     
@@ -196,7 +210,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
       answers: session.answers,
       score: session.score,
       totalQuestions: session.totalQuestions,
-      status: session.status
+      status: session.status,
+      mode: session.mode || 'revision',
+      timeLimit: session.timeLimit || null,
+      timeRemaining: session.timeRemaining || null,
+      timerStartedAt: session.timerStartedAt || null,
+      savedAnswers: session.savedAnswers || {}
     };
 
     return json({ 

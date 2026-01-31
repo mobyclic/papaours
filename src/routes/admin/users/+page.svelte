@@ -12,6 +12,7 @@
   let categories = $derived(data.categories || []);
   let search = $state('');
   let selectedClasseId = $state('');
+  // svelte-ignore state_referenced_locally
   let selectedCategorySlug = $state(data.initialCategorySlug || '');
   
   // Synchroniser avec l'URL

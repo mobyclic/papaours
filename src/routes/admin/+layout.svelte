@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { loadAdminUser, isAuthenticated } from '$lib/stores/adminStore';
+  import { loadAdminUser, isAuthenticated } from '$lib/stores/adminStore.svelte';
   import AdminSidebar from "$lib/components/admin-sidebar.svelte";
   
   let mounted = $state(false);

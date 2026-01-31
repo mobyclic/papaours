@@ -130,6 +130,13 @@ export const load: PageServerLoad = async ({ url }) => {
     name: t.name,
     matiere_ids: (t.matiere_ids || []).map((m: any) => m?.toString()?.split(':')[1] || m)
   }));
+
+  // Charger toutes les classes pour le générateur IA
+  const classesResult = await db.query('SELECT id, name FROM classe ORDER BY pos, name');
+  const classes = ((classesResult[0] as any[]) || []).map(c => ({
+    id: c.id?.toString()?.split(':')[1] || c.id,
+    name: c.name
+  }));
   
   // Stats rapides
   const statsResult = await db.query(`
@@ -147,7 +154,11 @@ export const load: PageServerLoad = async ({ url }) => {
     themesMap,
     matieres,
     themes,
+    classes,
     stats,
+    total,
+    page,
+    pageSize,
     pagination: {
       page,
       pageSize,
@@ -156,13 +167,13 @@ export const load: PageServerLoad = async ({ url }) => {
     },
     filters: {
       search,
-      questionType,
+      type: questionType,
       difficulty,
-      matiereId,
-      themeId,
-      isActive,
-      sortColumn: safeSortColumn,
-      sortDirection
+      matiere: matiereId,
+      theme: themeId,
+      active: isActive ?? '',
+      sort: safeSortColumn,
+      dir: sortDirection
     }
   };
 };

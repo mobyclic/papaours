@@ -307,6 +307,7 @@
       </div>
       
       <div class="space-y-2">
+        <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class="text-sm font-medium text-gray-700">Thèmes * <span class="font-normal text-gray-500">({formThemeIds.length} sélectionné{formThemeIds.length > 1 ? 's' : ''})</span></label>
         <div class="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-3">
           {#each themesByMatiere as group}

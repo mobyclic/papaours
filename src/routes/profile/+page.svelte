@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { currentUser, loadUser } from '$lib/stores/userStore';
+  import { currentUser, loadUser } from '$lib/stores/userStore.svelte';
   import { goto } from '$app/navigation';
-  import { Brain, TrendingUp, Target, Award, BookOpen, ChevronDown, ChevronUp } from 'lucide-svelte';
+  import { Brain, TrendingUp, Target, Award, BookOpen, ChevronDown, ChevronUp, Trophy, BarChart3, ChevronLeft } from 'lucide-svelte';
+  import { BadgesGrid } from '$lib/components/badges';
 
   interface UserCompetence {
     id: string;
@@ -27,6 +28,17 @@
     successRate: number;
   }
 
+  interface Badge {
+    slug: string;
+    name: string;
+    description: string;
+    icon: string;
+    category: 'accomplishment' | 'performance' | 'regularity' | 'mastery' | 'special';
+    rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+    points: number;
+    earned_at?: string;
+  }
+
   let quizzes = $state<any[]>([]);
   let userResults = $state<any[]>([]);
   let loading = $state(true);
@@ -41,6 +53,13 @@
   let loadingCompetences = $state(true);
   let showCompetences = $state(true);
 
+  // Badges
+  let earnedBadges = $state<Badge[]>([]);
+  let availableBadges = $state<Badge[]>([]);
+  let badgeStats = $state({ total: 0, points: 0, byCategory: {} as Record<string, number> });
+  let loadingBadges = $state(true);
+  let showBadges = $state(true);
+
   onMount(async () => {
     loadUser();
     if (!$currentUser) {
@@ -48,9 +67,10 @@
       return;
     }
     const uid = $currentUser.id;
-    await Promise.all([loadQuizzes(), loadResults(uid), loadCompetences(uid)]);
+    await Promise.all([loadQuizzes(), loadResults(uid), loadCompetences(uid), loadBadges(uid)]);
     loading = false;
     loadingCompetences = false;
+    loadingBadges = false;
   });
 
   async function loadQuizzes() {
@@ -94,6 +114,21 @@
     }
   }
 
+  async function loadBadges(userId: string) {
+    try {
+      const cleanId = userId.includes(':') ? userId.split(':')[1] : userId;
+      const res = await fetch(`/api/users/${cleanId}/badges`);
+      if (res.ok) {
+        const data = await res.json();
+        earnedBadges = data.earned || [];
+        availableBadges = data.available || [];
+        badgeStats = data.stats || { total: 0, points: 0, byCategory: {} };
+      }
+    } catch (e) {
+      console.error('Erreur chargement des badges:', e);
+    }
+  }
+
   function playQuiz(slug: string) {
     goto(`/quiz/${slug}`);
   }
@@ -121,12 +156,62 @@
 
 <main class="min-h-screen bg-gray-50">
   <div class="max-w-6xl mx-auto p-6">
-    <h1 class="text-3xl font-bold mb-2">Bonjour {$currentUser?.name || $currentUser?.email}</h1>
+    <div class="flex items-center justify-between mb-2">
+      <div>
+        <button
+          onclick={() => goto('/dashboard')}
+          class="flex items-center gap-1 text-gray-600 hover:text-gray-900 mb-1"
+        >
+          <ChevronLeft class="w-5 h-5" />
+          <span>Retour</span>
+        </button>
+        <h1 class="text-3xl font-bold">Bonjour {$currentUser?.name || $currentUser?.email}</h1>
+      </div>
+      <button
+        onclick={() => goto('/stats')}
+        class="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl shadow hover:shadow-lg transition-all"
+      >
+        <BarChart3 class="w-5 h-5" />
+        <span>Statistiques détaillées</span>
+      </button>
+    </div>
     <p class="text-gray-600 mb-6">Choisissez un quiz par thème et par niveau, et suivez votre progression.</p>
 
     {#if loading}
       <p>Chargement...</p>
     {:else}
+      <!-- Section Badges -->
+      <section class="mb-10">
+        <button 
+          onclick={() => showBadges = !showBadges}
+          class="flex items-center justify-between w-full text-left mb-4"
+        >
+          <h2 class="text-xl font-semibold flex items-center gap-2">
+            <Trophy class="w-6 h-6 text-amber-500" />
+            Mes Badges
+            <span class="text-sm font-normal text-gray-500">({earnedBadges.length} obtenus)</span>
+          </h2>
+          {#if showBadges}
+            <ChevronUp class="w-5 h-5 text-gray-500" />
+          {:else}
+            <ChevronDown class="w-5 h-5 text-gray-500" />
+          {/if}
+        </button>
+
+        {#if showBadges}
+          {#if loadingBadges}
+            <div class="text-center py-8 text-gray-500">Chargement des badges...</div>
+          {:else}
+            <BadgesGrid 
+              earnedBadges={earnedBadges} 
+              availableBadges={availableBadges}
+              stats={badgeStats}
+              showAvailable={true}
+            />
+          {/if}
+        {/if}
+      </section>
+
       <!-- Section Compétences -->
       <section class="mb-10">
         <button 

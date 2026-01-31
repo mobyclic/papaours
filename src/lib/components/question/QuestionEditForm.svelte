@@ -46,25 +46,36 @@
     onCancel 
   }: Props = $props();
 
-  // Question ID for auto-save
+  // Question ID for auto-save (captures initial value intentionally)
+  // svelte-ignore state_referenced_locally
   const questionId = question.id?.toString() || question.id;
 
-  // Form state
+  // Form state - Initialize from question (captures initial values intentionally)
+  // svelte-ignore state_referenced_locally
   let questionText = $state(question.question || '');
+  // svelte-ignore state_referenced_locally
   let explanation = $state(question.explanation || '');
+  // svelte-ignore state_referenced_locally
   let options = $state<string[]>(question.options || ['', '', '', '']);
+  // svelte-ignore state_referenced_locally
   let optionImages = $state<string[]>(question.optionImages || ['', '', '', '']);
+  // svelte-ignore state_referenced_locally
   let questionType = $state<string>(question.questionType || 'qcm');
+  // svelte-ignore state_referenced_locally
   let correctAnswer = $state<number>(question.correctAnswer ?? 0);
+  // svelte-ignore state_referenced_locally
   let isActive = $state(question.isActive ?? true);
   
   // New structured fields
+  // svelte-ignore state_referenced_locally
   let selectedMatiereId = $state(question.matiere_id?.toString() || '');
+  // svelte-ignore state_referenced_locally
   let selectedThemeIds = $state<string[]>(
     (question.theme_ids || []).map((t: any) => t?.toString() || t)
   );
   
   // Class difficulties (multiple classe/difficulty pairs)
+  // svelte-ignore state_referenced_locally
   let classDifficulties = $state<ClassDifficulty[]>(
     question.class_difficulties?.length > 0 
       ? question.class_difficulties.map((cd: any) => ({
@@ -76,6 +87,7 @@
   );
 
   // Competences
+  // svelte-ignore state_referenced_locally
   let selectedCompetenceIds = $state<string[]>(
     (question.competence_ids || []).map((c: any) => c?.toString() || c)
   );
@@ -444,6 +456,7 @@
 <div class="space-y-8">
   <!-- Type de question -->
   <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+    <!-- svelte-ignore a11y_label_has_associated_control -->
     <label class="block text-sm font-medium text-gray-700 mb-2">Type de question</label>
     <div class="flex gap-3">
       <button
@@ -474,10 +487,11 @@
     
     <div class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="question-text" class="block text-sm font-medium text-gray-700 mb-2">
           Énoncé de la question *
         </label>
         <textarea
+          id="question-text"
           bind:value={questionText}
           rows={3}
           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
@@ -488,16 +502,21 @@
       <!-- Options QCM Image -->
       {#if questionType === 'qcm_image'}
         <div>
+          <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class="block text-sm font-medium text-gray-700 mb-2">
             Images de réponse (URL)
           </label>
           <div class="grid grid-cols-2 gap-4">
             {#each optionImages as imageUrl, i}
               <div class="relative">
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div 
+                  role="button"
+                  tabindex="0"
                   class="aspect-square rounded-xl border-2 overflow-hidden transition-all cursor-pointer
                     {correctAnswer === i ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-200 hover:border-purple-300'}"
                   onclick={() => correctAnswer = i}
+                  onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (correctAnswer = i)}
                 >
                   {#if imageUrl}
                     <img src={imageUrl} alt="Option {i + 1}" class="w-full h-full object-cover" />
@@ -563,6 +582,7 @@
       {:else}
         <!-- Options QCM Texte classique -->
         <div>
+          <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class="block text-sm font-medium text-gray-700 mb-2">
             Options de réponse
           </label>
@@ -606,10 +626,11 @@
       {/if}
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="question-explanation" class="block text-sm font-medium text-gray-700 mb-2">
           Explication (affichée après la réponse)
         </label>
         <textarea
+          id="question-explanation"
           bind:value={explanation}
           rows={2}
           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
@@ -671,6 +692,7 @@
 
       <!-- Thèmes sélectionnés -->
       <div>
+        <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class="block text-sm font-medium text-gray-700 mb-2">
           Thèmes <span class="text-gray-400 font-normal">({selectedThemeIds.length} sélectionné{selectedThemeIds.length !== 1 ? 's' : ''})</span>
         </label>
@@ -771,6 +793,7 @@
           <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <!-- Classe selector -->
             <div class="flex-1 min-w-[150px]">
+              <!-- svelte-ignore a11y_label_has_associated_control -->
               <label class="block text-xs font-medium text-gray-500 mb-1">Classe</label>
               <select
                 value={cd.classe_id}
@@ -793,6 +816,7 @@
 
             <!-- Difficulty buttons -->
             <div class="flex-1">
+              <!-- svelte-ignore a11y_label_has_associated_control -->
               <label class="block text-xs font-medium text-gray-500 mb-1">Difficulté</label>
               <div class="flex gap-1">
                 {#each [
@@ -817,6 +841,7 @@
 
             <!-- Points -->
             <div class="w-24">
+              <!-- svelte-ignore a11y_label_has_associated_control -->
               <label class="block text-xs font-medium text-gray-500 mb-1">Points</label>
               <input
                 type="number"
@@ -887,6 +912,7 @@
       <!-- Compétences sélectionnées -->
       {#if selectedCompetenceIds.length > 0}
         <div class="mb-4">
+          <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class="block text-xs font-medium text-gray-500 mb-2">Sélectionnées</label>
           <div class="flex flex-wrap gap-2">
             {#each selectedCompetenceIds as compId}
@@ -910,6 +936,7 @@
 
       <!-- Compétences générales -->
       <div class="space-y-3">
+        <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide">
           Compétences générales
         </label>
@@ -942,6 +969,7 @@
       <!-- Compétences spécifiques à la matière -->
       {#if availableCompetences.matiereSpecific.length > 0}
         <div class="space-y-3 mt-6">
+          <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide">
             Compétences {matieres.find(m => m.id === selectedMatiereId)?.name || 'de la matière'}
           </label>
