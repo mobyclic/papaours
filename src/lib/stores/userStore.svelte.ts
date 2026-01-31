@@ -4,6 +4,8 @@
  */
 import { browser } from '$app/environment';
 
+export type UserType = 'apprenant' | 'tuteur' | 'admin';
+
 export interface AppUser {
   id: string;
   email: string;
@@ -13,6 +15,9 @@ export interface AppUser {
   is_admin: boolean;
   classe_id?: string;
   classe_name?: string;
+  theme_color?: string;
+  user_type?: UserType;
+  tutor_id?: string | null; // Si apprenant, ID du tuteur associé
 }
 
 // État réactif global avec runes

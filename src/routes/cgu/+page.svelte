@@ -4,42 +4,44 @@
 </script>
 
 <svelte:head>
-  <title>Conditions Générales d'Utilisation - Papa Ours</title>
+  <title>Conditions Générales d'Utilisation - Kwizy</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-slate-100">
-  <header class="p-4">
-    <button onclick={() => goto('/')} class="flex items-center gap-2 text-gray-600 hover:text-gray-800">
-      <ChevronLeft class="w-5 h-5" />
-      <span>Retour</span>
-    </button>
+<div class="min-h-screen bg-gray-50">
+  <header class="p-4 border-b bg-white">
+    <div class="max-w-3xl mx-auto">
+      <button onclick={() => goto('/dashboard')} class="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+        <ChevronLeft class="w-5 h-5" />
+        <span>Retour</span>
+      </button>
+    </div>
   </header>
 
-  <main class="max-w-3xl mx-auto px-4 pb-12">
-    <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-gray-600 to-slate-700 rounded-full mb-4 shadow-lg">
-        <FileText class="w-8 h-8 text-white" />
+  <main class="max-w-3xl mx-auto px-4 py-12">
+    <div class="text-center mb-10">
+      <div class="inline-flex items-center justify-center w-14 h-14 bg-gray-900 rounded-full mb-4">
+        <FileText class="w-7 h-7 text-white" />
       </div>
-      <h1 class="text-3xl font-bold text-gray-800 mb-2">Conditions Générales d'Utilisation</h1>
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Conditions Générales d'Utilisation</h1>
       <p class="text-gray-500">Dernière mise à jour : Janvier 2026</p>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 max-w-none [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-gray-800 [&_h2]:mt-6 [&_h2]:mb-3 [&_p]:text-gray-600 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:text-gray-600 [&_a]:text-blue-600 [&_a:hover]:underline">
+    <div class="bg-white rounded-xl border border-gray-200 p-6 md:p-8 max-w-none [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-gray-900 [&_h2]:mt-6 [&_h2]:mb-3 [&_p]:text-gray-600 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:text-gray-600 [&_a]:text-gray-900 [&_a]:underline [&_a:hover]:text-gray-600">
       <h2>1. Présentation du service</h2>
       <p>
-        Papa Ours est une application éducative gratuite destinée aux enfants de 3 à 11 ans. 
-        Elle propose des quiz et exercices ludiques alignés sur les programmes scolaires français.
+        Kwizy est une application éducative gratuite propos ant des quiz et exercices ludiques 
+        pour tous les âges et niveaux.
       </p>
 
       <h2>2. Acceptation des conditions</h2>
       <p>
-        L'utilisation de Papa Ours implique l'acceptation pleine et entière des présentes conditions. 
+        L'utilisation de Kwizy implique l'acceptation pleine et entière des présentes conditions. 
         Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser l'application.
       </p>
 
       <h2>3. Accès au service</h2>
       <p>
-        Papa Ours est accessible gratuitement à tout utilisateur disposant d'un accès internet. 
+        Kwizy est accessible gratuitement à tout utilisateur disposant d'un accès internet. 
         L'éditeur se réserve le droit de suspendre ou interrompre le service pour maintenance 
         ou amélioration, sans préavis ni indemnité.
       </p>
@@ -77,7 +79,7 @@
 
       <h2>6. Propriété intellectuelle</h2>
       <p>
-        L'ensemble des contenus présents sur Papa Ours (textes, images, quiz, code source) 
+        L'ensemble des contenus présents sur Kwizy (textes, images, quiz, code source) 
         sont la propriété exclusive de l'éditeur ou de ses partenaires. Toute reproduction 
         non autorisée est interdite.
       </p>
@@ -91,7 +93,7 @@
 
       <h2>8. Limitation de responsabilité</h2>
       <p>
-        Papa Ours est fourni "tel quel". L'éditeur ne peut être tenu responsable :
+        Kwizy est fourni "tel quel". L'éditeur ne peut être tenu responsable :
       </p>
       <ul>
         <li>Des interruptions temporaires du service</li>

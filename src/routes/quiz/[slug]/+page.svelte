@@ -425,7 +425,7 @@
 </script>
 
 <svelte:head>
-  <title>{quiz?.title || 'Quiz'} - Papa Ours</title>
+  <title>{quiz?.title || 'Quiz'} - Kwizy</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4">

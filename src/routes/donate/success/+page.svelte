@@ -78,7 +78,7 @@
   }
 
   const shareUrl = 'https://papaours.app/donate';
-  const shareText = "Je viens de soutenir Papa Ours, une super appli éducative pour les enfants ! 🐻❤️";
+  const shareText = "Je viens de soutenir Kwizy, une super plateforme de quiz éducatifs ! 💙✨";
 
   async function copyLink() {
     try {
@@ -94,7 +94,7 @@
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Soutenir Papa Ours',
+          title: 'Soutenir Kwizy',
           text: shareText,
           url: shareUrl
         });
@@ -106,7 +106,7 @@
 </script>
 
 <svelte:head>
-  <title>Merci pour votre don ! - Papa Ours</title>
+  <title>Merci pour votre don ! - Kwizy</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 flex items-center justify-center p-4">
@@ -152,7 +152,7 @@
 
         <div class="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 mb-6">
           <p class="text-gray-700">
-            Grâce à vous, Papa Ours peut continuer à aider les enfants à apprendre en s'amusant ! 🐻✨
+            Grâce à vous, Kwizy peut continuer à aider tout le monde à apprendre en s'amusant ! ✨
           </p>
         </div>
 
@@ -203,7 +203,7 @@
       <!-- Fun facts -->
       <div class="mt-6 text-center">
         <p class="text-gray-500 text-sm">
-          🎮 Saviez-vous que + de 1000 enfants utilisent Papa Ours chaque jour ?
+          🎮 Saviez-vous que des milliers de personnes utilisent Kwizy chaque jour ?
         </p>
       </div>
     {/if}

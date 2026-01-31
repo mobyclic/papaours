@@ -151,7 +151,7 @@
 </script>
 
 <svelte:head>
-  <title>Profil - Papa Ours</title>
+  <title>Profil - Kwizy</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gray-50">

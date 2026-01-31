@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { currentUser, loadUser, logoutUser } from '$lib/stores/userStore.svelte';
+  import { loadThemeColor, setThemeColor, THEME_COLORS, type ThemeColorId } from '$lib/stores/themeStore.svelte';
   import { goto } from '$app/navigation';
 
   let quizzes = $state<any[]>([]);
@@ -8,6 +9,7 @@
   let activeSessions = $state<any[]>([]); // Sessions en cours
   let loading = $state(true);
   let greeting = $state('');
+  let themeColor = $state<ThemeColorId>('gray');
   
   // Modal state
   let showQuizModal = $state(false);
@@ -29,6 +31,11 @@
     { label: '30 min', value: 1800 },
     { label: 'Personnalisé', value: -1 }
   ];
+
+  // Couleurs du thème
+  function getThemeClasses() {
+    return THEME_COLORS.find(c => c.id === themeColor) || THEME_COLORS[0];
+  }
 
   // Stats calculées
   let totalQuizzesDone = $derived(userResults.length);
@@ -82,6 +89,11 @@
       goto('/');
       return;
     }
+
+    // Charger la couleur de thème
+    themeColor = ($currentUser.theme_color as ThemeColorId) || loadThemeColor();
+    // S'assurer que la couleur est sauvegardée dans localStorage
+    setThemeColor(themeColor);
 
     // Message de bienvenue selon l'heure
     const hour = new Date().getHours();
@@ -234,41 +246,43 @@
 </script>
 
 <svelte:head>
-  <title>Mon Espace - Papa Ours</title>
+  <title>Mon Espace - Kwizy</title>
 </svelte:head>
 
-<main class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+<main class="min-h-screen bg-gray-50">
   {#if loading}
     <div class="flex items-center justify-center min-h-screen">
       <div class="text-center">
-        <div class="animate-bounce text-6xl mb-4">🐻</div>
-        <p class="text-xl text-purple-600 font-medium">Chargement de ton espace...</p>
+        <div class="animate-pulse text-4xl mb-4 font-bold {getThemeClasses().text}">K</div>
+        <p class="text-lg text-gray-600 font-medium">Chargement de ton espace...</p>
       </div>
     </div>
   {:else}
     <!-- Header -->
-    <header class="bg-white/80 backdrop-blur-sm border-b border-purple-100 sticky top-0 z-10">
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
       <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <span class="text-3xl">🐻</span>
-          <span class="font-bold text-xl text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
-            Papa Ours
+          <div class="w-9 h-9 rounded-lg flex items-center justify-center {getThemeClasses().bg}">
+            <span class="text-lg font-bold text-white">K</span>
+          </div>
+          <span class="font-bold text-xl text-gray-900">
+            Kwizy
           </span>
         </div>
         <div class="flex items-center gap-4">
           <span class="text-sm text-gray-600 hidden sm:block">
-            Connecté en tant que <strong class="text-purple-600">{$currentUser?.name || $currentUser?.email}</strong>
+            Connecté en tant que <strong class="text-gray-900">{$currentUser?.name || $currentUser?.email}</strong>
           </span>
           <button 
             onclick={() => goto('/stats')}
-            class="px-3 py-1.5 text-sm rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+            class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
             title="Mes statistiques"
           >
             📊 Stats
           </button>
           <button 
             onclick={() => goto('/favorites')}
-            class="px-3 py-1.5 text-sm rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+            class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
             title="Mes favoris"
           >
             ❤️ Favoris
@@ -279,6 +293,13 @@
             title="Mon profil"
           >
             👤 Profil
+          </button>
+          <button 
+            onclick={() => goto('/donate')}
+            class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            title="Soutenir Kwizy"
+          >
+            💝 Don
           </button>
           <button 
             onclick={() => goto('/settings')}
@@ -300,35 +321,35 @@
     <div class="max-w-6xl mx-auto px-4 py-8">
       <!-- Welcome Section -->
       <section class="mb-8">
-        <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
-          {greeting}, <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">{$currentUser?.name?.split(' ')[0] || 'Champion'}</span> ! 👋
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+          {greeting}, <span class="text-gray-900">{$currentUser?.name?.split(' ')[0] || 'Champion'}</span> ! 👋
         </h1>
-        <p class="text-gray-600 text-lg">Prêt à apprendre en t'amusant aujourd'hui ?</p>
+        <p class="text-gray-600 text-lg">Prêt à apprendre en t'amusant ?</p>
       </section>
 
       <!-- Stats Cards -->
       <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white rounded-2xl shadow-lg p-4 border border-purple-100 text-center transform hover:scale-105 transition-transform">
+        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-200 text-center hover:shadow-md transition-shadow">
           <div class="text-3xl mb-2">🎮</div>
-          <div class="text-2xl font-bold text-purple-600">{totalQuizzesDone}</div>
+          <div class="text-2xl font-bold text-gray-900">{totalQuizzesDone}</div>
           <div class="text-sm text-gray-600">Quiz joués</div>
         </div>
-        <div class="bg-white rounded-2xl shadow-lg p-4 border border-pink-100 text-center transform hover:scale-105 transition-transform">
+        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-200 text-center hover:shadow-md transition-shadow">
           <div class="text-3xl mb-2">📊</div>
-          <div class="text-2xl font-bold text-pink-600">{averageScore}%</div>
+          <div class="text-2xl font-bold text-gray-900">{averageScore}%</div>
           <div class="text-sm text-gray-600">Score moyen</div>
         </div>
-        <div class="bg-white rounded-2xl shadow-lg p-4 border border-green-100 text-center transform hover:scale-105 transition-transform">
+        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-200 text-center hover:shadow-md transition-shadow">
           <div class="text-3xl mb-2">🏆</div>
-          <div class="text-2xl font-bold text-green-600">{bestScore}%</div>
+          <div class="text-2xl font-bold text-gray-900">{bestScore}%</div>
           <div class="text-sm text-gray-600">Meilleur score</div>
         </div>
         <button 
           onclick={() => goto('/leaderboard')}
-          class="bg-gradient-to-br from-amber-50 to-orange-100 rounded-2xl shadow-lg p-4 border border-amber-200 text-center transform hover:scale-105 transition-transform hover:border-amber-400"
+          class="bg-white rounded-xl shadow-sm p-4 border border-gray-200 text-center hover:shadow-md transition-shadow hover:border-gray-300"
         >
           <div class="text-3xl mb-2">🏅</div>
-          <div class="text-2xl font-bold text-amber-600">Classement</div>
+          <div class="text-2xl font-bold text-gray-900">Classement</div>
           <div class="text-sm text-gray-600">Voir le top →</div>
         </button>
       </section>
@@ -745,6 +766,32 @@
         </div>
       </div>
     {/if}
+
+    <!-- Footer -->
+    <footer class="mt-16 pb-8">
+      <div class="max-w-6xl mx-auto px-4">
+        <div class="bg-white rounded-xl p-6 border border-gray-200">
+          <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2 text-gray-600">
+              <div class="w-7 h-7 bg-gray-900 rounded-md flex items-center justify-center">
+                <span class="text-xs font-bold text-white">K</span>
+              </div>
+              <span class="font-medium text-gray-900">Kwizy</span>
+              <span class="text-sm text-gray-400">— Apprendre en s'amusant</span>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-4 text-sm">
+              <a href="/about" class="text-gray-600 hover:text-gray-900 transition-colors">À propos</a>
+              <span class="text-gray-300">•</span>
+              <a href="/faq" class="text-gray-600 hover:text-gray-900 transition-colors">FAQ</a>
+              <span class="text-gray-300">•</span>
+              <a href="/cgu" class="text-gray-600 hover:text-gray-900 transition-colors">CGU</a>
+              <span class="text-gray-300">•</span>
+              <a href="/donate" class="text-gray-700 hover:text-gray-900 font-medium transition-colors">❤️ Faire un don</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
   {/if}
 </main>
 

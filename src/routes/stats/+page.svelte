@@ -156,7 +156,7 @@
 </script>
 
 <svelte:head>
-  <title>Mes statistiques - Papa Ours</title>
+  <title>Mes statistiques - Kwizy</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">

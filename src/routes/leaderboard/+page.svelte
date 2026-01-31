@@ -156,7 +156,7 @@
 </script>
 
 <svelte:head>
-  <title>Classement - Papa Ours</title>
+  <title>Classement - Kwizy</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
@@ -167,7 +167,7 @@
         <Trophy class="w-8 h-8 text-white" />
       </div>
       <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Classement</h1>
-      <p class="text-gray-600">Les meilleurs joueurs de Papa Ours 🐻</p>
+      <p class="text-gray-600">Les meilleurs joueurs de Kwizy</p>
     </div>
 
     <!-- Global Stats -->

@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { currentUser, loadUser, setUser, logoutUser } from '$lib/stores/userStore.svelte';
+  import { loadThemeColor, setThemeColor, THEME_COLORS, type ThemeColorId } from '$lib/stores/themeStore.svelte';
+  import ColorPicker from '$lib/components/ColorPicker.svelte';
   import { 
     ChevronLeft, User, Bell, Shield, Palette, Save, Trash2, LogOut,
     Eye, EyeOff, Check
@@ -12,6 +14,7 @@
   let email = $state('');
   let pseudo = $state('');
   let classe = $state('');
+  let themeColorValue = $state<ThemeColorId>('gray');
   
   // Preferences
   let notifications = $state({
@@ -54,9 +57,10 @@
     email = $currentUser.email || '';
     pseudo = $currentUser.pseudo || '';
     classe = $currentUser.classe || '';
+    themeColorValue = ($currentUser.theme_color as ThemeColorId) || loadThemeColor();
     
     // Charger les préférences sauvegardées
-    const savedPrefs = localStorage.getItem('papaours_preferences');
+    const savedPrefs = localStorage.getItem('kwizy_preferences');
     if (savedPrefs) {
       try {
         const prefs = JSON.parse(savedPrefs);
@@ -87,15 +91,18 @@
         body: JSON.stringify({
           name,
           pseudo,
-          classe
+          classe,
+          theme_color: themeColorValue
         })
       });
 
       if (res.ok) {
         const data = await res.json();
         if ($currentUser) {
-          setUser({ ...$currentUser, name, pseudo, classe });
+          setUser({ ...$currentUser, name, pseudo, classe, theme_color: themeColorValue });
         }
+        // Sauvegarder la couleur dans localStorage pour la page de login
+        setThemeColor(themeColorValue);
         saved = true;
         setTimeout(() => saved = false, 2000);
       } else {
@@ -117,7 +124,7 @@
       soundEnabled,
       animationsEnabled
     };
-    localStorage.setItem('papaours_preferences', JSON.stringify(prefs));
+    localStorage.setItem('kwizy_preferences', JSON.stringify(prefs));
     saved = true;
     setTimeout(() => saved = false, 2000);
   }
@@ -155,7 +162,7 @@
 </script>
 
 <svelte:head>
-  <title>Paramètres - Papa Ours</title>
+  <title>Paramètres - Kwizy</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -320,7 +327,15 @@
           Apparence
         </h2>
         
-        <div class="space-y-4">
+        <div class="space-y-6">
+          <!-- Sélecteur de couleur -->
+          <div>
+            <ColorPicker bind:value={themeColorValue} label="Couleur de thème 🎨" size="lg" />
+            <p class="text-xs text-gray-500 mt-2">Cette couleur sera utilisée dans toute l'application et sur la page de connexion.</p>
+          </div>
+          
+          <hr class="border-gray-100" />
+          
           <label class="flex items-center justify-between cursor-pointer">
             <span class="text-gray-700">Sons activés</span>
             <input

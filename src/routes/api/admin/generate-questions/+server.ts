@@ -117,8 +117,8 @@ export const POST: RequestHandler = async ({ request }) => {
     const difficultyLabel = difficulty === 1 ? 'facile' : difficulty === 2 ? 'moyen' : 'difficile';
     const typeDescription = QUESTION_TYPES[questionType as keyof typeof QUESTION_TYPES] || QUESTION_TYPES.qcm;
 
-    const systemPrompt = `Tu es un expert en création de questions pédagogiques pour une application éducative française appelée "Papa Ours". 
-Tu dois générer des questions de qualité, adaptées au niveau scolaire demandé.
+    const systemPrompt = `Tu es un expert en création de questions pédagogiques pour une application éducative française appelée "Kwizy". 
+Tu dois générer des questions de qualité, adaptées au niveau demandé.
 
 RÈGLES IMPORTANTES:
 - Les questions doivent être claires, précises et sans ambiguïté

@@ -27,13 +27,13 @@
     if (score !== undefined && totalQuestions !== undefined) {
       const percent = Math.round((score / totalQuestions) * 100);
       const emoji = percent === 100 ? '🏆' : percent >= 80 ? '⭐' : percent >= 50 ? '👍' : '💪';
-      return `${emoji} J'ai obtenu ${score}/${totalQuestions} (${percent}%) au quiz "${quizName || 'Papa Ours'}" ! Tente ta chance !`;
+      return `${emoji} J'ai obtenu ${score}/${totalQuestions} (${percent}%) au quiz "${quizName || 'Kwizy'}" ! Tente ta chance !`;
     }
-    return text || `Découvre ce quiz sur Papa Ours ! 🐻`;
+    return text || `Découvre ce quiz sur Kwizy !`;
   });
 
   const shareUrl = $derived(url || (typeof window !== 'undefined' ? window.location.href : ''));
-  const shareTitle = $derived(title || 'Papa Ours - Quiz éducatif');
+  const shareTitle = $derived(title || 'Kwizy - Quiz éducatif');
 
   function openModal() {
     showModal = true;

@@ -118,39 +118,41 @@
 </script>
 
 <svelte:head>
-  <title>Faire un don - Papa Ours</title>
+  <title>Faire un don - Kwizy</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50">
+<div class="min-h-screen bg-gray-50">
   <!-- Header -->
-  <header class="p-4">
-    <button onclick={() => goto('/dashboard')} class="flex items-center gap-2 text-gray-600 hover:text-gray-800">
-      <ChevronLeft class="w-5 h-5" />
-      <span>Retour</span>
-    </button>
+  <header class="p-4 border-b bg-white">
+    <div class="max-w-2xl mx-auto">
+      <button onclick={() => goto('/dashboard')} class="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+        <ChevronLeft class="w-5 h-5" />
+        <span>Retour</span>
+      </button>
+    </div>
   </header>
 
-  <main class="max-w-2xl mx-auto px-4 pb-12">
+  <main class="max-w-2xl mx-auto px-4 py-12">
     <!-- Hero -->
-    <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-pink-500 to-red-500 rounded-full mb-4 shadow-lg">
-        <Heart class="w-10 h-10 text-white" fill="white" />
+    <div class="text-center mb-10">
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-900 rounded-full mb-4">
+        <Heart class="w-8 h-8 text-white" fill="white" />
       </div>
-      <h1 class="text-3xl font-bold text-gray-800 mb-2">Soutenir Papa Ours 🐻</h1>
-      <p class="text-gray-600 max-w-md mx-auto">
-        Votre don nous aide à maintenir l'application gratuite et à créer de nouveaux contenus éducatifs pour les enfants.
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Soutenir Kwizy</h1>
+      <p class="text-gray-500 max-w-md mx-auto">
+        Votre don nous aide à maintenir l'application gratuite et à créer de nouveaux contenus éducatifs.
       </p>
     </div>
 
     <!-- Message annulation -->
     {#if showCancelled}
-      <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800 text-center">
-        Le paiement a été annulé. Pas de souci, vous pouvez réessayer quand vous voulez ! 💛
+      <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-center">
+        Le paiement a été annulé. Pas de souci, vous pouvez réessayer quand vous voulez !
       </div>
     {/if}
 
     <!-- Carte de don -->
-    <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+    <div class="bg-white rounded-xl border border-gray-200 p-6 md:p-8">
       <!-- Montants prédéfinis -->
       <div class="mb-6">
         <p class="block text-sm font-medium text-gray-700 mb-3">Choisissez un montant</p>
@@ -266,9 +268,9 @@
       <button
         onclick={handleDonate}
         disabled={!isValid || loading}
-        class="w-full py-4 px-6 bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold text-lg rounded-xl 
-          hover:from-pink-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl
-          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg
+        class="w-full py-4 px-6 bg-gray-900 text-white font-bold text-lg rounded-lg 
+          hover:bg-gray-800 transition-colors
+          disabled:opacity-50 disabled:cursor-not-allowed
           flex items-center justify-center gap-2"
       >
         {#if loading}
@@ -290,10 +292,10 @@
     </div>
 
     <!-- Pourquoi donner -->
-    <div class="mt-8 bg-white/80 rounded-2xl p-6">
-      <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-        <Sparkles class="w-5 h-5 text-yellow-500" />
-        Pourquoi soutenir Papa Ours ?
+    <div class="mt-8 bg-white rounded-xl border border-gray-200 p-6">
+      <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <Sparkles class="w-5 h-5 text-gray-700" />
+        Pourquoi soutenir Kwizy ?
       </h2>
       <ul class="space-y-3 text-gray-600">
         <li class="flex items-start gap-3">
@@ -302,7 +304,7 @@
         </li>
         <li class="flex items-start gap-3">
           <span class="text-xl">🆓</span>
-          <span>Maintenir l'application 100% gratuite pour tous les enfants</span>
+          <span>Maintenir l'application 100% gratuite pour tous</span>
         </li>
         <li class="flex items-start gap-3">
           <span class="text-xl">🔒</span>
@@ -316,16 +318,16 @@
     </div>
 
     <!-- Liste des donateurs -->
-    <div class="mt-8 bg-white/80 rounded-2xl p-6">
+    <div class="mt-8 bg-white rounded-xl border border-gray-200 p-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-          <Users class="w-5 h-5 text-pink-500" />
+        <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <Users class="w-5 h-5 text-gray-700" />
           Nos généreux donateurs
         </h2>
         {#if stats.totalDonors > 0}
           <div class="text-sm text-gray-500">
-            <span class="font-bold text-pink-600">{stats.totalDonors}</span> don{stats.totalDonors > 1 ? 's' : ''}
-            · <span class="font-bold text-green-600">{(stats.totalAmount / 100).toFixed(0)} €</span> collectés
+            <span class="font-bold text-gray-900">{stats.totalDonors}</span> don{stats.totalDonors > 1 ? 's' : ''}
+            · <span class="font-bold text-gray-900">{(stats.totalAmount / 100).toFixed(0)} €</span> collectés
           </div>
         {/if}
       </div>
@@ -336,8 +338,8 @@
         </div>
       {:else if donors.length === 0}
         <div class="text-center py-8 text-gray-500">
-          <Heart class="w-12 h-12 mx-auto mb-2 text-pink-200" />
-          <p>Soyez le premier à soutenir Papa Ours ! 💝</p>
+          <Heart class="w-12 h-12 mx-auto mb-2 text-blue-200" />
+          <p>Soyez le premier à soutenir Kwizy ! 💙</p>
         </div>
       {:else}
         <div class="space-y-3 max-h-96 overflow-y-auto">

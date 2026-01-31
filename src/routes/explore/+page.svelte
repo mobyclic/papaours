@@ -143,7 +143,7 @@
 </script>
 
 <svelte:head>
-  <title>Explorer les Quiz - Papa Ours</title>
+  <title>Explorer les Quiz - Kwizy</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">

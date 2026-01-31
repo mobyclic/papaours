@@ -64,7 +64,7 @@
 <aside class="w-64 h-screen flex flex-col bg-white border-r border-gray-200 overflow-hidden">
   <!-- Header Logo -->
   <div class="px-6 py-6 border-b border-gray-200">
-    <h1 class="text-lg font-bold text-gray-900">🐻 Papa Ours</h1>
+    <h1 class="text-lg font-bold text-gray-900">Kwizy Admin</h1>
     <p class="text-xs text-gray-500 mt-1">Administration</p>
   </div>
 

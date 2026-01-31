@@ -13,7 +13,7 @@
 </script>
 
 <svelte:head>
-  <title>Papa Ours - Connexion</title>
+  <title>Kwizy - Connexion</title>
 </svelte:head>
 
 <main class="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 p-4">
@@ -44,7 +44,7 @@
           <path d="M 85 125 Q 100 140 115 125" stroke="#8B4513" stroke-width="3" fill="none" stroke-linecap="round" />
         </svg>
       </div>
-      <h1 class="text-4xl font-bold text-primary mb-2">Papa Ours</h1>
+      <h1 class="text-4xl font-bold text-primary mb-2">Kwizy</h1>
       <p class="text-muted-foreground">Bienvenue sur votre espace</p>
     </div>
 

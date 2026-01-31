@@ -43,7 +43,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     const cleanUserId = userId.includes(':') ? userId.split(':')[1] : userId;
     
     const body = await request.json();
-    const { name, pseudo, classe } = body;
+    const { name, pseudo, classe, theme_color } = body;
 
     // Construire la requête de mise à jour
     const updates: string[] = [];
@@ -60,6 +60,10 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     if (classe !== undefined) {
       updates.push('classe = $classe');
       updateParams.classe = classe;
+    }
+    if (theme_color !== undefined) {
+      updates.push('theme_color = $theme_color');
+      updateParams.theme_color = theme_color;
     }
 
     if (updates.length === 0) {
@@ -79,7 +83,8 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
         id: user?.id?.toString(),
         name: user?.name,
         pseudo: user?.pseudo,
-        classe: user?.classe
+        classe: user?.classe,
+        theme_color: user?.theme_color
       }
     });
   } catch (error) {

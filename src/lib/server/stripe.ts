@@ -58,7 +58,7 @@ export async function createDonationCheckoutSession({
         price_data: {
           currency: 'eur',
           product_data: {
-            name: 'Don pour Papa Ours 🐻',
+            name: 'Don pour Kwizy',
             description: message || 'Merci pour votre soutien !',
             images: ['https://papaours.app/logo.png'] // À remplacer par le vrai logo
           },

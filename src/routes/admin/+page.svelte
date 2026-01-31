@@ -18,14 +18,14 @@
 </script>
 
 <svelte:head>
-  <title>Dashboard Admin - Papa Ours</title>
+  <title>Dashboard Admin - Kwizy</title>
 </svelte:head>
 
 <div class="flex-1 p-8 overflow-auto">
   <!-- Page Header -->
   <div class="mb-8">
     <h1 class="text-4xl font-bold text-gray-900">Tableau de bord</h1>
-    <p class="text-gray-600 mt-2">Bienvenue dans l'administration Papa Ours</p>
+    <p class="text-gray-600 mt-2">Bienvenue dans l'administration Kwizy</p>
   </div>
 
   <!-- Stats Cards -->
