@@ -105,17 +105,32 @@ export const PUT = async ({ params, request }: RequestEvent) => {
     );
     const classDiffArray = `[${classDiffClauses.join(', ')}]`;
 
-    // Update query with class_difficulties
+    // Build competence_ids array for SurrealQL
+    const competenceIdsClauses = (data.competence_ids || []).map((cid: string) => {
+      const clean = cid.includes(':') ? cid.split(':')[1] : cid;
+      return `type::thing("competence", "${clean}")`;
+    });
+    const competenceIdsArray = competenceIdsClauses.length > 0 
+      ? `[${competenceIdsClauses.join(', ')}]` 
+      : '[]';
+
+    // Build optionImages array if present
+    const optionImagesJson = JSON.stringify(data.optionImages || []);
+
+    // Update query with class_difficulties, questionType, optionImages, and competence_ids
     const updateQuery = `
       UPDATE type::thing("question", $id) SET
         question = $question,
         explanation = $explanation,
         options = $options,
+        optionImages = ${optionImagesJson},
+        questionType = $questionType,
         correctAnswer = $correctAnswer,
         isActive = $isActive,
         matiere_id = type::thing("matiere", $matiereId),
         theme_ids = ${themeIdsArray},
         class_difficulties = ${classDiffArray},
+        competence_ids = ${competenceIdsArray},
         updatedAt = time::now()
     `;
 
@@ -124,6 +139,7 @@ export const PUT = async ({ params, request }: RequestEvent) => {
       question: data.question,
       explanation: data.explanation || '',
       options: data.options,
+      questionType: data.questionType || 'qcm',
       correctAnswer: data.correctAnswer ?? 0,
       isActive: data.isActive ?? true,
       matiereId: matiereIdClean
@@ -222,6 +238,18 @@ export const PATCH = async ({ params, request }: RequestEvent) => {
       );
       const classDiffArray = classDiffClauses.length > 0 ? `[${classDiffClauses.join(', ')}]` : '[]';
       updates.push(`class_difficulties = ${classDiffArray}`);
+    }
+
+    // Handle competence_ids update
+    if (data.competence_ids !== undefined) {
+      const competenceIdsClauses = (data.competence_ids || []).map((cid: string) => {
+        const clean = cid.includes(':') ? cid.split(':')[1] : cid;
+        return `type::thing("competence", "${clean}")`;
+      });
+      const competenceIdsArray = competenceIdsClauses.length > 0 
+        ? `[${competenceIdsClauses.join(', ')}]` 
+        : '[]';
+      updates.push(`competence_ids = ${competenceIdsArray}`);
     }
 
     if (updates.length === 1) {

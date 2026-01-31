@@ -45,6 +45,8 @@ export const POST: RequestHandler = async ({ request }) => {
       question: data.question,
       family: data.family,
       options: data.options,
+      optionImages: data.optionImages || [],
+      questionType: data.questionType || 'qcm',
       correctAnswer: data.correctAnswer,
       explanation: data.explanation,
       imageUrl: data.imageUrl || null,

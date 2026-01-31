@@ -312,26 +312,32 @@
             {currentQuestion.question}
           </h2>
 
-          <!-- Options -->
-          <div class="space-y-3 mb-6">
-            {#each currentQuestion.options as option, index}
-              <button
-                onclick={() => selectAnswer(index)}
-                disabled={showExplanation || submitting}
-                class="w-full p-4 text-left rounded-xl border-2 transition-all
-                  {selectedAnswer === index 
-                    ? (showExplanation
-                      ? (index === lastCorrectAnswer
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-red-500 bg-red-50')
-                      : 'border-purple-500 bg-purple-50')
-                    : (showExplanation && index === lastCorrectAnswer
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50')}
-                  {showExplanation || submitting ? 'cursor-not-allowed' : 'cursor-pointer'}"
-              >
-                <div class="flex items-center">
-                  <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center mr-3
+          <!-- Options - QCM Image (grille d'images) -->
+          {#if currentQuestion.questionType === 'qcm_image' && currentQuestion.optionImages?.length > 0}
+            <div class="grid grid-cols-2 gap-4 mb-6">
+              {#each currentQuestion.optionImages as imageUrl, index}
+                <button
+                  onclick={() => selectAnswer(index)}
+                  disabled={showExplanation || submitting}
+                  class="relative rounded-xl border-4 transition-all overflow-hidden aspect-square
+                    {selectedAnswer === index 
+                      ? (showExplanation
+                        ? (index === lastCorrectAnswer
+                          ? 'border-green-500 ring-4 ring-green-200'
+                          : 'border-red-500 ring-4 ring-red-200')
+                        : 'border-purple-500 ring-4 ring-purple-200')
+                      : (showExplanation && index === lastCorrectAnswer
+                        ? 'border-green-500 ring-4 ring-green-200'
+                        : 'border-gray-200 hover:border-purple-300 hover:ring-2 hover:ring-purple-100')}
+                    {showExplanation || submitting ? 'cursor-not-allowed' : 'cursor-pointer'}"
+                >
+                  <img 
+                    src={imageUrl} 
+                    alt="Option {index + 1}"
+                    class="w-full h-full object-cover"
+                  />
+                  <!-- Indicateur de sélection -->
+                  <div class="absolute top-2 right-2 w-8 h-8 rounded-full border-2 flex items-center justify-center
                     {selectedAnswer === index
                       ? (showExplanation
                         ? (index === lastCorrectAnswer
@@ -340,20 +346,70 @@
                         : 'border-purple-500 bg-purple-500')
                       : (showExplanation && index === lastCorrectAnswer
                         ? 'border-green-500 bg-green-500'
-                        : 'border-gray-300')}">
+                        : 'border-white bg-white/80')}">
                     {#if showExplanation}
                       {#if index === lastCorrectAnswer}
                         <span class="text-white text-lg">✓</span>
                       {:else if selectedAnswer === index}
                         <span class="text-white text-lg">✗</span>
                       {/if}
+                    {:else if selectedAnswer === index}
+                      <span class="text-white text-lg">●</span>
                     {/if}
                   </div>
-                  <span class="font-medium">{option}</span>
-                </div>
-              </button>
-            {/each}
-          </div>
+                  <!-- Label optionnel -->
+                  {#if currentQuestion.options?.[index]}
+                    <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-sm py-2 px-3 text-center">
+                      {currentQuestion.options[index]}
+                    </div>
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          {:else}
+            <!-- Options - QCM classique (texte) -->
+            <div class="space-y-3 mb-6">
+              {#each currentQuestion.options as option, index}
+                <button
+                  onclick={() => selectAnswer(index)}
+                  disabled={showExplanation || submitting}
+                  class="w-full p-4 text-left rounded-xl border-2 transition-all
+                    {selectedAnswer === index 
+                      ? (showExplanation
+                        ? (index === lastCorrectAnswer
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-red-500 bg-red-50')
+                        : 'border-purple-500 bg-purple-50')
+                      : (showExplanation && index === lastCorrectAnswer
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50')}
+                    {showExplanation || submitting ? 'cursor-not-allowed' : 'cursor-pointer'}"
+                >
+                  <div class="flex items-center">
+                    <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center mr-3
+                      {selectedAnswer === index
+                        ? (showExplanation
+                          ? (index === lastCorrectAnswer
+                            ? 'border-green-500 bg-green-500'
+                            : 'border-red-500 bg-red-500')
+                          : 'border-purple-500 bg-purple-500')
+                        : (showExplanation && index === lastCorrectAnswer
+                          ? 'border-green-500 bg-green-500'
+                          : 'border-gray-300')}">
+                      {#if showExplanation}
+                        {#if index === lastCorrectAnswer}
+                          <span class="text-white text-lg">✓</span>
+                        {:else if selectedAnswer === index}
+                          <span class="text-white text-lg">✗</span>
+                        {/if}
+                      {/if}
+                    </div>
+                    <span class="font-medium">{option}</span>
+                  </div>
+                </button>
+              {/each}
+            </div>
+          {/if}
 
           <!-- Explanation -->
           {#if showExplanation}

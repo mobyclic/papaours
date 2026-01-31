@@ -81,34 +81,22 @@ export const POST: RequestHandler = async ({ params, request }) => {
       });
     }
 
-    // Récupérer toutes les questions actives correspondant aux thèmes du quiz
-    // Les questions sont liées via theme_ids (prioritaire) ou matiere_id (fallback)
-    let questionsResult;
-    
-    if (quiz.theme_ids && Array.isArray(quiz.theme_ids) && quiz.theme_ids.length > 0) {
-      // Sélectionner par thèmes du quiz
-      // On cherche les questions dont au moins un theme_id est dans les theme_ids du quiz
-      const themeConditions = quiz.theme_ids.map((tid: any) => {
-        const cleanId = tid.toString().split(':')[1] || tid.toString();
-        return `type::thing("theme", "${cleanId}") INSIDE theme_ids`;
-      }).join(' OR ');
-      
-      questionsResult = await db.query(
-        `SELECT * FROM question WHERE (${themeConditions}) AND isActive = true ORDER BY rand()`
-      );
-    } else if (quiz.matiere_id) {
-      // Fallback: sélectionner par matière
-      const cleanMatiereId = quiz.matiere_id.toString().split(':')[1] || quiz.matiere_id.toString();
-      questionsResult = await db.query(
-        'SELECT * FROM question WHERE matiere_id = type::thing("matiere", $matiereId) AND isActive = true ORDER BY rand()',
-        { matiereId: cleanMatiereId }
-      );
-    } else {
-      // Pas de critère, prendre toutes les questions actives
-      questionsResult = await db.query(
-        'SELECT * FROM question WHERE isActive = true ORDER BY rand()'
-      );
+    // Vérifier que le quiz a au moins un thème associé
+    if (!quiz.theme_ids || !Array.isArray(quiz.theme_ids) || quiz.theme_ids.length === 0) {
+      return json({ 
+        message: 'Ce quiz n\'a pas de thème associé. Veuillez configurer au moins un thème pour ce quiz.' 
+      }, { status: 400 });
     }
+
+    // Récupérer toutes les questions actives correspondant aux thèmes du quiz
+    const themeConditions = quiz.theme_ids.map((tid: any) => {
+      const cleanId = tid.toString().split(':')[1] || tid.toString();
+      return `type::thing("theme", "${cleanId}") INSIDE theme_ids`;
+    }).join(' OR ');
+    
+    const questionsResult = await db.query(
+      `SELECT * FROM question WHERE (${themeConditions}) AND isActive = true ORDER BY rand()`
+    );
 
     let allQuestions = (questionsResult[0] as any[]) || [];
 
@@ -116,10 +104,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
       return json({ message: 'Aucune question disponible pour ce quiz' }, { status: 400 });
     }
 
-    // Déterminer le nombre de questions à sélectionner
+    // Déterminer le nombre de questions à sélectionner (défaut: 20)
+    const DEFAULT_MAX_QUESTIONS = 20;
     const maxQuestions = (quiz.maxQuestions && quiz.maxQuestions > 0) 
       ? Math.min(quiz.maxQuestions, allQuestions.length)
-      : allQuestions.length;
+      : Math.min(DEFAULT_MAX_QUESTIONS, allQuestions.length);
 
     let selectedQuestions: any[];
     let userNiveau = 'débutant';

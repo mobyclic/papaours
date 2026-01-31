@@ -1,0 +1,689 @@
+<script lang="ts">
+  import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { 
+    Edit2, Trash2, Plus, Search, ChevronUp, ChevronDown, Eye, 
+    Filter, X, RefreshCw, Image, CheckCircle, XCircle,
+    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  } from 'lucide-svelte';
+  import { Button } from '$lib/components/ui/button';
+  import { Input } from '$lib/components/ui/input';
+  import * as Select from '$lib/components/ui/select';
+  import * as Dialog from '$lib/components/ui/dialog';
+  import QuestionEditForm from '$lib/components/question/QuestionEditForm.svelte';
+  import QuestionPreview from '$lib/components/question/QuestionPreview.svelte';
+  import type { PageData } from './$types';
+  
+  let { data }: { data: PageData } = $props();
+  
+  // État local
+  let showFilters = $state(true);
+  let showForm = $state(false);
+  let showPreview = $state(false);
+  let editingQuestion = $state<any>(null);
+  let previewQuestion = $state<any>(null);
+  let isDeleting = $state<string | null>(null);
+  
+  // Filtres locaux (pour le debounce de la recherche)
+  let searchInput = $state(data.filters.search);
+  let searchTimeout: ReturnType<typeof setTimeout>;
+  
+  // Derived values
+  const questions = $derived(data.questions);
+  const pagination = $derived(data.pagination);
+  const filters = $derived(data.filters);
+  const matieres = $derived(data.matieres);
+  const themes = $derived(data.themes);
+  const themesMap = $derived(data.themesMap);
+  const stats = $derived(data.stats);
+  
+  // Thèmes filtrés par matière sélectionnée
+  const filteredThemes = $derived(
+    filters.matiereId 
+      ? themes.filter(t => t.matiere_ids?.includes(filters.matiereId))
+      : themes
+  );
+  
+  // Types de questions
+  const questionTypes = [
+    { value: '', label: 'Tous les types' },
+    { value: 'qcm', label: 'QCM classique' },
+    { value: 'qcm_image', label: 'QCM avec images' },
+    { value: 'qcm_multiple', label: 'QCM multiple' },
+    { value: 'true_false', label: 'Vrai/Faux' },
+  ];
+  
+  // Difficultés
+  const difficulties = [
+    { value: '', label: 'Toutes' },
+    { value: 'easy', label: 'Facile' },
+    { value: 'medium', label: 'Moyen' },
+    { value: 'hard', label: 'Difficile' },
+  ];
+  
+  // Statuts
+  const statuses = [
+    { value: '', label: 'Tous' },
+    { value: 'true', label: 'Actives' },
+    { value: 'false', label: 'Inactives' },
+  ];
+  
+  // Navigation avec filtres
+  function updateUrl(params: Record<string, string | number | null>) {
+    const url = new URL($page.url);
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === '' || value === undefined) {
+        url.searchParams.delete(key);
+      } else {
+        url.searchParams.set(key, String(value));
+      }
+    });
+    
+    // Reset page to 1 if filter changed (not pagination)
+    if (!('page' in params)) {
+      url.searchParams.set('page', '1');
+    }
+    
+    goto(url.toString(), { keepFocus: true, noScroll: true });
+  }
+  
+  // Debounced search
+  function handleSearchInput(value: string) {
+    searchInput = value;
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      updateUrl({ search: value || null });
+    }, 300);
+  }
+  
+  // Sort handler
+  function handleSort(column: string) {
+    const newDirection = filters.sortColumn === column && filters.sortDirection === 'asc' ? 'desc' : 'asc';
+    updateUrl({ sort: column, dir: newDirection });
+  }
+  
+  // Pagination handlers
+  function goToPage(p: number) {
+    if (p >= 1 && p <= pagination.totalPages) {
+      updateUrl({ page: p });
+    }
+  }
+  
+  function changePageSize(size: number) {
+    updateUrl({ page: 1, pageSize: size });
+  }
+  
+  // Reset filters
+  function resetFilters() {
+    searchInput = '';
+    goto('/admin/questions');
+  }
+  
+  // CRUD operations
+  function openNewQuestion() {
+    editingQuestion = null;
+    showForm = true;
+  }
+  
+  function openEditForm(question: any) {
+    editingQuestion = question;
+    showForm = true;
+  }
+  
+  function openPreview(question: any) {
+    previewQuestion = question;
+    showPreview = true;
+  }
+  
+  async function handleFormSave() {
+    showForm = false;
+    editingQuestion = null;
+    await invalidateAll();
+  }
+  
+  async function toggleActive(question: any, event: Event) {
+    event.stopPropagation();
+    try {
+      const response = await fetch(`/api/questions/${question.id.split(':')[1] || question.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !question.isActive })
+      });
+      if (response.ok) {
+        await invalidateAll();
+      }
+    } catch (error) {
+      console.error('Toggle error:', error);
+    }
+  }
+  
+  async function deleteQuestion(question: any, event: Event) {
+    event.stopPropagation();
+    if (!confirm(`Supprimer la question "${question.question.substring(0, 50)}..." ?`)) return;
+    
+    isDeleting = question.id;
+    try {
+      const response = await fetch(`/api/admin/questions/${question.id.split(':')[1] || question.id}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        await invalidateAll();
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+    } finally {
+      isDeleting = null;
+    }
+  }
+  
+  // Helpers
+  function truncate(text: string, maxLength: number = 80) {
+    if (!text) return '';
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  }
+  
+  function getDifficultyColor(difficulty: string) {
+    switch (difficulty) {
+      case 'easy': return 'bg-green-100 text-green-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'hard': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  }
+  
+  function getDifficultyLabel(difficulty: string) {
+    switch (difficulty) {
+      case 'easy': return 'Facile';
+      case 'medium': return 'Moyen';
+      case 'hard': return 'Difficile';
+      default: return difficulty;
+    }
+  }
+  
+  function getTypeLabel(type: string) {
+    switch (type) {
+      case 'qcm': return 'QCM';
+      case 'qcm_image': return 'QCM Image';
+      case 'qcm_multiple': return 'Multiple';
+      case 'true_false': return 'Vrai/Faux';
+      default: return type;
+    }
+  }
+  
+  function getThemeNames(themeIds: string[]) {
+    if (!themeIds?.length) return [];
+    return themeIds.map(tid => themesMap[tid] || tid.split(':')[1] || tid).filter(Boolean);
+  }
+  
+  // Compte des filtres actifs
+  const activeFiltersCount = $derived(
+    [filters.search, filters.questionType, filters.difficulty, filters.matiereId, filters.themeId, filters.isActive]
+      .filter(f => f && f !== '').length
+  );
+</script>
+
+<svelte:head>
+  <title>Questions - Admin Papa Ours</title>
+</svelte:head>
+
+<div class="flex-1 p-6 overflow-auto bg-gray-50">
+  <!-- Header -->
+  <div class="mb-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Questions</h1>
+        <p class="text-gray-600 mt-1">
+          {pagination.total} question{pagination.total > 1 ? 's' : ''} au total
+          {#if activeFiltersCount > 0}
+            <span class="text-purple-600">• {activeFiltersCount} filtre{activeFiltersCount > 1 ? 's' : ''} actif{activeFiltersCount > 1 ? 's' : ''}</span>
+          {/if}
+        </p>
+      </div>
+      <Button onclick={openNewQuestion} class="gap-2">
+        <Plus class="w-4 h-4" />
+        Nouvelle question
+      </Button>
+    </div>
+    
+    <!-- Stats rapides -->
+    <div class="grid grid-cols-4 gap-4 mt-4">
+      <div class="bg-white rounded-lg p-4 border border-gray-200">
+        <div class="text-2xl font-bold text-gray-900">{stats.total}</div>
+        <div class="text-sm text-gray-500">Total</div>
+      </div>
+      <div class="bg-white rounded-lg p-4 border border-gray-200">
+        <div class="text-2xl font-bold text-green-600">{stats.active}</div>
+        <div class="text-sm text-gray-500">Actives</div>
+      </div>
+      <div class="bg-white rounded-lg p-4 border border-gray-200">
+        <div class="text-2xl font-bold text-blue-600">{stats.qcm}</div>
+        <div class="text-sm text-gray-500">QCM</div>
+      </div>
+      <div class="bg-white rounded-lg p-4 border border-gray-200">
+        <div class="text-2xl font-bold text-pink-600">{stats.qcm_image}</div>
+        <div class="text-sm text-gray-500">QCM Image</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toolbar: Search + Filters -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
+    <div class="flex items-center gap-4">
+      <!-- Search -->
+      <div class="relative flex-1 max-w-md">
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Input
+          type="text"
+          placeholder="Rechercher dans les questions..."
+          value={searchInput}
+          oninput={(e) => handleSearchInput(e.currentTarget.value)}
+          class="pl-10"
+        />
+      </div>
+      
+      <!-- Toggle Filters -->
+      <Button 
+        variant={showFilters ? "default" : "outline"} 
+        onclick={() => showFilters = !showFilters}
+        class="gap-2"
+      >
+        <Filter class="w-4 h-4" />
+        Filtres
+        {#if activeFiltersCount > 0}
+          <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-white/20">{activeFiltersCount}</span>
+        {/if}
+      </Button>
+      
+      <!-- Reset Filters -->
+      {#if activeFiltersCount > 0}
+        <Button variant="ghost" onclick={resetFilters} class="gap-2 text-gray-500">
+          <X class="w-4 h-4" />
+          Réinitialiser
+        </Button>
+      {/if}
+      
+      <!-- Refresh -->
+      <Button variant="ghost" onclick={() => invalidateAll()} title="Rafraîchir">
+        <RefreshCw class="w-4 h-4" />
+      </Button>
+    </div>
+    
+    <!-- Filters Panel -->
+    {#if showFilters}
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4 pt-4 border-t border-gray-100">
+        <!-- Type -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Type</label>
+          <select
+            value={filters.questionType}
+            onchange={(e) => updateUrl({ type: e.currentTarget.value || null })}
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          >
+            {#each questionTypes as type}
+              <option value={type.value}>{type.label}</option>
+            {/each}
+          </select>
+        </div>
+        
+        <!-- Difficulty -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Difficulté</label>
+          <select
+            value={filters.difficulty}
+            onchange={(e) => updateUrl({ difficulty: e.currentTarget.value || null })}
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          >
+            {#each difficulties as diff}
+              <option value={diff.value}>{diff.label}</option>
+            {/each}
+          </select>
+        </div>
+        
+        <!-- Matière -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Matière</label>
+          <select
+            value={filters.matiereId}
+            onchange={(e) => updateUrl({ matiere: e.currentTarget.value || null, theme: null })}
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          >
+            <option value="">Toutes</option>
+            {#each matieres as matiere}
+              <option value={matiere.id}>{matiere.name}</option>
+            {/each}
+          </select>
+        </div>
+        
+        <!-- Thème -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Thème</label>
+          <select
+            value={filters.themeId}
+            onchange={(e) => updateUrl({ theme: e.currentTarget.value || null })}
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          >
+            <option value="">Tous</option>
+            {#each filteredThemes as theme}
+              <option value={theme.id}>{theme.name}</option>
+            {/each}
+          </select>
+        </div>
+        
+        <!-- Statut -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Statut</label>
+          <select
+            value={filters.isActive || ''}
+            onchange={(e) => updateUrl({ active: e.currentTarget.value || null })}
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          >
+            {#each statuses as status}
+              <option value={status.value}>{status.label}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+    {/if}
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    {#if questions.length === 0}
+      <div class="p-12 text-center">
+        <p class="text-gray-500 mb-4">
+          {activeFiltersCount > 0 ? 'Aucune question ne correspond aux filtres' : 'Aucune question pour le moment'}
+        </p>
+        {#if activeFiltersCount === 0}
+          <Button onclick={openNewQuestion}>
+            Créer la première question
+          </Button>
+        {:else}
+          <Button variant="outline" onclick={resetFilters}>
+            Réinitialiser les filtres
+          </Button>
+        {/if}
+      </div>
+    {:else}
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-12">
+                #
+              </th>
+              <th 
+                class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onclick={() => handleSort('question')}
+              >
+                <div class="flex items-center gap-1">
+                  Question
+                  {#if filters.sortColumn === 'question'}
+                    {#if filters.sortDirection === 'asc'}
+                      <ChevronUp class="w-4 h-4" />
+                    {:else}
+                      <ChevronDown class="w-4 h-4" />
+                    {/if}
+                  {/if}
+                </div>
+              </th>
+              <th 
+                class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-24 cursor-pointer hover:bg-gray-100"
+                onclick={() => handleSort('questionType')}
+              >
+                <div class="flex items-center gap-1">
+                  Type
+                  {#if filters.sortColumn === 'questionType'}
+                    {#if filters.sortDirection === 'asc'}
+                      <ChevronUp class="w-4 h-4" />
+                    {:else}
+                      <ChevronDown class="w-4 h-4" />
+                    {/if}
+                  {/if}
+                </div>
+              </th>
+              <th 
+                class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-24 cursor-pointer hover:bg-gray-100"
+                onclick={() => handleSort('difficulty')}
+              >
+                <div class="flex items-center gap-1">
+                  Niveau
+                  {#if filters.sortColumn === 'difficulty'}
+                    {#if filters.sortDirection === 'asc'}
+                      <ChevronUp class="w-4 h-4" />
+                    {:else}
+                      <ChevronDown class="w-4 h-4" />
+                    {/if}
+                  {/if}
+                </div>
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Thèmes
+              </th>
+              <th 
+                class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-20 cursor-pointer hover:bg-gray-100"
+                onclick={() => handleSort('isActive')}
+              >
+                <div class="flex items-center justify-center gap-1">
+                  Actif
+                  {#if filters.sortColumn === 'isActive'}
+                    {#if filters.sortDirection === 'asc'}
+                      <ChevronUp class="w-4 h-4" />
+                    {:else}
+                      <ChevronDown class="w-4 h-4" />
+                    {/if}
+                  {/if}
+                </div>
+              </th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider w-32">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {#each questions as question, index (question.id)}
+              <tr 
+                class="hover:bg-purple-50/50 transition-colors cursor-pointer"
+                onclick={() => openEditForm(question)}
+              >
+                <td class="px-4 py-3 text-sm text-gray-500">
+                  {(pagination.page - 1) * pagination.pageSize + index + 1}
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex items-start gap-3">
+                    {#if question.imageUrl || question.optionImages?.length > 0}
+                      <div class="flex-shrink-0">
+                        <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+                          {#if question.imageUrl}
+                            <img src={question.imageUrl} alt="" class="w-full h-full object-cover" />
+                          {:else}
+                            <Image class="w-5 h-5 text-gray-400" />
+                          {/if}
+                        </div>
+                      </div>
+                    {/if}
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium text-gray-900 line-clamp-2">{question.question}</p>
+                      {#if question.matiere_name}
+                        <p class="text-xs text-gray-500 mt-0.5">{question.matiere_name}</p>
+                      {/if}
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700">
+                    {getTypeLabel(question.questionType)}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium {getDifficultyColor(question.difficulty)}">
+                    {getDifficultyLabel(question.difficulty)}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex flex-wrap gap-1">
+                    {#each getThemeNames(question.theme_ids).slice(0, 2) as theme}
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-50 text-purple-700">
+                        {theme}
+                      </span>
+                    {/each}
+                    {#if question.theme_ids?.length > 2}
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
+                        +{question.theme_ids.length - 2}
+                      </span>
+                    {/if}
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-center">
+                  <button
+                    onclick={(e) => toggleActive(question, e)}
+                    class="p-1 rounded-full transition-colors {question.isActive ? 'text-green-600 hover:bg-green-100' : 'text-gray-400 hover:bg-gray-100'}"
+                    title={question.isActive ? 'Désactiver' : 'Activer'}
+                  >
+                    {#if question.isActive}
+                      <CheckCircle class="w-5 h-5" />
+                    {:else}
+                      <XCircle class="w-5 h-5" />
+                    {/if}
+                  </button>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center justify-end gap-1">
+                    <button 
+                      class="p-1.5 hover:bg-blue-100 rounded-lg transition-colors" 
+                      title="Prévisualiser"
+                      onclick={(e) => { e.stopPropagation(); openPreview(question); }}
+                    >
+                      <Eye class="w-4 h-4 text-blue-600" />
+                    </button>
+                    <button 
+                      class="p-1.5 hover:bg-purple-100 rounded-lg transition-colors" 
+                      title="Modifier"
+                      onclick={(e) => { e.stopPropagation(); openEditForm(question); }}
+                    >
+                      <Edit2 class="w-4 h-4 text-purple-600" />
+                    </button>
+                    <button 
+                      class="p-1.5 hover:bg-red-100 rounded-lg transition-colors" 
+                      title="Supprimer"
+                      disabled={isDeleting === question.id}
+                      onclick={(e) => deleteQuestion(question, e)}
+                    >
+                      {#if isDeleting === question.id}
+                        <RefreshCw class="w-4 h-4 text-red-600 animate-spin" />
+                      {:else}
+                        <Trash2 class="w-4 h-4 text-red-600" />
+                      {/if}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Pagination -->
+      <div class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-600">Afficher</span>
+          <select
+            value={pagination.pageSize}
+            onchange={(e) => changePageSize(parseInt(e.currentTarget.value))}
+            class="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+          >
+            {#each [10, 20, 50, 100] as size}
+              <option value={size}>{size}</option>
+            {/each}
+          </select>
+          <span class="text-sm text-gray-600">par page</span>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-600">
+            {(pagination.page - 1) * pagination.pageSize + 1}-{Math.min(pagination.page * pagination.pageSize, pagination.total)} sur {pagination.total}
+          </span>
+          
+          <div class="flex items-center gap-1 ml-4">
+            <button
+              onclick={() => goToPage(1)}
+              disabled={pagination.page === 1}
+              class="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Première page"
+            >
+              <ChevronsLeft class="w-4 h-4" />
+            </button>
+            <button
+              onclick={() => goToPage(pagination.page - 1)}
+              disabled={pagination.page === 1}
+              class="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Page précédente"
+            >
+              <ChevronLeft class="w-4 h-4" />
+            </button>
+            
+            <!-- Page numbers -->
+            <div class="flex items-center gap-1 mx-2">
+              {#each Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                const start = Math.max(1, Math.min(pagination.page - 2, pagination.totalPages - 4));
+                return start + i;
+              }).filter(p => p <= pagination.totalPages) as p}
+                <button
+                  onclick={() => goToPage(p)}
+                  class="w-8 h-8 rounded-lg text-sm font-medium transition-colors {p === pagination.page ? 'bg-purple-600 text-white' : 'hover:bg-gray-200'}"
+                >
+                  {p}
+                </button>
+              {/each}
+            </div>
+            
+            <button
+              onclick={() => goToPage(pagination.page + 1)}
+              disabled={pagination.page === pagination.totalPages}
+              class="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Page suivante"
+            >
+              <ChevronRight class="w-4 h-4" />
+            </button>
+            <button
+              onclick={() => goToPage(pagination.totalPages)}
+              disabled={pagination.page === pagination.totalPages}
+              class="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Dernière page"
+            >
+              <ChevronsRight class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    {/if}
+  </div>
+</div>
+
+<!-- Edit/Create Dialog -->
+<Dialog.Root bind:open={showForm}>
+  <Dialog.Content class="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog.Header>
+      <Dialog.Title>{editingQuestion ? 'Modifier la question' : 'Nouvelle question'}</Dialog.Title>
+    </Dialog.Header>
+    <QuestionEditForm
+      question={editingQuestion}
+      matieres={matieres}
+      themes={themes}
+      onSave={handleFormSave}
+      onCancel={() => { showForm = false; editingQuestion = null; }}
+    />
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Preview Dialog -->
+<Dialog.Root bind:open={showPreview}>
+  <Dialog.Content class="max-w-2xl">
+    <Dialog.Header>
+      <Dialog.Title>Prévisualisation</Dialog.Title>
+    </Dialog.Header>
+    {#if previewQuestion}
+      <QuestionPreview question={previewQuestion} interactive={false} />
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>

@@ -2,6 +2,7 @@
 
 export type QuestionType = 
   | 'qcm'           // QCM classique
+  | 'qcm_image'     // QCM avec images comme réponses
   | 'qcm_multiple'  // QCM plusieurs bonnes réponses
   | 'true_false'    // Vrai/Faux avec justification
   | 'open_short'    // Question ouverte courte
@@ -141,6 +142,14 @@ export const QUESTION_TYPES: {
     category: 'knowledge'
   },
   { 
+    value: 'qcm_image', 
+    label: 'QCM Images', 
+    description: 'Choisir la bonne image parmi plusieurs',
+    icon: '🖼️',
+    color: 'pink',
+    category: 'knowledge'
+  },
+  { 
     value: 'qcm_multiple', 
     label: 'QCM (plusieurs réponses)', 
     description: 'Plusieurs bonnes réponses possibles',
@@ -236,6 +245,7 @@ export function getTypeColor(type: QuestionType): string {
     red: 'bg-red-100 text-red-700 border-red-200',
     cyan: 'bg-cyan-100 text-cyan-700 border-cyan-200',
     teal: 'bg-teal-100 text-teal-700 border-teal-200',
+    pink: 'bg-pink-100 text-pink-700 border-pink-200',
   };
   return colors[info?.color || 'gray'] || 'bg-gray-100 text-gray-700 border-gray-200';
 }

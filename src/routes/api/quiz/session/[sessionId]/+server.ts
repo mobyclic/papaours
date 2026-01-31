@@ -4,6 +4,89 @@ import { updateProgressAfterAnswer } from '$lib/progress';
 import type { RequestHandler } from './$types';
 
 /**
+ * Met à jour les compétences utilisateur après une réponse
+ */
+async function updateUserCompetences(db: any, userId: string, questionId: string, isCorrect: boolean) {
+  try {
+    const cleanUserId = userId.includes(':') ? userId.split(':')[1] : userId;
+    const cleanQuestionId = questionId.includes(':') ? questionId.split(':')[1] : questionId;
+    
+    // Récupérer les competence_ids de la question
+    const questionResult = await db.query(
+      'SELECT competence_ids FROM type::thing("question", $questionId)',
+      { questionId: cleanQuestionId }
+    );
+    
+    const question = (questionResult[0] as any[])?.[0];
+    const competenceIds = question?.competence_ids || [];
+    
+    if (competenceIds.length === 0) {
+      return; // Pas de compétences associées à cette question
+    }
+    
+    // Pour chaque compétence, mettre à jour ou créer l'entrée user_competence
+    for (const competenceId of competenceIds) {
+      const cleanCompetenceId = competenceId?.toString()?.includes(':') 
+        ? competenceId.toString().split(':')[1] 
+        : competenceId?.toString();
+      
+      if (!cleanCompetenceId) continue;
+      
+      // Vérifier si l'entrée existe déjà
+      const existingResult = await db.query(`
+        SELECT * FROM user_competence 
+        WHERE user_id = type::thing("user", $userId) 
+        AND competence_id = type::thing("competence", $competenceId)
+      `, { userId: cleanUserId, competenceId: cleanCompetenceId });
+      
+      const existing = (existingResult[0] as any[])?.[0];
+      
+      if (existing) {
+        // Mettre à jour l'existant
+        const newCorrect = (existing.correct_answers || 0) + (isCorrect ? 1 : 0);
+        const newTotal = (existing.total_answers || 0) + 1;
+        const masteryLevel = Math.round((newCorrect / newTotal) * 100);
+        
+        await db.query(`
+          UPDATE type::thing("user_competence", $id) SET
+            correct_answers = $correct,
+            total_answers = $total,
+            mastery_level = $mastery,
+            last_practiced = time::now()
+        `, { 
+          id: existing.id?.toString()?.includes(':') ? existing.id.toString().split(':')[1] : existing.id, 
+          correct: newCorrect, 
+          total: newTotal, 
+          mastery: masteryLevel 
+        });
+      } else {
+        // Créer une nouvelle entrée
+        const newCorrect = isCorrect ? 1 : 0;
+        const masteryLevel = isCorrect ? 100 : 0;
+        
+        await db.query(`
+          CREATE user_competence SET
+            user_id = type::thing("user", $userId),
+            competence_id = type::thing("competence", $competenceId),
+            correct_answers = $correct,
+            total_answers = 1,
+            mastery_level = $mastery,
+            last_practiced = time::now()
+        `, { 
+          userId: cleanUserId, 
+          competenceId: cleanCompetenceId, 
+          correct: newCorrect, 
+          mastery: masteryLevel 
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error updating user competences:', error);
+    // Ne pas faire échouer la requête principale si la mise à jour des compétences échoue
+  }
+}
+
+/**
  * Génère un ordre de mélange déterministe basé sur un seed
  * Le même seed produira toujours le même ordre
  */
@@ -138,6 +221,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
     
     if (userId && classeId) {
       await updateProgressAfterAnswer(userId, classeId, questionId.toString(), verification.isCorrect);
+    }
+    
+    // Mettre à jour les compétences de l'utilisateur
+    if (userId && !userId.startsWith('anonymous_')) {
+      await updateUserCompetences(db, userId, questionId.toString(), verification.isCorrect);
     }
     
     // Créer l'objet réponse

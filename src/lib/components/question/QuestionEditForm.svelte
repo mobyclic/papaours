@@ -1,12 +1,23 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button";
-  import { Save, X, Tag, BookOpen, GraduationCap, BarChart3, Plus, Trash2, Settings2, Check, Loader2 } from "lucide-svelte";
+  import { Save, X, Tag, BookOpen, GraduationCap, BarChart3, Plus, Trash2, Settings2, Check, Loader2, Brain } from "lucide-svelte";
   import ThemeManagerModal from "./ThemeManagerModal.svelte";
 
   interface ClassDifficulty {
     classe_id: string;
     difficulty: 'easy' | 'medium' | 'hard';
     points: number;
+  }
+
+  interface Competence {
+    id: string;
+    code: string;
+    name: string;
+    description?: string;
+    type: 'general' | 'matiere';
+    matiere_id?: string;
+    matiere_name?: string;
+    color?: string;
   }
 
   interface Props {
@@ -42,6 +53,8 @@
   let questionText = $state(question.question || '');
   let explanation = $state(question.explanation || '');
   let options = $state<string[]>(question.options || ['', '', '', '']);
+  let optionImages = $state<string[]>(question.optionImages || ['', '', '', '']);
+  let questionType = $state<string>(question.questionType || 'qcm');
   let correctAnswer = $state<number>(question.correctAnswer ?? 0);
   let isActive = $state(question.isActive ?? true);
   
@@ -61,6 +74,99 @@
         }))
       : []
   );
+
+  // Competences
+  let selectedCompetenceIds = $state<string[]>(
+    (question.competence_ids || []).map((c: any) => c?.toString() || c)
+  );
+  let allCompetences = $state<Competence[]>([]);
+  let loadingCompetences = $state(false);
+  let savingCompetences = $state(false);
+  let savedCompetences = $state(false);
+
+  // Load competences on mount
+  $effect(() => {
+    loadCompetences();
+  });
+
+  async function loadCompetences() {
+    loadingCompetences = true;
+    try {
+      const res = await fetch('/api/competences');
+      if (res.ok) {
+        const data = await res.json();
+        allCompetences = data.competences || [];
+      }
+    } catch (error) {
+      console.error('Error loading competences:', error);
+    } finally {
+      loadingCompetences = false;
+    }
+  }
+
+  // Derived: competences filtered by selected matiere
+  let availableCompetences = $derived.by(() => {
+    // General competences are always available
+    const general = allCompetences.filter(c => c.type === 'general');
+    
+    // Matiere-specific competences filtered by selected matiere
+    let matiereSpecific: Competence[] = [];
+    if (selectedMatiereId) {
+      matiereSpecific = allCompetences.filter(
+        c => c.type === 'matiere' && c.matiere_id === selectedMatiereId
+      );
+    }
+    
+    return { general, matiereSpecific };
+  });
+
+  // Auto-save function for Competences
+  async function autoSaveCompetences() {
+    if (!questionId) return;
+    
+    savingCompetences = true;
+    savedCompetences = false;
+    try {
+      const res = await fetch(`/api/questions/${questionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          competence_ids: selectedCompetenceIds
+        })
+      });
+      
+      if (res.ok) {
+        savedCompetences = true;
+        setTimeout(() => { savedCompetences = false; }, 2000);
+      }
+    } catch (error) {
+      console.error('Error auto-saving competences:', error);
+    } finally {
+      savingCompetences = false;
+    }
+  }
+
+  let competencesSaveTimeout: ReturnType<typeof setTimeout>;
+  function debouncedSaveCompetences() {
+    clearTimeout(competencesSaveTimeout);
+    competencesSaveTimeout = setTimeout(autoSaveCompetences, 500);
+  }
+
+  // Toggle competence selection
+  function toggleCompetence(competenceId: string) {
+    if (selectedCompetenceIds.includes(competenceId)) {
+      selectedCompetenceIds = selectedCompetenceIds.filter(id => id !== competenceId);
+    } else {
+      selectedCompetenceIds = [...selectedCompetenceIds, competenceId];
+    }
+    debouncedSaveCompetences();
+  }
+
+  // Get competence by ID
+  function getCompetenceName(competenceId: string): string {
+    const comp = allCompetences.find(c => c.id === competenceId);
+    return comp ? `${comp.code} - ${comp.name}` : 'Inconnu';
+  }
 
   // Auto-save states
   let savingMatiereThemes = $state(false);
@@ -300,10 +406,20 @@
       alert('Veuillez sélectionner une matière');
       return;
     }
-    if (options.filter(o => o.trim()).length < 2) {
-      alert('Au moins 2 options sont requises');
-      return;
+    
+    // Validation spécifique selon le type
+    if (questionType === 'qcm_image') {
+      if (optionImages.filter(o => o.trim()).length < 2) {
+        alert('Au moins 2 images sont requises pour un QCM Image');
+        return;
+      }
+    } else {
+      if (options.filter(o => o.trim()).length < 2) {
+        alert('Au moins 2 options sont requises');
+        return;
+      }
     }
+    
     if (classDifficulties.length === 0) {
       alert('Veuillez ajouter au moins un niveau scolaire avec sa difficulté');
       return;
@@ -313,22 +429,39 @@
       question: questionText,
       explanation,
       options: options.filter(o => o.trim()),
+      optionImages: questionType === 'qcm_image' ? optionImages.filter(o => o.trim()) : [],
+      questionType,
       correctAnswer,
       isActive,
       matiere_id: selectedMatiereId,
       theme_ids: selectedThemeIds,
-      class_difficulties: classDifficulties
+      class_difficulties: classDifficulties,
+      competence_ids: selectedCompetenceIds
     });
   }
 </script>
 
 <div class="space-y-8">
-  <!-- Type de question (read-only) -->
+  <!-- Type de question -->
   <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-    <div class="flex items-center gap-2 text-gray-700">
-      <span class="text-lg">📝</span>
-      <span class="font-medium">Type : QCM (choix unique)</span>
-      <span class="text-sm text-gray-500 ml-2">— Le type ne peut pas être modifié</span>
+    <label class="block text-sm font-medium text-gray-700 mb-2">Type de question</label>
+    <div class="flex gap-3">
+      <button
+        type="button"
+        onclick={() => questionType = 'qcm'}
+        class="flex-1 px-4 py-3 rounded-lg border-2 transition-all flex items-center justify-center gap-2 {questionType === 'qcm' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 hover:border-purple-300'}"
+      >
+        <span>🔘</span>
+        <span class="font-medium">QCM Texte</span>
+      </button>
+      <button
+        type="button"
+        onclick={() => questionType = 'qcm_image'}
+        class="flex-1 px-4 py-3 rounded-lg border-2 transition-all flex items-center justify-center gap-2 {questionType === 'qcm_image' ? 'border-pink-500 bg-pink-50 text-pink-700' : 'border-gray-200 hover:border-pink-300'}"
+      >
+        <span>🖼️</span>
+        <span class="font-medium">QCM Images</span>
+      </button>
     </div>
   </div>
 
@@ -352,47 +485,125 @@
         ></textarea>
       </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-          Options de réponse
-        </label>
-        <div class="space-y-3">
-          {#each options as option, i}
-            <div class="flex items-center gap-3">
-              <button
-                type="button"
-                onclick={() => correctAnswer = i}
-                class="flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all {correctAnswer === i ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-400'}"
-                title={correctAnswer === i ? 'Bonne réponse' : 'Marquer comme bonne réponse'}
-              >
-                {#if correctAnswer === i}✓{/if}
-              </button>
-              <input
-                type="text"
-                bind:value={options[i]}
-                class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="Option {i + 1}"
-              />
-              {#if options.length > 2}
+      <!-- Options QCM Image -->
+      {#if questionType === 'qcm_image'}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Images de réponse (URL)
+          </label>
+          <div class="grid grid-cols-2 gap-4">
+            {#each optionImages as imageUrl, i}
+              <div class="relative">
+                <div 
+                  class="aspect-square rounded-xl border-2 overflow-hidden transition-all cursor-pointer
+                    {correctAnswer === i ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-200 hover:border-purple-300'}"
+                  onclick={() => correctAnswer = i}
+                >
+                  {#if imageUrl}
+                    <img src={imageUrl} alt="Option {i + 1}" class="w-full h-full object-cover" />
+                  {:else}
+                    <div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400">
+                      <span class="text-4xl">🖼️</span>
+                    </div>
+                  {/if}
+                  
+                  <!-- Badge bonne réponse -->
+                  {#if correctAnswer === i}
+                    <div class="absolute top-2 right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white">
+                      ✓
+                    </div>
+                  {/if}
+                </div>
+                
+                <input
+                  type="text"
+                  bind:value={optionImages[i]}
+                  class="mt-2 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="URL de l'image {i + 1}"
+                />
+                
+                <!-- Label optionnel -->
+                <input
+                  type="text"
+                  bind:value={options[i]}
+                  class="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Label (optionnel)"
+                />
+                
+                {#if optionImages.length > 2}
+                  <button
+                    type="button"
+                    onclick={() => {
+                      optionImages = optionImages.filter((_, idx) => idx !== i);
+                      options = options.filter((_, idx) => idx !== i);
+                      if (correctAnswer >= optionImages.length) correctAnswer = 0;
+                    }}
+                    class="absolute top-2 left-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                  >
+                    <X class="w-4 h-4" />
+                  </button>
+                {/if}
+              </div>
+            {/each}
+          </div>
+          <button
+            type="button"
+            onclick={() => {
+              optionImages = [...optionImages, ''];
+              options = [...options, ''];
+            }}
+            class="mt-3 text-sm text-pink-600 hover:text-pink-700 font-medium"
+          >
+            + Ajouter une image
+          </button>
+          <p class="mt-2 text-xs text-gray-500">
+            💡 Cliquez sur une image pour la marquer comme bonne réponse
+          </p>
+        </div>
+      {:else}
+        <!-- Options QCM Texte classique -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Options de réponse
+          </label>
+          <div class="space-y-3">
+            {#each options as option, i}
+              <div class="flex items-center gap-3">
                 <button
                   type="button"
-                  onclick={() => removeOption(i)}
-                  class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  onclick={() => correctAnswer = i}
+                  class="flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all {correctAnswer === i ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-400'}"
+                  title={correctAnswer === i ? 'Bonne réponse' : 'Marquer comme bonne réponse'}
                 >
-                  <X class="w-4 h-4" />
+                  {#if correctAnswer === i}✓{/if}
                 </button>
-              {/if}
-            </div>
-          {/each}
+                <input
+                  type="text"
+                  bind:value={options[i]}
+                  class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Option {i + 1}"
+                />
+                {#if options.length > 2}
+                  <button
+                    type="button"
+                    onclick={() => removeOption(i)}
+                    class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <X class="w-4 h-4" />
+                  </button>
+                {/if}
+              </div>
+            {/each}
+          </div>
+          <button
+            type="button"
+            onclick={addOption}
+            class="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium"
+          >
+            + Ajouter une option
+          </button>
         </div>
-        <button
-          type="button"
-          onclick={addOption}
-          class="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium"
-        >
-          + Ajouter une option
-        </button>
-      </div>
+      {/if}
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -638,6 +849,136 @@
           Points attribuables : {classDifficulties.map(cd => cd.points).join(', ')} pts.
         </p>
       </div>
+    {/if}
+  </div>
+
+  <!-- Compétences -->
+  <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+        <Brain class="w-5 h-5 text-purple-600" />
+        Compétences évaluées
+        {#if savingCompetences}
+          <span class="flex items-center text-xs text-gray-400 font-normal ml-2">
+            <Loader2 class="w-3 h-3 animate-spin mr-1" />
+            Enregistrement...
+          </span>
+        {:else if savedCompetences}
+          <span class="flex items-center text-xs text-green-600 font-normal ml-2">
+            <Check class="w-3 h-3 mr-1" />
+            Enregistré
+          </span>
+        {/if}
+      </h2>
+      <span class="text-sm text-gray-500">{selectedCompetenceIds.length} sélectionnée{selectedCompetenceIds.length !== 1 ? 's' : ''}</span>
+    </div>
+
+    <p class="text-sm text-gray-500 mb-4">
+      Sélectionnez les compétences que cette question permet d'évaluer. 
+      Les compétences générales (C1-C6) sont toujours disponibles. Les compétences spécifiques dépendent de la matière sélectionnée.
+    </p>
+
+    {#if loadingCompetences}
+      <div class="flex items-center justify-center py-8 text-gray-500">
+        <Loader2 class="w-5 h-5 animate-spin mr-2" />
+        Chargement des compétences...
+      </div>
+    {:else}
+      <!-- Compétences sélectionnées -->
+      {#if selectedCompetenceIds.length > 0}
+        <div class="mb-4">
+          <label class="block text-xs font-medium text-gray-500 mb-2">Sélectionnées</label>
+          <div class="flex flex-wrap gap-2">
+            {#each selectedCompetenceIds as compId}
+              {@const comp = allCompetences.find(c => c.id === compId)}
+              {#if comp}
+                <button
+                  type="button"
+                  onclick={() => toggleCompetence(compId)}
+                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all
+                    {comp.type === 'general' ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}"
+                >
+                  <span class="font-bold">{comp.code}</span>
+                  <span>{comp.name}</span>
+                  <X class="w-3 h-3 ml-1" />
+                </button>
+              {/if}
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Compétences générales -->
+      <div class="space-y-3">
+        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide">
+          Compétences générales
+        </label>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {#each availableCompetences.general as comp}
+            <button
+              type="button"
+              onclick={() => toggleCompetence(comp.id)}
+              class="p-3 rounded-lg border-2 text-left transition-all
+                {selectedCompetenceIds.includes(comp.id) 
+                  ? 'border-purple-500 bg-purple-50' 
+                  : 'border-gray-200 hover:border-purple-300 hover:bg-purple-25'}"
+            >
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-white text-xs font-bold">
+                  {comp.code}
+                </span>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-sm text-gray-800 truncate">{comp.name}</p>
+                </div>
+                {#if selectedCompetenceIds.includes(comp.id)}
+                  <Check class="w-4 h-4 text-purple-600 flex-shrink-0" />
+                {/if}
+              </div>
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <!-- Compétences spécifiques à la matière -->
+      {#if availableCompetences.matiereSpecific.length > 0}
+        <div class="space-y-3 mt-6">
+          <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide">
+            Compétences {matieres.find(m => m.id === selectedMatiereId)?.name || 'de la matière'}
+          </label>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {#each availableCompetences.matiereSpecific as comp}
+              <button
+                type="button"
+                onclick={() => toggleCompetence(comp.id)}
+                class="p-3 rounded-lg border-2 text-left transition-all
+                  {selectedCompetenceIds.includes(comp.id) 
+                    ? 'border-indigo-500 bg-indigo-50' 
+                    : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-25'}"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-bold">
+                    {comp.code}
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium text-sm text-gray-800 truncate">{comp.name}</p>
+                  </div>
+                  {#if selectedCompetenceIds.includes(comp.id)}
+                    <Check class="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                  {/if}
+                </div>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {:else if selectedMatiereId}
+        <div class="mt-6 text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+          <p class="text-sm text-gray-500">Aucune compétence spécifique définie pour cette matière</p>
+        </div>
+      {:else}
+        <div class="mt-6 text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+          <p class="text-sm text-gray-500">Sélectionnez une matière pour voir les compétences spécifiques</p>
+        </div>
+      {/if}
     {/if}
   </div>
 
