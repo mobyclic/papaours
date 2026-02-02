@@ -1,6 +1,7 @@
 /**
- * API: Demande de réinitialisation de mot de passe (tuteurs uniquement)
+ * API: Demande de réinitialisation de mot de passe
  * POST /api/auth/forgot-password
+ * Pour tous les utilisateurs avec email + password_hash
  */
 import { json } from '@sveltejs/kit';
 import { connectDB } from '$lib/db';
@@ -24,10 +25,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
     const db = await connectDB();
 
-    // Chercher le tuteur par email
+    // Chercher l'utilisateur par email (tous ceux qui ont un password_hash)
     const result = await db.query<any[]>(
-      `SELECT * FROM user WHERE email = $email AND user_type = 'tuteur'`,
-      { email }
+      `SELECT * FROM user WHERE email = $email AND password_hash IS NOT NONE`,
+      { email: email.toLowerCase().trim() }
     );
 
     const users = result[0] as any[];
@@ -35,7 +36,7 @@ export const POST: RequestHandler = async ({ request }) => {
     // Pour des raisons de sécurité, on retourne toujours un succès
     // même si l'email n'existe pas (évite l'énumération des comptes)
     if (!users || users.length === 0) {
-      console.log(`[forgot-password] Email non trouvé ou non tuteur: ${email}`);
+      console.log(`[forgot-password] Email non trouvé: ${email}`);
       return json({ 
         success: true, 
         message: 'Si cet email existe, vous recevrez un lien de réinitialisation.' 
@@ -52,18 +53,18 @@ export const POST: RequestHandler = async ({ request }) => {
     );
 
     // Créer un nouveau token (expire dans 1 heure)
-    const token = generateToken();
+    const resetToken = generateToken();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
 
     await db.query(
       `CREATE password_reset_token SET 
         user_id = type::thing('user', $userId),
-        token = $token,
+        reset_token = $resetToken,
         expires_at = $expiresAt,
         used = false`,
       { 
         userId: userId.split(':')[1],
-        token,
+        resetToken,
         expiresAt
       }
     );
@@ -71,7 +72,7 @@ export const POST: RequestHandler = async ({ request }) => {
     // Envoyer l'email
     const emailResult = await sendPasswordResetEmail(
       email,
-      token,
+      resetToken,
       user.prenom || user.name || 'Tuteur'
     );
 

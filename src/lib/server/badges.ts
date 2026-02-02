@@ -287,15 +287,7 @@ export async function getUserBadges(db: Surreal, userId: string): Promise<{
       AND id NOT IN (
         SELECT badge FROM user_badge WHERE user = type::thing('user', $userId)
       )
-      ORDER BY 
-        CASE rarity 
-          WHEN 'common' THEN 1 
-          WHEN 'uncommon' THEN 2 
-          WHEN 'rare' THEN 3 
-          WHEN 'epic' THEN 4 
-          WHEN 'legendary' THEN 5 
-        END,
-        category
+      ORDER BY rarity, category
     `, { userId: cleanUserId });
 
     // Calculer les stats

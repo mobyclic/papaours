@@ -1,42 +1,42 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { currentUser, loadUser, logoutUser } from '$lib/stores/userStore.svelte';
-  import { loadThemeColor, setThemeColor, THEME_COLORS, type ThemeColorId } from '$lib/stores/themeStore.svelte';
   import { goto } from '$app/navigation';
+  import { t } from '$lib/i18n';
+  import { Button } from '$lib/components/ui/button';
+  import { Brain, UserPlus, User, LogOut, ChevronDown, Search, Plus, X, Users, GraduationCap } from 'lucide-svelte';
+  import QuizExploreModal from '$lib/components/QuizExploreModal.svelte';
 
+  // Dropdown state
+  let showUserDropdown = $state(false);
+  let showExploreModal = $state(false);
+  let showTutorModal = $state(false);
+
+  // User context data
+  let userContext = $state<{
+    country?: string;
+    cycle?: string;
+    grade?: string;
+    cycleName?: string;
+    gradeName?: string;
+  }>({});
+  
+  // Dashboard data
+  let loading = $state(true);
   let quizzes = $state<any[]>([]);
   let userResults = $state<any[]>([]);
-  let activeSessions = $state<any[]>([]); // Sessions en cours
-  let loading = $state(true);
+  let activeSessions = $state<any[]>([]);
+  let badges = $state<any[]>([]);
+  let officialProgram = $state<any[]>([]);
   let greeting = $state('');
-  let themeColor = $state<ThemeColorId>('gray');
   
-  // Modal state
+  // Modal state for quiz
   let showQuizModal = $state(false);
   let selectedQuiz = $state<any>(null);
-  let startingQuiz = $state(false);
-  
-  // Options de mode pour le quiz
   let selectedMode = $state<'revision' | 'epreuve'>('revision');
   let selectedTimeLimit = $state<number | null>(null);
-  let customTimeMinutes = $state(10);
+  let startingQuiz = $state(false);
   
-  // Presets de temps
-  const timePresets = [
-    { label: 'Sans limite', value: null },
-    { label: '5 min', value: 300 },
-    { label: '10 min', value: 600 },
-    { label: '15 min', value: 900 },
-    { label: '20 min', value: 1200 },
-    { label: '30 min', value: 1800 },
-    { label: 'Personnalisé', value: -1 }
-  ];
-
-  // Couleurs du thème
-  function getThemeClasses() {
-    return THEME_COLORS.find(c => c.id === themeColor) || THEME_COLORS[0];
-  }
-
   // Stats calculées
   let totalQuizzesDone = $derived(userResults.length);
   let averageScore = $derived.by(() => {
@@ -44,56 +44,47 @@
     const total = userResults.reduce((acc, r) => acc + (r.score / r.totalQuestions) * 100, 0);
     return Math.round(total / userResults.length);
   });
-  let bestScore = $derived.by(() => {
-    if (userResults.length === 0) return 0;
-    return Math.max(...userResults.map(r => Math.round((r.score / r.totalQuestions) * 100)));
+  let currentStreak = $derived(3); // TODO: calculer depuis les résultats
+  
+  // Quiz du jour (random ou basé sur recommandation)
+  let quizOfTheDay = $derived.by(() => {
+    if (quizzes.length === 0) return null;
+    const notDone = quizzes.filter(q => !userResults.some(r => r.quizId === q.id));
+    if (notDone.length > 0) return notDone[Math.floor(Math.random() * notDone.length)];
+    return quizzes[Math.floor(Math.random() * quizzes.length)];
   });
-
-  // Quiz en cours (non terminés à 100%)
+  
+  // Quiz en cours
   let quizzesInProgress = $derived.by(() => {
-    const completedQuizIds = new Set(
-      userResults
-        .filter(r => r.score === r.totalQuestions)
-        .map(r => r.quizId)
-    );
+    const completedIds = new Set(userResults.filter(r => r.score === r.totalQuestions).map(r => r.quizId));
     return quizzes.filter(q => {
       const hasStarted = userResults.some(r => r.quizId === q.id);
-      const notPerfect = !completedQuizIds.has(q.id);
-      return hasStarted && notPerfect;
-    });
+      return hasStarted && !completedIds.has(q.id);
+    }).slice(0, 3);
   });
 
-  // Quiz pas encore essayés
-  let newQuizzes = $derived.by(() => {
-    const triedQuizIds = new Set(userResults.map(r => r.quizId));
-    return quizzes.filter(q => !triedQuizIds.has(q.id));
-  });
-
-  // Quiz maîtrisés (100%)
-  let masteredQuizzes = $derived.by(() => {
-    const perfectQuizIds = new Set(
-      userResults
-        .filter(r => r.score === r.totalQuestions)
-        .map(r => r.quizId)
-    );
-    return quizzes.filter(q => perfectQuizIds.has(q.id));
+  // Libellé adapté selon l'âge/cycle
+  let cursusLabel = $derived.by(() => {
+    const cycle = userContext.cycle?.toLowerCase() || '';
+    if (cycle.includes('maternelle') || cycle.includes('primaire')) return 'Mes aventures';
+    if (cycle.includes('college')) return 'Mon parcours';
+    return 'Mon cursus';
   });
 
   onMount(async () => {
     loadUser();
-    
-    // Petit délai pour laisser le store se mettre à jour
     await new Promise(r => setTimeout(r, 50));
     
     if (!$currentUser) {
       goto('/');
       return;
     }
-
-    // Charger la couleur de thème
-    themeColor = ($currentUser.theme_color as ThemeColorId) || loadThemeColor();
-    // S'assurer que la couleur est sauvegardée dans localStorage
-    setThemeColor(themeColor);
+    
+    // Rediriger vers onboarding si pas complété
+    if (!$currentUser.onboarding_completed && !$currentUser.current_cycle && !$currentUser.current_grade) {
+      goto('/onboarding');
+      return;
+    }
 
     // Message de bienvenue selon l'heure
     const hour = new Date().getHours();
@@ -101,10 +92,28 @@
     else if (hour < 18) greeting = 'Bon après-midi';
     else greeting = 'Bonsoir';
 
-    const uid = $currentUser.id;
-    await Promise.all([loadQuizzes(), loadResults(uid), loadActiveSessions(uid)]);
+    // Charger le contexte utilisateur et les données
+    await Promise.all([
+      loadUserContext(),
+      loadQuizzes(),
+      loadResults(),
+      loadBadges(),
+      loadOfficialProgram()
+    ]);
+    
     loading = false;
   });
+
+  async function loadUserContext() {
+    try {
+      const res = await fetch('/api/user/context');
+      if (res.ok) {
+        userContext = await res.json();
+      }
+    } catch (e) {
+      console.error('Erreur chargement contexte:', e);
+    }
+  }
 
   async function loadQuizzes() {
     try {
@@ -114,96 +123,77 @@
         quizzes = data.quizzes || [];
       }
     } catch (e) {
-      console.error('Erreur chargement des quiz', e);
+      console.error('Erreur chargement quiz:', e);
     }
   }
 
-  async function loadResults(userId: string) {
+  async function loadResults() {
     try {
+      const userId = $currentUser?.id;
+      if (!userId) return;
       const res = await fetch(`/api/user/results?userId=${encodeURIComponent(userId)}`);
       if (res.ok) {
         const data = await res.json();
         userResults = data.results || [];
       }
     } catch (e) {
-      console.error('Erreur chargement des résultats', e);
-    }
-  }
-  
-  async function loadActiveSessions(userId: string) {
-    try {
-      const res = await fetch(`/api/user/sessions?userId=${encodeURIComponent(userId)}`);
-      if (res.ok) {
-        const data = await res.json();
-        activeSessions = data.sessions || [];
-      }
-    } catch (e) {
-      console.error('Erreur chargement des sessions', e);
+      console.error('Erreur chargement résultats:', e);
     }
   }
 
-  function playQuiz(slug: string) {
-    // Trouver le quiz et ouvrir la modal
-    const quiz = quizzes.find(q => q.slug === slug);
-    if (quiz) {
-      selectedQuiz = quiz;
-      showQuizModal = true;
+  async function loadBadges() {
+    try {
+      const res = await fetch('/api/user/badges');
+      if (res.ok) {
+        const data = await res.json();
+        badges = data.badges || [];
+      }
+    } catch (e) {
+      console.error('Erreur chargement badges:', e);
     }
   }
-  
-  function closeQuizModal() {
-    showQuizModal = false;
-    selectedQuiz = null;
-    // Reset des options
-    selectedMode = 'revision';
-    selectedTimeLimit = null;
-    customTimeMinutes = 10;
+
+  async function loadOfficialProgram() {
+    try {
+      const res = await fetch('/api/education/program');
+      if (res.ok) {
+        const data = await res.json();
+        officialProgram = data.subjects || [];
+      }
+    } catch (e) {
+      console.error('Erreur chargement programme:', e);
+    }
   }
-  
-  async function confirmStartQuiz() {
+
+  function playQuiz(quiz: any) {
+    selectedQuiz = quiz;
+    showQuizModal = true;
+  }
+
+  async function startQuiz() {
     if (!selectedQuiz || startingQuiz) return;
-    
     startingQuiz = true;
     
-    // Calculer le timeLimit final
-    let finalTimeLimit = selectedTimeLimit;
-    if (selectedTimeLimit === -1) {
-      finalTimeLimit = customTimeMinutes * 60; // Convertir en secondes
-    }
-    
     try {
-      // Créer la session avec les options de mode
       const response = await fetch(`/api/quiz/${selectedQuiz.slug}/session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          userId: $currentUser?.id || `anonymous_${Date.now()}`,
-          classeId: $currentUser?.classe_id || null,
+          userId: $currentUser?.id,
           mode: selectedMode,
-          timeLimit: finalTimeLimit
+          timeLimit: selectedTimeLimit
         })
       });
       
       if (response.ok) {
         const data = await response.json();
-        // Rediriger vers le quiz avec la session déjà créée
         goto(`/quiz/${selectedQuiz.slug}?sessionId=${data.session.id}`);
-      } else {
-        const errorData = await response.json();
-        alert(errorData.message || 'Erreur lors du démarrage du quiz');
       }
     } catch (err) {
       console.error('Erreur démarrage quiz:', err);
-      alert('Erreur de connexion');
     } finally {
       startingQuiz = false;
     }
-  }
-  
-  function resumeSession(session: any) {
-    // Reprendre une session en cours
-    const quiz = quizzes.find(q => q.id === session.quizId || `quiz:${q.id?.split(':')[1]}` === session.quizId);
-    goto(`/quiz/${quiz?.slug || 'unknown'}?sessionId=${session.id}`);
   }
 
   function handleLogout() {
@@ -211,592 +201,530 @@
     goto('/');
   }
 
-  function getQuizEmoji(theme: string) {
-    const emojis: Record<string, string> = {
-      'Musique': '🎵',
-      'Instruments': '🎸',
-      'Sciences': '🔬',
-      'Nature': '🌿',
-      'Histoire': '📜',
-      'Géographie': '🌍',
-      'Mathématiques': '🔢',
-      'Français': '📚',
-      'Sport': '⚽',
-      'Art': '🎨',
-      'Animaux': '🐾',
-      'Espace': '🚀',
+  function handleAddProfile() {
+    showUserDropdown = false;
+    // Si l'utilisateur est un apprenant, on affiche la modal d'explication
+    if ($currentUser?.profile_type === 'apprenant') {
+      showTutorModal = true;
+    } else {
+      // Sinon on va directement à la page d'ajout de profil
+      goto('/add-profile');
+    }
+  }
+
+  function becomeTutor() {
+    showTutorModal = false;
+    goto('/add-profile?upgrade=tutor');
+  }
+
+  function getSubjectIcon(code: string): string {
+    const icons: Record<string, string> = {
+      'history': '🏰', 'geography': '🌍', 'french': '📚', 'math': '🔢', 'mathematics': '🔢',
+      'physics': '⚛️', 'chemistry': '🧪', 'biology': '🌿', 'svt': '🌿',
+      'english': '🇬🇧', 'spanish': '🇪🇸', 'german': '🇩🇪',
+      'philosophy': '🤔', 'art': '🎨', 'music': '🎵', 'sport': '⚽',
+      'economics': '📈', 'ses': '📊', 'technology': '💻'
     };
-    return emojis[theme] || '🎯';
-  }
-
-  function getScoreColor(score: number, total: number) {
-    const percent = (score / total) * 100;
-    if (percent >= 80) return 'text-green-600';
-    if (percent >= 50) return 'text-yellow-600';
-    return 'text-orange-600';
-  }
-
-  function getScoreEmoji(score: number, total: number) {
-    const percent = (score / total) * 100;
-    if (percent === 100) return '🏆';
-    if (percent >= 80) return '⭐';
-    if (percent >= 50) return '👍';
-    return '💪';
+    return icons[code.toLowerCase()] || '📖';
   }
 </script>
 
 <svelte:head>
-  <title>Mon Espace - Kwizy</title>
+  <title>Dashboard | Kweez</title>
 </svelte:head>
 
-<main class="min-h-screen bg-gray-50">
+<div class="min-h-screen bg-gray-950">
+  <!-- Grid background pattern -->
+  <div class="fixed inset-0 bg-[linear-gradient(rgba(251,191,36,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none"></div>
+  
   {#if loading}
     <div class="flex items-center justify-center min-h-screen">
       <div class="text-center">
-        <div class="animate-pulse text-4xl mb-4 font-bold {getThemeClasses().text}">K</div>
-        <p class="text-lg text-gray-600 font-medium">Chargement de ton espace...</p>
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
+        <p class="mt-4 text-gray-400">{$t('common.loading')}</p>
       </div>
     </div>
   {:else}
-    <!-- Header -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
-      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg flex items-center justify-center {getThemeClasses().bg}">
-            <span class="text-lg font-bold text-white">K</span>
+    <!-- Header / Navigation -->
+    <header class="sticky top-0 z-50 bg-gray-950/90 backdrop-blur-sm border-b border-gray-800">
+      <div class="max-w-7xl mx-auto px-4 py-3">
+        <div class="flex items-center justify-between">
+          <!-- Logo + Context -->
+          <div class="flex items-center gap-4">
+            <a href="/" class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                <Brain class="w-5 h-5 text-white" />
+              </div>
+              <span class="text-xl font-bold bg-gradient-to-r from-amber-400 to-amber-500 text-transparent bg-clip-text">Kweez</span>
+            </a>
+            
+            <!-- Context Breadcrumb -->
+            {#if userContext.cycleName}
+              <div class="hidden md:flex items-center gap-2 text-sm text-gray-400">
+                <span class="text-gray-600">|</span>
+                <span>🇫🇷</span>
+                <span class="text-gray-600">›</span>
+                <span>{userContext.cycleName}</span>
+                {#if userContext.gradeName}
+                  <span class="text-gray-600">›</span>
+                  <span class="text-amber-400 font-medium">{userContext.gradeName}</span>
+                {/if}
+              </div>
+            {/if}
           </div>
-          <span class="font-bold text-xl text-gray-900">
-            Kwizy
-          </span>
-        </div>
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-gray-600 hidden sm:block">
-            Connecté en tant que <strong class="text-gray-900">{$currentUser?.name || $currentUser?.email}</strong>
-          </span>
-          <button 
-            onclick={() => goto('/stats')}
-            class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-            title="Mes statistiques"
-          >
-            📊 Stats
-          </button>
-          <button 
-            onclick={() => goto('/favorites')}
-            class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-            title="Mes favoris"
-          >
-            ❤️ Favoris
-          </button>
-          <button 
-            onclick={() => goto('/profile')}
-            class="px-3 py-1.5 text-sm rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-            title="Mon profil"
-          >
-            👤 Profil
-          </button>
-          <button 
-            onclick={() => goto('/donate')}
-            class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-            title="Soutenir Kwizy"
-          >
-            💝 Don
-          </button>
-          <button 
-            onclick={() => goto('/settings')}
-            class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-            title="Paramètres"
-          >
-            ⚙️
-          </button>
-          <button 
-            onclick={handleLogout}
-            class="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-          >
-            Déconnexion
-          </button>
+          
+          <!-- User Actions -->
+          <div class="flex items-center gap-2">
+            <button 
+              onclick={() => showExploreModal = true}
+              class="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-gray-900 font-medium transition-colors"
+              title="Trouver un quiz"
+            >
+              <Search class="w-4 h-4" />
+              <span class="hidden sm:inline text-sm">Trouver un quiz</span>
+            </button>
+            
+            <div class="relative">
+              <button 
+                onclick={() => showUserDropdown = !showUserDropdown}
+                onblur={() => setTimeout(() => showUserDropdown = false, 150)}
+                class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+              >
+                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-sm font-bold text-gray-900">
+                  {($currentUser?.name?.charAt(0) || $currentUser?.email?.charAt(0) || '?').toUpperCase()}
+                </div>
+                <span class="text-sm text-gray-300 hidden sm:block">{$currentUser?.name?.split(' ')[0] || 'Mon profil'}</span>
+                <ChevronDown class="w-4 h-4 text-gray-500" />
+              </button>
+              
+              {#if showUserDropdown}
+                <div class="absolute right-0 top-full mt-2 w-48 bg-gray-900 border border-gray-700 rounded-xl shadow-xl overflow-hidden z-50">
+                  <button 
+                    onmousedown={() => { showUserDropdown = false; goto('/profile'); }}
+                    class="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-gray-800 transition-colors text-left"
+                  >
+                    <User class="w-4 h-4 text-amber-400" />
+                    Mon profil
+                  </button>
+                  <button 
+                    onmousedown={handleAddProfile}
+                    class="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-gray-800 transition-colors text-left"
+                  >
+                    <UserPlus class="w-4 h-4 text-gray-400" />
+                    Ajouter un profil
+                  </button>
+                  <div class="border-t border-gray-800"></div>
+                  <button 
+                    onmousedown={() => { showUserDropdown = false; handleLogout(); }}
+                    class="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-gray-800 transition-colors text-left"
+                  >
+                    <LogOut class="w-4 h-4" />
+                    Déconnexion
+                  </button>
+                </div>
+              {/if}
+            </div>
+          </div>
         </div>
       </div>
     </header>
 
-    <div class="max-w-6xl mx-auto px-4 py-8">
+    <main class="relative z-10 max-w-7xl mx-auto px-4 py-6">
       <!-- Welcome Section -->
       <section class="mb-8">
-        <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-          {greeting}, <span class="text-gray-900">{$currentUser?.name?.split(' ')[0] || 'Champion'}</span> ! 👋
+        <h1 class="text-2xl md:text-3xl font-bold text-white mb-1">
+          {greeting}, <span class="text-amber-400">{$currentUser?.name?.split(' ')[0] || 'Champion'}</span> ! 👋
         </h1>
-        <p class="text-gray-600 text-lg">Prêt à apprendre en t'amusant ?</p>
+        <p class="text-gray-400">Prêt à apprendre en t'amusant ?</p>
       </section>
 
-      <!-- Stats Cards -->
+      <!-- Stats Row -->
       <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-200 text-center hover:shadow-md transition-shadow">
-          <div class="text-3xl mb-2">🎮</div>
-          <div class="text-2xl font-bold text-gray-900">{totalQuizzesDone}</div>
-          <div class="text-sm text-gray-600">Quiz joués</div>
+        <div class="bg-gray-900/80 rounded-xl p-4 border border-gray-800 text-center">
+          <div class="text-2xl mb-1">🎮</div>
+          <div class="text-2xl font-bold text-white">{totalQuizzesDone}</div>
+          <div class="text-xs text-gray-500">Quiz joués</div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-200 text-center hover:shadow-md transition-shadow">
-          <div class="text-3xl mb-2">📊</div>
-          <div class="text-2xl font-bold text-gray-900">{averageScore}%</div>
-          <div class="text-sm text-gray-600">Score moyen</div>
+        <div class="bg-gray-900/80 rounded-xl p-4 border border-gray-800 text-center">
+          <div class="text-2xl mb-1">📊</div>
+          <div class="text-2xl font-bold text-white">{averageScore}%</div>
+          <div class="text-xs text-gray-500">Score moyen</div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-200 text-center hover:shadow-md transition-shadow">
-          <div class="text-3xl mb-2">🏆</div>
-          <div class="text-2xl font-bold text-gray-900">{bestScore}%</div>
-          <div class="text-sm text-gray-600">Meilleur score</div>
+        <div class="bg-gray-900/80 rounded-xl p-4 border border-gray-800 text-center">
+          <div class="text-2xl mb-1">🔥</div>
+          <div class="text-2xl font-bold text-amber-400">{currentStreak}</div>
+          <div class="text-xs text-gray-500">Jours de suite</div>
         </div>
         <button 
           onclick={() => goto('/leaderboard')}
-          class="bg-white rounded-xl shadow-sm p-4 border border-gray-200 text-center hover:shadow-md transition-shadow hover:border-gray-300"
+          class="bg-gray-900/80 rounded-xl p-4 border border-gray-800 text-center hover:border-amber-500/50 transition-colors"
         >
-          <div class="text-3xl mb-2">🏅</div>
-          <div class="text-2xl font-bold text-gray-900">Classement</div>
-          <div class="text-sm text-gray-600">Voir le top →</div>
+          <div class="text-2xl mb-1">🏆</div>
+          <div class="text-lg font-bold text-white">Classement</div>
+          <div class="text-xs text-gray-500">Voir le top →</div>
         </button>
       </section>
 
-      <!-- Quick Actions -->
-      <section class="mb-8">
-        <div class="bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 rounded-2xl p-1">
-          <div class="bg-white rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div>
-              <h3 class="font-bold text-gray-800">🔍 Envie de découvrir plus de quiz ?</h3>
-              <p class="text-sm text-gray-600">Explore tous les quiz par matière, thème et difficulté</p>
+      <!-- Main Grid: 2 columns on desktop -->
+      <div class="grid lg:grid-cols-3 gap-6">
+        <!-- Left Column: Cursus + Recommendations -->
+        <div class="lg:col-span-2 space-y-6">
+          
+          <!-- Mon Cursus Section -->
+          <section class="bg-gray-900/80 rounded-2xl border border-gray-800 p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <span>📚</span> {cursusLabel}
+              </h2>
+              <button 
+                onclick={() => goto('/explore')}
+                class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-gray-900 text-sm font-medium transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Ajouter un quiz
+              </button>
             </div>
-            <button
-              onclick={() => goto('/explore')}
-              class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all whitespace-nowrap"
-            >
-              Explorer les quiz ✨
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Active Sessions - Quiz à reprendre -->
-      {#if activeSessions.length > 0}
-        <section class="mb-8">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="text-2xl">⏸️</span>
-            <h2 class="text-xl font-bold text-gray-800">Reprends où tu t'es arrêté</h2>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each activeSessions as session}
-              {@const quiz = quizzes.find(q => q.id === session.quizId || `quiz:${q.id?.split(':')[1]}` === session.quizId)}
-              <div class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl shadow-lg p-5 border-2 border-blue-200 hover:border-blue-400 transition-all transform hover:scale-102">
-                <div class="flex items-start justify-between mb-3">
-                  <span class="text-3xl">{getQuizEmoji(quiz?.theme || 'Musique')}</span>
-                  <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
-                    En pause
-                  </span>
-                </div>
-                <h3 class="font-bold text-lg text-gray-800 mb-1">{quiz?.title || 'Quiz'}</h3>
-                <p class="text-sm text-gray-600 mb-2">
-                  Progression: <span class="font-bold text-blue-600">{session.progress}/{session.totalQuestions}</span> questions
-                </p>
-                <div class="w-full bg-blue-100 rounded-full h-2 mb-3">
-                  <div 
-                    class="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all"
-                    style="width: {Math.round((session.progress / session.totalQuestions) * 100)}%"
-                  ></div>
-                </div>
-                <button 
-                  onclick={() => resumeSession(session)}
-                  class="w-full py-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all"
-                >
-                  Reprendre ▶️
-                </button>
+            
+            <!-- Progress bar global -->
+            <div class="mb-4">
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-400">Progression globale</span>
+                <span class="text-amber-400 font-medium">{averageScore}%</span>
               </div>
-            {/each}
-          </div>
-        </section>
-      {/if}
-
-      <!-- Continue Learning Section -->
-      {#if quizzesInProgress.length > 0}
-        <section class="mb-8">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="text-2xl">🚀</span>
-            <h2 class="text-xl font-bold text-gray-800">Continue ton apprentissage</h2>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each quizzesInProgress as quiz}
-              {@const lastResult = userResults.filter(r => r.quizId === quiz.id).sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0]}
-              <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl shadow-lg p-5 border-2 border-orange-200 hover:border-orange-400 transition-all transform hover:scale-102">
-                <div class="flex items-start justify-between mb-3">
-                  <span class="text-3xl">{getQuizEmoji(quiz.theme || 'Musique')}</span>
-                  <span class="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
-                    En cours
-                  </span>
-                </div>
-                <h3 class="font-bold text-lg text-gray-800 mb-1">{quiz.title}</h3>
-                {#if lastResult}
-                  <p class="text-sm text-gray-600 mb-3">
-                    Dernier score: <span class="{getScoreColor(lastResult.score, lastResult.totalQuestions)} font-bold">{lastResult.score}/{lastResult.totalQuestions}</span>
-                    {getScoreEmoji(lastResult.score, lastResult.totalQuestions)}
-                  </p>
-                {/if}
-                <button 
-                  onclick={() => playQuiz(quiz.slug)}
-                  class="w-full py-2 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-semibold hover:from-orange-600 hover:to-yellow-600 transition-all"
-                >
-                  Continuer 🎯
-                </button>
+              <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all" style="width: {averageScore}%"></div>
               </div>
-            {/each}
-          </div>
-        </section>
-      {/if}
-
-      <!-- New Quizzes Section -->
-      {#if newQuizzes.length > 0}
-        <section class="mb-8">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="text-2xl">✨</span>
-            <h2 class="text-xl font-bold text-gray-800">Découvre de nouveaux quiz</h2>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each newQuizzes as quiz}
-              <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl shadow-lg p-5 border-2 border-purple-200 hover:border-purple-400 transition-all transform hover:scale-102">
-                <div class="flex items-start justify-between mb-3">
-                  <span class="text-3xl">{getQuizEmoji(quiz.theme || 'Musique')}</span>
-                  <span class="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                    Nouveau !
-                  </span>
-                </div>
-                <h3 class="font-bold text-lg text-gray-800 mb-1">{quiz.title}</h3>
-                {#if quiz.description}
-                  <p class="text-sm text-gray-600 mb-3 line-clamp-2">{quiz.description}</p>
-                {:else}
-                  <p class="text-sm text-gray-600 mb-3">Niveau {quiz.level || 1}</p>
-                {/if}
-                <button 
-                  onclick={() => playQuiz(quiz.slug)}
-                  class="w-full py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold hover:from-purple-700 hover:to-pink-700 transition-all"
-                >
-                  Commencer 🚀
-                </button>
-              </div>
-            {/each}
-          </div>
-        </section>
-      {/if}
-
-      <!-- Mastered Quizzes Section -->
-      {#if masteredQuizzes.length > 0}
-        <section class="mb-8">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="text-2xl">🏆</span>
-            <h2 class="text-xl font-bold text-gray-800">Tes quiz maîtrisés</h2>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each masteredQuizzes as quiz}
-              <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-lg p-5 border-2 border-green-200 hover:border-green-400 transition-all transform hover:scale-102">
-                <div class="flex items-start justify-between mb-3">
-                  <span class="text-3xl">{getQuizEmoji(quiz.theme || 'Musique')}</span>
-                  <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full flex items-center gap-1">
-                    <span>🏆</span> Maîtrisé
-                  </span>
-                </div>
-                <h3 class="font-bold text-lg text-gray-800 mb-1">{quiz.title}</h3>
-                <p class="text-sm text-green-600 font-medium mb-3">Score parfait ! 100% ⭐</p>
-                <button 
-                  onclick={() => playQuiz(quiz.slug)}
-                  class="w-full py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold hover:from-green-600 hover:to-emerald-600 transition-all"
-                >
-                  Rejouer 🔄
-                </button>
-              </div>
-            {/each}
-          </div>
-        </section>
-      {/if}
-
-      <!-- All Quizzes Section -->
-      <section class="mb-8">
-        <div class="flex items-center gap-2 mb-4">
-          <span class="text-2xl">📚</span>
-          <h2 class="text-xl font-bold text-gray-800">Tous les quiz</h2>
-        </div>
-        
-        {#if quizzes.length === 0}
-          <div class="bg-white rounded-2xl shadow-lg p-8 text-center">
-            <div class="text-5xl mb-4">📭</div>
-            <p class="text-gray-600">Aucun quiz disponible pour le moment.</p>
-            <p class="text-sm text-gray-500 mt-2">Reviens bientôt, de nouveaux quiz arrivent !</p>
-          </div>
-        {:else}
-          <!-- Group by theme -->
-          {#each Array.from(new Set(quizzes.map(q => q.theme || 'Musique'))) as theme}
-            <div class="mb-6">
-              <h3 class="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <span>{getQuizEmoji(theme)}</span> {theme}
-              </h3>
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {#each quizzes.filter(q => (q.theme || 'Musique') === theme) as quiz}
-                  {@const results = userResults.filter(r => r.quizId === quiz.id)}
-                  {@const bestResult = results.sort((a, b) => (b.score / b.totalQuestions) - (a.score / a.totalQuestions))[0]}
-                  <div class="bg-white rounded-xl shadow p-4 border border-gray-100 hover:border-purple-300 transition-all">
-                    <div class="flex items-center justify-between mb-2">
-                      <h4 class="font-bold text-gray-800">{quiz.title}</h4>
-                      {#if bestResult}
-                        <span class="text-sm {getScoreColor(bestResult.score, bestResult.totalQuestions)} font-medium">
-                          {getScoreEmoji(bestResult.score, bestResult.totalQuestions)} {Math.round((bestResult.score / bestResult.totalQuestions) * 100)}%
-                        </span>
+            </div>
+            
+            <!-- Quiz en cours -->
+            {#if quizzesInProgress.length > 0}
+              <div class="space-y-3">
+                <h3 class="text-sm font-medium text-gray-400">En cours</h3>
+                {#each quizzesInProgress as quiz}
+                  {@const lastResult = userResults.filter(r => r.quizId === quiz.id).sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0]}
+                  <button 
+                    onclick={() => playQuiz(quiz)}
+                    class="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-amber-500/50 transition-all text-left"
+                  >
+                    <span class="text-2xl">{getSubjectIcon(quiz.subject || quiz.theme || '')}</span>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium text-white truncate">{quiz.title}</div>
+                      {#if lastResult}
+                        <div class="text-xs text-gray-500">
+                          Dernier: {lastResult.score}/{lastResult.totalQuestions}
+                        </div>
                       {/if}
                     </div>
-                    {#if quiz.description}
-                      <p class="text-sm text-gray-600 mb-3 line-clamp-1">{quiz.description}</p>
-                    {/if}
-                    <button 
-                      onclick={() => playQuiz(quiz.slug)}
-                      class="w-full py-2 rounded-lg bg-gray-100 hover:bg-purple-100 text-gray-700 hover:text-purple-700 font-medium transition-colors"
-                    >
-                      {bestResult ? 'Rejouer' : 'Jouer'}
-                    </button>
+                    <span class="text-amber-400 text-sm">Continuer →</span>
+                  </button>
+                {/each}
+              </div>
+            {:else}
+              <div class="text-center py-8 text-gray-500">
+                <div class="text-4xl mb-2">🎯</div>
+                <p>Aucun quiz en cours</p>
+                <button 
+                  onclick={() => goto('/explore')}
+                  class="mt-3 text-amber-400 hover:text-amber-300 text-sm"
+                >
+                  Découvrir des quiz →
+                </button>
+              </div>
+            {/if}
+          </section>
+
+          <!-- Flux de Recommandations -->
+          <section class="bg-gray-900/80 rounded-2xl border border-gray-800 p-6">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2 mb-4">
+              <span>✨</span> Recommandations
+            </h2>
+            
+            <div class="grid md:grid-cols-2 gap-4">
+              <!-- Quiz du jour -->
+              {#if quizOfTheDay}
+                <div class="bg-gradient-to-br from-amber-500/20 to-orange-500/10 rounded-xl p-4 border border-amber-500/30">
+                  <div class="flex items-center gap-2 text-amber-400 text-sm font-medium mb-2">
+                    <span>🌟</span> Quiz du jour
+                  </div>
+                  <h3 class="font-bold text-white mb-2">{quizOfTheDay.title}</h3>
+                  <p class="text-sm text-gray-400 mb-3 line-clamp-2">{quizOfTheDay.description || 'Teste tes connaissances !'}</p>
+                  <Button 
+                    onclick={() => playQuiz(quizOfTheDay)}
+                    class="w-full bg-amber-500 hover:bg-amber-600 text-gray-900 font-medium"
+                  >
+                    Jouer maintenant
+                  </Button>
+                </div>
+              {/if}
+              
+              <!-- Points faibles -->
+              <div class="bg-gradient-to-br from-purple-500/20 to-pink-500/10 rounded-xl p-4 border border-purple-500/30">
+                <div class="flex items-center gap-2 text-purple-400 text-sm font-medium mb-2">
+                  <span>💪</span> Révisions ciblées
+                </div>
+                <h3 class="font-bold text-white mb-2">Améliore tes points faibles</h3>
+                <p class="text-sm text-gray-400 mb-3">Quiz généré sur les questions où tu as eu des difficultés</p>
+                <Button 
+                  variant="outline"
+                  class="w-full border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                  disabled
+                >
+                  Bientôt disponible
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Right Column: Hub / Matières -->
+        <div class="space-y-6">
+          <!-- Bibliothèque des matières -->
+          <section class="bg-gray-900/80 rounded-2xl border border-gray-800 p-6">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2 mb-4">
+              <span>📖</span> Programme officiel
+            </h2>
+            
+            {#if officialProgram.length > 0}
+              <div class="space-y-2">
+                {#each officialProgram as subject}
+                  <button 
+                    onclick={() => goto(`/subjects/${subject.code}`)}
+                    class="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 transition-all text-left"
+                  >
+                    <span class="text-xl">{subject.icon || getSubjectIcon(subject.code)}</span>
+                    <div class="flex-1">
+                      <div class="font-medium text-white">{subject.name}</div>
+                      {#if subject.chaptersCount}
+                        <div class="text-xs text-gray-500">{subject.chaptersCount} chapitres</div>
+                      {/if}
+                    </div>
+                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                {/each}
+              </div>
+            {:else}
+              <div class="text-center py-6 text-gray-500">
+                <p class="text-sm">Complète ton profil pour voir ton programme</p>
+                <button 
+                  onclick={() => goto('/profile')}
+                  class="mt-2 text-amber-400 hover:text-amber-300 text-sm"
+                >
+                  Configurer →
+                </button>
+              </div>
+            {/if}
+          </section>
+
+          <!-- Badges / Gamification -->
+          <section class="bg-gray-900/80 rounded-2xl border border-gray-800 p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <span>🏅</span> Mes badges
+              </h2>
+              <button 
+                onclick={() => goto('/badges')}
+                class="text-sm text-gray-400 hover:text-amber-400"
+              >
+                Voir tous →
+              </button>
+            </div>
+            
+            {#if badges.length > 0}
+              <div class="flex flex-wrap gap-2">
+                {#each badges.slice(0, 6) as badge}
+                  <div 
+                    class="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center text-2xl border border-gray-700"
+                    title={badge.name}
+                  >
+                    {badge.icon || '🎖️'}
                   </div>
                 {/each}
               </div>
-            </div>
-          {/each}
-        {/if}
-      </section>
-
-      <!-- Recent Activity -->
-      {#if userResults.length > 0}
-        <section class="mb-8">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="text-2xl">📈</span>
-            <h2 class="text-xl font-bold text-gray-800">Ton activité récente</h2>
-          </div>
-          <div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
-            <div class="overflow-x-auto">
-              <table class="w-full">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Date</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Quiz</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Score</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Résultat</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                  {#each userResults.slice(0, 10).sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()) as result}
-                    {@const quiz = quizzes.find(q => q.id === result.quizId)}
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-4 py-3 text-sm text-gray-600">
-                        {new Date(result.completedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td class="px-4 py-3 text-sm font-medium text-gray-800">
-                        {quiz?.title || 'Quiz'}
-                      </td>
-                      <td class="px-4 py-3 text-sm {getScoreColor(result.score, result.totalQuestions)} font-bold">
-                        {result.score}/{result.totalQuestions}
-                      </td>
-                      <td class="px-4 py-3 text-xl">
-                        {getScoreEmoji(result.score, result.totalQuestions)}
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      {/if}
-
-      <!-- Fun Encouragement -->
-      <section class="text-center py-8">
-        <div class="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-6 inline-block">
-          <p class="text-lg text-gray-700">
-            {#if totalQuizzesDone === 0}
-              🌟 Lance-toi dans ton premier quiz et deviens un champion !
-            {:else if averageScore >= 80}
-              🎉 Bravo ! Tu es un vrai champion avec une moyenne de {averageScore}% !
-            {:else if averageScore >= 50}
-              💪 Continue comme ça ! Tu progresses super bien !
             {:else}
-              🌱 Chaque essai te rend plus fort. Continue à apprendre !
-            {/if}
-          </p>
-        </div>
-      </section>
-    </div>
-    
-    <!-- Quiz Start Modal with Mode Selection -->
-    {#if showQuizModal && selectedQuiz}
-      <div class="fixed inset-0 z-50 flex items-center justify-center">
-        <!-- Backdrop -->
-        <div 
-          class="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onclick={closeQuizModal}
-          role="button"
-          tabindex="-1"
-          onkeydown={(e) => e.key === 'Escape' && closeQuizModal()}
-        ></div>
-        
-        <!-- Modal Content -->
-        <div class="relative bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 transform animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-          <button
-            onclick={closeQuizModal}
-            class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
-          >
-            ✕
-          </button>
-          
-          <div class="text-center mb-6">
-            <div class="text-5xl mb-3">🎯</div>
-            <h3 class="text-2xl font-bold text-gray-800">Configurer le quiz</h3>
-          </div>
-          
-          <!-- Quiz Info -->
-          <div class="bg-purple-50 rounded-xl p-4 mb-6">
-            <h4 class="font-bold text-purple-800 text-lg">{selectedQuiz.title}</h4>
-            {#if selectedQuiz.description}
-              <p class="text-purple-600 text-sm mt-1">{selectedQuiz.description}</p>
-            {/if}
-            <div class="flex justify-center gap-2 mt-3 text-xs flex-wrap">
-              <span class="px-2 py-1 bg-purple-200 text-purple-800 rounded-full">
-                {selectedQuiz.maxQuestions || '?'} questions
-              </span>
-              {#if selectedQuiz.theme}
-                <span class="px-2 py-1 bg-pink-200 text-pink-800 rounded-full">{selectedQuiz.theme}</span>
-              {/if}
-            </div>
-          </div>
-          
-          <!-- Mode Selection -->
-          <div class="mb-6">
-            <h4 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <span>📝</span> Mode de jeu
-            </h4>
-            <div class="grid grid-cols-2 gap-3">
-              <button
-                onclick={() => selectedMode = 'revision'}
-                class="p-4 rounded-xl border-2 transition-all text-left {selectedMode === 'revision' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'}"
-              >
-                <div class="text-2xl mb-1">📖</div>
-                <div class="font-semibold text-gray-800">Révision</div>
-                <p class="text-xs text-gray-500 mt-1">Correction après chaque question</p>
-              </button>
-              <button
-                onclick={() => selectedMode = 'epreuve'}
-                class="p-4 rounded-xl border-2 transition-all text-left {selectedMode === 'epreuve' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}"
-              >
-                <div class="text-2xl mb-1">🏆</div>
-                <div class="font-semibold text-gray-800">Épreuve</div>
-                <p class="text-xs text-gray-500 mt-1">Résultat à la fin, navigation libre</p>
-              </button>
-            </div>
-          </div>
-          
-          <!-- Time Selection -->
-          <div class="mb-6">
-            <h4 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <span>⏱️</span> Temps limite
-            </h4>
-            <div class="grid grid-cols-4 gap-2">
-              {#each timePresets as preset}
-                <button
-                  onclick={() => selectedTimeLimit = preset.value}
-                  class="px-3 py-2 rounded-lg text-sm font-medium transition-all 
-                    {selectedTimeLimit === preset.value 
-                      ? 'bg-orange-500 text-white' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
-                >
-                  {preset.label}
-                </button>
-              {/each}
-            </div>
-            
-            <!-- Custom time input -->
-            {#if selectedTimeLimit === -1}
-              <div class="mt-3 flex items-center gap-2 justify-center">
-                <input
-                  type="number"
-                  bind:value={customTimeMinutes}
-                  min="1"
-                  max="120"
-                  class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center"
-                />
-                <span class="text-gray-600">minutes</span>
+              <div class="text-center py-4 text-gray-500">
+                <div class="text-3xl mb-2">🎯</div>
+                <p class="text-sm">Joue des quiz pour gagner des badges !</p>
               </div>
             {/if}
-          </div>
-          
-          <!-- Mode Info -->
-          <div class="mb-6 p-3 rounded-lg {selectedMode === 'revision' ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'}">
-            {#if selectedMode === 'revision'}
-              <p class="text-sm text-green-700">
-                <strong>Mode Révision :</strong> Tu verras la correction et l'explication après chaque question. 
-                Idéal pour apprendre !
-              </p>
-            {:else}
-              <p class="text-sm text-blue-700">
-                <strong>Mode Épreuve :</strong> Tu peux naviguer librement entre les questions et modifier tes réponses.
-                Le résultat sera affiché uniquement à la fin. Comme un vrai examen !
-              </p>
-            {/if}
-            {#if selectedTimeLimit && selectedTimeLimit !== -1}
-              <p class="text-sm mt-1 {selectedMode === 'revision' ? 'text-green-600' : 'text-blue-600'}">
-                ⏰ Temps limite : {selectedTimeLimit / 60} minutes
-              </p>
-            {:else if selectedTimeLimit === -1}
-              <p class="text-sm mt-1 {selectedMode === 'revision' ? 'text-green-600' : 'text-blue-600'}">
-                ⏰ Temps limite : {customTimeMinutes} minutes
-              </p>
-            {/if}
-          </div>
-          
-          <!-- Actions -->
-          <div class="flex gap-3">
-            <button
-              onclick={closeQuizModal}
-              class="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-all"
+          </section>
+
+          <!-- Quick Links -->
+          <div class="grid grid-cols-2 gap-3">
+            <button 
+              onclick={() => goto('/stats')}
+              class="p-4 rounded-xl bg-gray-800/50 border border-gray-700 hover:border-gray-600 text-center transition-colors"
             >
-              Annuler
+              <div class="text-2xl mb-1">📊</div>
+              <div class="text-sm text-gray-400">Statistiques</div>
             </button>
-            <button
-              onclick={confirmStartQuiz}
-              disabled={startingQuiz}
-              class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 disabled:opacity-50"
+            <button 
+              onclick={() => goto('/favorites')}
+              class="p-4 rounded-xl bg-gray-800/50 border border-gray-700 hover:border-gray-600 text-center transition-colors"
             >
-              {startingQuiz ? 'Chargement...' : "🚀 C'est parti !"}
+              <div class="text-2xl mb-1">❤️</div>
+              <div class="text-sm text-gray-400">Favoris</div>
             </button>
           </div>
         </div>
       </div>
-    {/if}
-
+    </main>
+    
     <!-- Footer -->
-    <footer class="mt-16 pb-8">
-      <div class="max-w-6xl mx-auto px-4">
-        <div class="bg-white rounded-xl p-6 border border-gray-200">
-          <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div class="flex items-center gap-2 text-gray-600">
-              <div class="w-7 h-7 bg-gray-900 rounded-md flex items-center justify-center">
-                <span class="text-xs font-bold text-white">K</span>
-              </div>
-              <span class="font-medium text-gray-900">Kwizy</span>
-              <span class="text-sm text-gray-400">— Apprendre en s'amusant</span>
-            </div>
-            <div class="flex flex-wrap items-center justify-center gap-4 text-sm">
-              <a href="/about" class="text-gray-600 hover:text-gray-900 transition-colors">À propos</a>
-              <span class="text-gray-300">•</span>
-              <a href="/faq" class="text-gray-600 hover:text-gray-900 transition-colors">FAQ</a>
-              <span class="text-gray-300">•</span>
-              <a href="/cgu" class="text-gray-600 hover:text-gray-900 transition-colors">CGU</a>
-              <span class="text-gray-300">•</span>
-              <a href="/donate" class="text-gray-700 hover:text-gray-900 font-medium transition-colors">❤️ Faire un don</a>
-            </div>
-          </div>
+    <footer class="relative z-10 border-t border-gray-800 mt-12">
+      <div class="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+        <div class="text-sm text-gray-500">
+          © 2026 Kweez
+        </div>
+        <div class="flex items-center gap-4">
+          <button onclick={() => goto('/donate')} class="text-sm text-gray-400 hover:text-amber-400">
+            💝 Soutenir
+          </button>
+          <button onclick={handleLogout} class="text-sm text-gray-400 hover:text-white">
+            Déconnexion
+          </button>
         </div>
       </div>
     </footer>
   {/if}
-</main>
+</div>
 
-<style>
-  .hover\:scale-102:hover {
-    transform: scale(1.02);
-  }
-</style>
+<!-- Quiz Start Modal -->
+{#if showQuizModal && selectedQuiz}
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-md p-6">
+      <h2 class="text-xl font-bold text-white mb-2">{selectedQuiz.title}</h2>
+      <p class="text-gray-400 text-sm mb-6">{selectedQuiz.description || 'Prêt à tester tes connaissances ?'}</p>
+      
+      <!-- Mode selection -->
+      <div class="mb-4">
+        <label class="text-sm font-medium text-gray-300 mb-2 block">Mode</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button 
+            onclick={() => selectedMode = 'revision'}
+            class="p-3 rounded-lg border transition-colors {selectedMode === 'revision' ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-gray-700 text-gray-400 hover:border-gray-600'}"
+          >
+            <div class="text-lg mb-1">📖</div>
+            <div class="text-sm font-medium">Révision</div>
+          </button>
+          <button 
+            onclick={() => selectedMode = 'epreuve'}
+            class="p-3 rounded-lg border transition-colors {selectedMode === 'epreuve' ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-gray-700 text-gray-400 hover:border-gray-600'}"
+          >
+            <div class="text-lg mb-1">⏱️</div>
+            <div class="text-sm font-medium">Épreuve</div>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <Button 
+          variant="outline" 
+          onclick={() => { showQuizModal = false; selectedQuiz = null; }}
+          class="flex-1 border-gray-700 text-gray-300 hover:bg-gray-800"
+        >
+          Annuler
+        </Button>
+        <Button 
+          onclick={startQuiz}
+          disabled={startingQuiz}
+          class="flex-1 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold"
+        >
+          {#if startingQuiz}
+            <span class="animate-spin mr-2">⏳</span>
+          {/if}
+          Commencer
+        </Button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Modal Devenir Tuteur -->
+{#if showTutorModal}
+  <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl border border-gray-800 max-w-md w-full shadow-2xl">
+      <!-- Header -->
+      <div class="relative p-6 pb-0">
+        <button 
+          onclick={() => showTutorModal = false}
+          class="absolute top-4 right-4 p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+        >
+          <X class="w-5 h-5" />
+        </button>
+        
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/20">
+          <Users class="w-8 h-8 text-white" />
+        </div>
+        
+        <h2 class="text-xl font-bold text-white text-center">Devenir Tuteur</h2>
+        <p class="text-gray-400 text-center mt-2 text-sm">
+          Pour ajouter et gérer des profils, vous devez passer en mode Tuteur.
+        </p>
+      </div>
+
+      <!-- Content -->
+      <div class="p-6">
+        <div class="bg-gray-800/50 rounded-xl p-4 mb-4 border border-gray-700">
+          <h3 class="font-medium text-white mb-3 flex items-center gap-2">
+            <GraduationCap class="w-5 h-5 text-amber-400" />
+            À quoi sert le mode Tuteur ?
+          </h3>
+          <ul class="space-y-2 text-sm text-gray-300">
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">✓</span>
+              <span>Créer des profils pour vos <strong class="text-white">enfants</strong> ou <strong class="text-white">élèves</strong></span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">✓</span>
+              <span>Suivre leur progression et leurs résultats</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">✓</span>
+              <span>Assigner des quiz et définir des objectifs</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">✓</span>
+              <span>Recevoir des rapports de progression</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-sm">
+          <p class="text-amber-200">
+            <strong>Note :</strong> Vous conserverez votre profil apprenant actuel et pourrez y revenir à tout moment.
+          </p>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="p-6 pt-0 flex gap-3">
+        <Button 
+          variant="outline" 
+          onclick={() => showTutorModal = false}
+          class="flex-1 border-gray-700 text-gray-300 hover:bg-gray-800"
+        >
+          Plus tard
+        </Button>
+        <Button 
+          onclick={becomeTutor}
+          class="flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-semibold"
+        >
+          <Users class="w-4 h-4 mr-2" />
+          Devenir Tuteur
+        </Button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Quiz Explore Modal -->
+<QuizExploreModal 
+  bind:open={showExploreModal} 
+  onClose={() => showExploreModal = false}
+  onSelectQuiz={(quiz) => playQuiz(quiz)}
+/>

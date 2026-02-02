@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation';
   import { 
     Heart, Coffee, Pizza, BookOpen, Gift, Rocket, 
-    ChevronLeft, Loader2, Sparkles, Check, Users, MessageCircle
+    ArrowLeft, Loader2, Sparkles, Check, Users, MessageCircle
   } from 'lucide-svelte';
 
   // Types
@@ -118,60 +118,71 @@
 </script>
 
 <svelte:head>
-  <title>Faire un don - Kwizy</title>
+  <title>Faire un don - Kweez</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
+<div class="min-h-screen bg-gray-950 text-white">
+  <!-- Grid Background -->
+  <div class="fixed inset-0 bg-[linear-gradient(rgba(251,191,36,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.03)_1px,transparent_1px)] bg-[size:60px_60px] pointer-events-none"></div>
+  
   <!-- Header -->
-  <header class="p-4 border-b bg-white">
-    <div class="max-w-2xl mx-auto">
-      <button onclick={() => goto('/dashboard')} class="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
-        <ChevronLeft class="w-5 h-5" />
-        <span>Retour</span>
-      </button>
+  <header class="relative z-10 border-b border-gray-800/50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+            <span class="text-lg font-black text-gray-900">K</span>
+          </div>
+          <span class="text-xl font-bold">Kweez</span>
+        </a>
+        <button onclick={() => goto('/')} class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft class="w-5 h-5" />
+          <span>Retour</span>
+        </button>
+      </div>
     </div>
   </header>
 
-  <main class="max-w-2xl mx-auto px-4 py-12">
+  <main class="relative z-10 max-w-2xl mx-auto px-4 py-12">
     <!-- Hero -->
     <div class="text-center mb-10">
-      <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-900 rounded-full mb-4">
-        <Heart class="w-8 h-8 text-white" fill="white" />
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-500 rounded-xl mb-4 shadow-lg shadow-amber-500/20">
+        <Heart class="w-8 h-8 text-gray-900" fill="currentColor" />
       </div>
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">Soutenir Kwizy</h1>
-      <p class="text-gray-500 max-w-md mx-auto">
+      <h1 class="text-3xl font-bold mb-2">Soutenir Kweez</h1>
+      <p class="text-gray-400 max-w-md mx-auto">
         Votre don nous aide à maintenir l'application gratuite et à créer de nouveaux contenus éducatifs.
       </p>
     </div>
 
     <!-- Message annulation -->
     {#if showCancelled}
-      <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-center">
+      <div class="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-center">
         Le paiement a été annulé. Pas de souci, vous pouvez réessayer quand vous voulez !
       </div>
     {/if}
 
     <!-- Carte de don -->
-    <div class="bg-white rounded-xl border border-gray-200 p-6 md:p-8">
+    <div class="bg-gray-900 rounded-2xl border border-gray-800 p-6 md:p-8">
       <!-- Montants prédéfinis -->
       <div class="mb-6">
-        <p class="block text-sm font-medium text-gray-700 mb-3">Choisissez un montant</p>
+        <p class="block text-sm font-medium text-gray-300 mb-3">Choisissez un montant</p>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
           {#each donationOptions as option}
             <button
               onclick={() => selectAmount(option.amount)}
               class="relative p-4 rounded-xl border-2 transition-all text-left
                 {selectedAmount === option.amount && !isCustom
-                  ? 'border-pink-500 bg-pink-50 ring-2 ring-pink-200' 
-                  : 'border-gray-200 hover:border-pink-300 hover:bg-pink-25'}"
+                  ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/30' 
+                  : 'border-gray-700 hover:border-amber-400/50 hover:bg-gray-800'}"
             >
               {#if selectedAmount === option.amount && !isCustom}
                 <div class="absolute top-2 right-2">
-                  <Check class="w-5 h-5 text-pink-600" />
+                  <Check class="w-5 h-5 text-amber-400" />
                 </div>
               {/if}
               <div class="text-2xl mb-1">{option.emoji}</div>
-              <div class="font-bold text-gray-800">{option.label}</div>
+              <div class="font-bold text-white">{option.label}</div>
               <div class="text-xs text-gray-500">{option.description}</div>
             </button>
           {/each}
@@ -179,18 +190,18 @@
           <!-- Montant personnalisé -->
           <button
             onclick={selectCustom}
-            class="p-4 rounded-xl border-2 transition-all text-left
+            class="relative p-4 rounded-xl border-2 transition-all text-left
               {isCustom 
-                ? 'border-pink-500 bg-pink-50 ring-2 ring-pink-200' 
-                : 'border-gray-200 hover:border-pink-300'}"
+                ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/30' 
+                : 'border-gray-700 hover:border-amber-400/50 hover:bg-gray-800'}"
           >
             {#if isCustom}
               <div class="absolute top-2 right-2">
-                <Check class="w-5 h-5 text-pink-600" />
+                <Check class="w-5 h-5 text-amber-400" />
               </div>
             {/if}
             <div class="text-2xl mb-1">✨</div>
-            <div class="font-bold text-gray-800">Autre</div>
+            <div class="font-bold text-white">Autre</div>
             <div class="text-xs text-gray-500">Montant libre</div>
           </button>
         </div>
@@ -199,7 +210,7 @@
       <!-- Input montant personnalisé -->
       {#if isCustom}
         <div class="mb-6">
-          <label for="custom-amount" class="block text-sm font-medium text-gray-700 mb-2">
+          <label for="custom-amount" class="block text-sm font-medium text-gray-300 mb-2">
             Votre montant (minimum 1 €)
           </label>
           <div class="relative">
@@ -209,7 +220,7 @@
               inputmode="decimal"
               placeholder="10"
               bind:value={customAmount}
-              class="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none text-xl font-bold"
+              class="w-full px-4 py-3 pr-12 bg-gray-800 border-2 border-gray-700 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 outline-none text-xl font-bold text-white placeholder-gray-500"
             />
             <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">€</span>
           </div>
@@ -218,40 +229,40 @@
 
       <!-- Informations optionnelles -->
       <div class="space-y-4 mb-6">
-        <div class="border-t pt-6">
+        <div class="border-t border-gray-800 pt-6">
           <p class="text-sm text-gray-500 mb-4">Informations optionnelles</p>
           
           <div class="grid md:grid-cols-2 gap-4">
             <div>
-              <label for="donor-name" class="block text-sm font-medium text-gray-700 mb-1">Votre prénom</label>
+              <label for="donor-name" class="block text-sm font-medium text-gray-300 mb-1">Votre prénom</label>
               <input
                 id="donor-name"
                 type="text"
                 placeholder="Marie"
                 bind:value={name}
-                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:border-pink-500 focus:ring-1 focus:ring-pink-200 outline-none"
+                class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-xl focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 outline-none text-white placeholder-gray-500"
               />
             </div>
             <div>
-              <label for="donor-email" class="block text-sm font-medium text-gray-700 mb-1">Email (pour le reçu)</label>
+              <label for="donor-email" class="block text-sm font-medium text-gray-300 mb-1">Email (pour le reçu)</label>
               <input
                 id="donor-email"
                 type="email"
                 placeholder="marie@exemple.fr"
                 bind:value={email}
-                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:border-pink-500 focus:ring-1 focus:ring-pink-200 outline-none"
+                class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-xl focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 outline-none text-white placeholder-gray-500"
               />
             </div>
           </div>
 
           <div class="mt-4">
-            <label for="donor-message" class="block text-sm font-medium text-gray-700 mb-1">Un petit mot ? 💬</label>
+            <label for="donor-message" class="block text-sm font-medium text-gray-300 mb-1">Un petit mot ? 💬</label>
             <textarea
               id="donor-message"
               placeholder="Merci pour cette super appli !"
               bind:value={message}
               rows="2"
-              class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:border-pink-500 focus:ring-1 focus:ring-pink-200 outline-none resize-none"
+              class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-xl focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 outline-none text-white placeholder-gray-500 resize-none"
             ></textarea>
           </div>
         </div>
@@ -259,7 +270,7 @@
 
       <!-- Erreur -->
       {#if error}
-        <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div class="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
           {error}
         </div>
       {/if}
@@ -268,8 +279,8 @@
       <button
         onclick={handleDonate}
         disabled={!isValid || loading}
-        class="w-full py-4 px-6 bg-gray-900 text-white font-bold text-lg rounded-lg 
-          hover:bg-gray-800 transition-colors
+        class="w-full py-4 px-6 bg-amber-400 hover:bg-amber-300 text-gray-900 font-bold text-lg rounded-xl 
+          transition-colors
           disabled:opacity-50 disabled:cursor-not-allowed
           flex items-center justify-center gap-2"
       >
@@ -292,12 +303,12 @@
     </div>
 
     <!-- Pourquoi donner -->
-    <div class="mt-8 bg-white rounded-xl border border-gray-200 p-6">
-      <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-        <Sparkles class="w-5 h-5 text-gray-700" />
-        Pourquoi soutenir Kwizy ?
+    <div class="mt-8 bg-gray-900 rounded-2xl border border-gray-800 p-6">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <Sparkles class="w-5 h-5 text-amber-400" />
+        Pourquoi soutenir Kweez ?
       </h2>
-      <ul class="space-y-3 text-gray-600">
+      <ul class="space-y-3 text-gray-300">
         <li class="flex items-start gap-3">
           <span class="text-xl">🎓</span>
           <span>Créer de nouveaux quiz éducatifs adaptés à chaque niveau</span>
@@ -318,28 +329,28 @@
     </div>
 
     <!-- Liste des donateurs -->
-    <div class="mt-8 bg-white rounded-xl border border-gray-200 p-6">
+    <div class="mt-8 bg-gray-900 rounded-2xl border border-gray-800 p-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-          <Users class="w-5 h-5 text-gray-700" />
+        <h2 class="text-lg font-bold flex items-center gap-2">
+          <Users class="w-5 h-5 text-amber-400" />
           Nos généreux donateurs
         </h2>
         {#if stats.totalDonors > 0}
           <div class="text-sm text-gray-500">
-            <span class="font-bold text-gray-900">{stats.totalDonors}</span> don{stats.totalDonors > 1 ? 's' : ''}
-            · <span class="font-bold text-gray-900">{(stats.totalAmount / 100).toFixed(0)} €</span> collectés
+            <span class="font-bold text-white">{stats.totalDonors}</span> don{stats.totalDonors > 1 ? 's' : ''}
+            · <span class="font-bold text-white">{(stats.totalAmount / 100).toFixed(0)} €</span> collectés
           </div>
         {/if}
       </div>
 
       {#if loadingDonors}
         <div class="flex items-center justify-center py-8">
-          <Loader2 class="w-6 h-6 animate-spin text-pink-500" />
+          <Loader2 class="w-6 h-6 animate-spin text-amber-400" />
         </div>
       {:else if donors.length === 0}
         <div class="text-center py-8 text-gray-500">
-          <Heart class="w-12 h-12 mx-auto mb-2 text-blue-200" />
-          <p>Soyez le premier à soutenir Kwizy ! 💙</p>
+          <Heart class="w-12 h-12 mx-auto mb-2 text-gray-700" />
+          <p>Soyez le premier à soutenir Kweez ! 💛</p>
         </div>
       {:else}
         <div class="space-y-3 max-h-96 overflow-y-auto">
@@ -347,22 +358,22 @@
             {@const amountEuros = (donor.amount / 100).toFixed(0)}
             {@const displayName = donor.donor_name || 'Anonyme'}
             {@const date = new Date(donor.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-            <div class="flex items-start gap-3 p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl">
+            <div class="flex items-start gap-3 p-3 bg-gradient-to-r from-amber-400/10 to-amber-600/10 rounded-xl border border-amber-400/20">
               <!-- Avatar -->
-              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-400 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-gray-900 font-bold text-sm flex-shrink-0">
                 {displayName.charAt(0).toUpperCase()}
               </div>
               
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-medium text-gray-800">{displayName}</span>
-                  <span class="text-pink-600 font-bold">{amountEuros} €</span>
-                  <span class="text-xs text-gray-400">· {date}</span>
+                  <span class="font-medium text-white">{displayName}</span>
+                  <span class="text-amber-400 font-bold">{amountEuros} €</span>
+                  <span class="text-xs text-gray-500">· {date}</span>
                 </div>
                 
                 {#if donor.message}
-                  <p class="mt-1 text-sm text-gray-600 italic flex items-start gap-1">
-                    <MessageCircle class="w-3 h-3 mt-1 flex-shrink-0 text-gray-400" />
+                  <p class="mt-1 text-sm text-gray-400 italic flex items-start gap-1">
+                    <MessageCircle class="w-3 h-3 mt-1 flex-shrink-0 text-gray-600" />
                     <span>"{donor.message}"</span>
                   </p>
                 {/if}

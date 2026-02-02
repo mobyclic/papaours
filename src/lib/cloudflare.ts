@@ -1,13 +1,20 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { 
+  CLOUDFLARE_ACCOUNT_ID,
+  CLOUDFLARE_R2_ACCESS_KEY_ID,
+  CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+  CLOUDFLARE_R2_BUCKET_NAME,
+  CLOUDFLARE_R2_PUBLIC_URL
+} from '$env/static/private';
 
-const R2_ENDPOINT = `https://${import.meta.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+const R2_ENDPOINT = `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
 const s3Client = new S3Client({
   region: 'auto',
   endpoint: R2_ENDPOINT,
   credentials: {
-    accessKeyId: import.meta.env.CLOUDFLARE_R2_ACCESS_KEY_ID || '',
-    secretAccessKey: import.meta.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || '',
+    accessKeyId: CLOUDFLARE_R2_ACCESS_KEY_ID || '',
+    secretAccessKey: CLOUDFLARE_R2_SECRET_ACCESS_KEY || '',
   },
 });
 
@@ -30,7 +37,7 @@ export async function uploadToCloudflare(
     const key = `${folder}/${filename}`;
 
     const command = new PutObjectCommand({
-      Bucket: import.meta.env.CLOUDFLARE_R2_BUCKET_NAME || 'papaours',
+      Bucket: CLOUDFLARE_R2_BUCKET_NAME || 'papaours',
       Key: key,
       Body: new Uint8Array(buffer),
       ContentType: file.type,
@@ -38,7 +45,7 @@ export async function uploadToCloudflare(
 
     await s3Client.send(command);
 
-    const publicUrl = `${import.meta.env.CLOUDFLARE_R2_PUBLIC_URL}/${key}`;
+    const publicUrl = `${CLOUDFLARE_R2_PUBLIC_URL}/${key}`;
 
     return {
       url: publicUrl,
@@ -56,7 +63,7 @@ export async function uploadToCloudflare(
 export async function deleteFromCloudflare(key: string): Promise<void> {
   try {
     const command = new DeleteObjectCommand({
-      Bucket: import.meta.env.CLOUDFLARE_R2_BUCKET_NAME || 'papaours',
+      Bucket: CLOUDFLARE_R2_BUCKET_NAME || 'papaours',
       Key: key,
     });
 
@@ -143,14 +150,14 @@ export async function listCloudflareFiles(options: ListFilesOptions = {}): Promi
     const { prefix = '', type = 'all', maxKeys = 100, continuationToken } = options;
     
     const command = new ListObjectsV2Command({
-      Bucket: import.meta.env.CLOUDFLARE_R2_BUCKET_NAME || 'papaours',
+      Bucket: CLOUDFLARE_R2_BUCKET_NAME || 'papaours',
       Prefix: prefix,
       MaxKeys: maxKeys,
       ContinuationToken: continuationToken,
     });
 
     const response = await s3Client.send(command);
-    const publicUrl = import.meta.env.CLOUDFLARE_R2_PUBLIC_URL || '';
+    const publicUrl = CLOUDFLARE_R2_PUBLIC_URL || '';
 
     const files: CloudflareFile[] = (response.Contents || [])
       .filter(obj => obj.Key && !obj.Key.endsWith('/')) // Exclude folders

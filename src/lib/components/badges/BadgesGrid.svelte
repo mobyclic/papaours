@@ -57,7 +57,7 @@
   };
 
   // Grouper les badges par catégorie
-  const earnedByCategory = $derived(() => {
+  const earnedByCategory = $derived.by(() => {
     const grouped: Record<string, Badge[]> = {};
     for (const badge of earnedBadges) {
       if (!grouped[badge.category]) {
@@ -68,7 +68,7 @@
     return grouped;
   });
 
-  const availableByCategory = $derived(() => {
+  const availableByCategory = $derived.by(() => {
     const grouped: Record<string, Badge[]> = {};
     for (const badge of availableBadges) {
       if (!grouped[badge.category]) {
@@ -89,33 +89,33 @@
 <div class="space-y-6">
   <!-- Stats Overview -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 text-center border border-amber-200">
-      <Trophy class="w-8 h-8 mx-auto text-amber-500 mb-2" />
-      <div class="text-2xl font-bold text-amber-700">{stats.total}</div>
-      <div class="text-xs text-amber-600">Badges obtenus</div>
+    <div class="bg-gradient-to-br from-amber-900/50 to-amber-800/30 rounded-xl p-4 text-center border border-amber-700/50">
+      <Trophy class="w-8 h-8 mx-auto text-amber-400 mb-2" />
+      <div class="text-2xl font-bold text-amber-300">{stats.total}</div>
+      <div class="text-xs text-amber-400/70">Badges obtenus</div>
     </div>
     
-    <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 text-center border border-purple-200">
-      <Star class="w-8 h-8 mx-auto text-purple-500 mb-2" />
-      <div class="text-2xl font-bold text-purple-700">{stats.points}</div>
-      <div class="text-xs text-purple-600">Points de badges</div>
+    <div class="bg-gradient-to-br from-purple-900/50 to-purple-800/30 rounded-xl p-4 text-center border border-purple-700/50">
+      <Star class="w-8 h-8 mx-auto text-purple-400 mb-2" />
+      <div class="text-2xl font-bold text-purple-300">{stats.points}</div>
+      <div class="text-xs text-purple-400/70">Points de badges</div>
     </div>
     
-    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 text-center border border-blue-200">
-      <Target class="w-8 h-8 mx-auto text-blue-500 mb-2" />
-      <div class="text-2xl font-bold text-blue-700">{progressPercent}%</div>
-      <div class="text-xs text-blue-600">Collection</div>
+    <div class="bg-gradient-to-br from-blue-900/50 to-blue-800/30 rounded-xl p-4 text-center border border-blue-700/50">
+      <Target class="w-8 h-8 mx-auto text-blue-400 mb-2" />
+      <div class="text-2xl font-bold text-blue-300">{progressPercent}%</div>
+      <div class="text-xs text-blue-400/70">Collection</div>
     </div>
     
-    <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 text-center border border-green-200">
-      <Sparkles class="w-8 h-8 mx-auto text-green-500 mb-2" />
-      <div class="text-2xl font-bold text-green-700">{availableBadges.length}</div>
-      <div class="text-xs text-green-600">À débloquer</div>
+    <div class="bg-gradient-to-br from-green-900/50 to-green-800/30 rounded-xl p-4 text-center border border-green-700/50">
+      <Sparkles class="w-8 h-8 mx-auto text-green-400 mb-2" />
+      <div class="text-2xl font-bold text-green-300">{availableBadges.length}</div>
+      <div class="text-xs text-green-400/70">À débloquer</div>
     </div>
   </div>
 
   <!-- Progress bar -->
-  <div class="bg-gray-100 rounded-full h-3 overflow-hidden">
+  <div class="bg-gray-800 rounded-full h-3 overflow-hidden">
     <div 
       class="h-full bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 transition-all duration-500"
       style="width: {progressPercent}%"
@@ -124,14 +124,15 @@
 
   <!-- Tabs -->
   {#if showAvailable}
-    <div class="flex gap-2 border-b border-gray-200">
+    <div class="flex gap-2 border-b border-gray-700">
       <button
         type="button"
         class="px-4 py-2 font-medium transition-colors border-b-2 -mb-px"
         class:border-amber-500={activeTab === 'earned'}
-        class:text-amber-600={activeTab === 'earned'}
+        class:text-amber-400={activeTab === 'earned'}
         class:border-transparent={activeTab !== 'earned'}
-        class:text-gray-500={activeTab !== 'earned'}
+        class:text-gray-400={activeTab !== 'earned'}
+        class:hover:text-gray-200={activeTab !== 'earned'}
         onclick={() => activeTab = 'earned'}
       >
         Obtenus ({earnedBadges.length})
@@ -140,9 +141,10 @@
         type="button"
         class="px-4 py-2 font-medium transition-colors border-b-2 -mb-px"
         class:border-purple-500={activeTab === 'available'}
-        class:text-purple-600={activeTab === 'available'}
+        class:text-purple-400={activeTab === 'available'}
         class:border-transparent={activeTab !== 'available'}
-        class:text-gray-500={activeTab !== 'available'}
+        class:text-gray-400={activeTab !== 'available'}
+        class:hover:text-gray-200={activeTab !== 'available'}
         onclick={() => activeTab = 'available'}
       >
         À débloquer ({availableBadges.length})
@@ -153,21 +155,21 @@
   <!-- Earned Badges -->
   {#if activeTab === 'earned'}
     {#if earnedBadges.length === 0}
-      <div class="text-center py-12 text-gray-500">
+      <div class="text-center py-12 text-gray-400">
         <Trophy class="w-16 h-16 mx-auto mb-4 opacity-30" />
         <p class="text-lg font-medium">Aucun badge encore</p>
         <p class="text-sm">Continue à jouer pour débloquer des badges !</p>
       </div>
     {:else}
-      {#each Object.entries(earnedByCategory()) as [category, badges]}
+      {#each Object.entries(earnedByCategory) as [category, badges]}
         {@const CategoryIcon = categoryIcons[category as keyof typeof categoryIcons]}
         <div class="space-y-3">
           <div class="flex items-center gap-2">
             <CategoryIcon class="w-5 h-5 {categoryColors[category as keyof typeof categoryColors]}" />
-            <h3 class="font-semibold text-gray-700">
+            <h3 class="font-semibold text-gray-200">
               {categoryLabels[category as keyof typeof categoryLabels]}
             </h3>
-            <span class="text-xs text-gray-400">({badges.length})</span>
+            <span class="text-xs text-gray-500">({badges.length})</span>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {#each badges as badge}
@@ -182,13 +184,13 @@
   <!-- Available Badges -->
   {#if activeTab === 'available' && showAvailable}
     {#if availableBadges.length === 0}
-      <div class="text-center py-12 text-gray-500">
+      <div class="text-center py-12 text-gray-400">
         <Star class="w-16 h-16 mx-auto mb-4 opacity-30" />
         <p class="text-lg font-medium">Tu as tous les badges !</p>
         <p class="text-sm">Félicitations, collection complète ! 🎉</p>
       </div>
     {:else}
-      {#each Object.entries(availableByCategory()) as [category, badges]}
+      {#each Object.entries(availableByCategory) as [category, badges]}
         {@const CategoryIcon = categoryIcons[category as keyof typeof categoryIcons]}
         <div class="space-y-3">
           <div class="flex items-center gap-2">
@@ -196,7 +198,7 @@
             <h3 class="font-semibold text-gray-400">
               {categoryLabels[category as keyof typeof categoryLabels]}
             </h3>
-            <span class="text-xs text-gray-400">({badges.length})</span>
+            <span class="text-xs text-gray-500">({badges.length})</span>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {#each badges as badge}

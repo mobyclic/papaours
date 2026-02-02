@@ -1,0 +1,377 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "confirm": "Confirm",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "or": "or",
+    "and": "and",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information"
+  },
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "explore": "Explore",
+    "leaderboard": "Leaderboard",
+    "settings": "Settings",
+    "profile": "Profile",
+    "logout": "Log out",
+    "login": "Log in",
+    "signup": "Sign up"
+  },
+  "landing": {
+    "hero": {
+      "badge": "New educational platform",
+      "title": "Learning becomes",
+      "titleHighlight": "child's play",
+      "description": "Kweez transforms learning into a fun adventure with interactive quizzes, personalized progress tracking, and motivating rewards.",
+      "cta": "Get started for free",
+      "tryQuiz": "Try a quiz",
+      "freeForever": "100% free",
+      "noCard": "No credit card required"
+    },
+    "features": {
+      "title": "A platform for everyone",
+      "description": "Whether you're a student, parent, or teacher, Kweez adapts to your needs"
+    },
+    "pricing": {
+      "title": "Simple and transparent pricing",
+      "description": "Start for free, upgrade as you grow",
+      "popular": "Popular",
+      "free": "Free",
+      "perMonth": "/month"
+    },
+    "cta": {
+      "title": "Ready to transform learning?",
+      "description": "Join thousands of learners who progress every day with Kweez",
+      "button": "Create my free account"
+    },
+    "footer": {
+      "tagline": "Learn while having fun with interactive and personalized quizzes.",
+      "product": "Product",
+      "features": "Features",
+      "pricing": "Pricing",
+      "faq": "FAQ",
+      "legal": "Legal",
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "legalNotice": "Legal Notice",
+      "contact": "Contact",
+      "support": "Support",
+      "copyright": "© {year} Kweez. All rights reserved."
+    }
+  },
+  "plans": {
+    "learner": {
+      "name": "Learner",
+      "description": "Perfect to get started",
+      "features": {
+        "unlimitedQuiz": "Unlimited access to public quizzes",
+        "progress": "Track your progress",
+        "badges": "Badges and rewards",
+        "stats": "Personal statistics"
+      },
+      "cta": "Get started for free"
+    },
+    "tutor": {
+      "name": "Tutor",
+      "description": "For parents and teachers",
+      "features": {
+        "allLearner": "Everything in Learner plan",
+        "createLearners": "Create up to 5 learners",
+        "createQuiz": "Create your own quizzes",
+        "trackProgress": "Track learners' progress",
+        "tutorPage": "Personalized tutor page"
+      },
+      "cta": "Try 14 days free"
+    },
+    "establishment": {
+      "name": "School",
+      "description": "Complete solution for schools",
+      "features": {
+        "allTutor": "Everything in Tutor plan",
+        "unlimitedTutors": "Unlimited tutors (5 included)",
+        "classes": "Class management",
+        "exams": "Online exams",
+        "analytics": "Advanced analytics",
+        "extraTutor": "+$5/extra tutor"
+      },
+      "cta": "Contact us"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Log in",
+      "subtitle": "Welcome back!",
+      "email": "Email",
+      "emailPlaceholder": "your@email.com",
+      "password": "Password",
+      "passwordPlaceholder": "••••••••",
+      "submit": "Log in",
+      "forgotPassword": "Forgot password?",
+      "noAccount": "Don't have an account?",
+      "createAccount": "Create account",
+      "errors": {
+        "invalidEmail": "Invalid email",
+        "invalidCredentials": "Invalid credentials",
+        "serverError": "Connection error"
+      }
+    },
+    "signup": {
+      "title": "Create account",
+      "subtitle": "Join the Kweez community!",
+      "firstName": "First name",
+      "firstNamePlaceholder": "Your first name",
+      "lastName": "Last name",
+      "lastNamePlaceholder": "Your last name",
+      "email": "Email",
+      "emailPlaceholder": "your@email.com",
+      "password": "Password",
+      "passwordPlaceholder": "8 characters minimum",
+      "confirmPassword": "Confirm password",
+      "confirmPasswordPlaceholder": "Retype your password",
+      "submit": "Create my account",
+      "hasAccount": "Already have an account?",
+      "login": "Log in",
+      "passwordRequirements": {
+        "length": "At least 8 characters",
+        "uppercase": "At least one uppercase letter",
+        "lowercase": "At least one lowercase letter",
+        "number": "At least one number"
+      },
+      "errors": {
+        "nameRequired": "First and last name required",
+        "invalidEmail": "Invalid email",
+        "passwordTooShort": "At least 8 characters",
+        "passwordNoUppercase": "At least one uppercase letter",
+        "passwordNoLowercase": "At least one lowercase letter",
+        "passwordNoNumber": "At least one number",
+        "passwordMismatch": "Passwords don't match",
+        "emailExists": "This email is already in use",
+        "serverError": "Registration error"
+      }
+    },
+    "verifyEmail": {
+      "title": "Check your email",
+      "description": "We sent a verification link to",
+      "steps": {
+        "title": "Next steps:",
+        "step1": "Open your inbox",
+        "step2": "Click the verification link",
+        "step3": "Log in with your credentials"
+      },
+      "resend": "Resend email",
+      "resending": "Sending...",
+      "resendSuccess": "Email resent successfully!",
+      "goToLogin": "Go to login",
+      "checkSpam": "Didn't receive the email? Check your spam folder or",
+      "clickToResend": "click here to resend"
+    },
+    "forgotPassword": {
+      "title": "Forgot password?",
+      "description": "Enter your email and we'll send you a link to reset your password.",
+      "email": "Email",
+      "emailPlaceholder": "your@email.com",
+      "submit": "Send reset link",
+      "backToLogin": "Back to login",
+      "successTitle": "Email sent!",
+      "successDescription": "If an account exists with this email, you'll receive a reset link."
+    },
+    "resetPassword": {
+      "title": "New password",
+      "description": "Choose a new secure password.",
+      "password": "New password",
+      "confirmPassword": "Confirm password",
+      "submit": "Reset password",
+      "successTitle": "Password changed!",
+      "successDescription": "You can now log in with your new password."
+    },
+    "studentLogin": {
+      "title": "Student area",
+      "subtitle": "Enter your code to play!",
+      "codePlaceholder": "Your 4-digit code",
+      "submit": "Let's go!",
+      "notStudent": "Not a student?",
+      "parentLogin": "Parent/teacher login"
+    }
+  },
+  "onboarding": {
+    "selectLanguage": "Choose your language",
+    "chooseLanguage": "In which language do you want to use Kweez?",
+    "welcome": "Welcome to Kweez!",
+    "selectCountry": "What country do you study in?",
+    "selectLevel": "What's your level?",
+    "whatLevel": "Select your education cycle",
+    "selectGrade": "What grade are you in?",
+    "whatGrade": "Select your current grade",
+    "track": "Track",
+    "grade": "Grade",
+    "selectSpecialties": "Your specialties",
+    "chooseSpecialties": "Choose 2-3 specialties (optional)",
+    "specialtiesSelected": "specialties selected",
+    "finish": "Finish",
+    "skipForNow": "Skip for now",
+    "country": {
+      "title": "What country do you study in?",
+      "placeholder": "Select your country"
+    },
+    "level": {
+      "title": "What's your level?",
+      "preschool": "Preschool",
+      "primary": "Elementary",
+      "middle": "Middle School",
+      "high": "High School",
+      "higher": "College/University",
+      "professional": "Professional"
+    },
+    "complete": {
+      "title": "You're all set!",
+      "description": "Your profile is configured. Ready to learn while having fun?",
+      "cta": "Get started"
+    }
+  },
+  "dashboard": {
+    "welcome": "Hi {name}!",
+    "welcomeBack": "Welcome back!",
+    "continueQuiz": "Continue",
+    "startQuiz": "Start",
+    "streak": {
+      "title": "Current streak",
+      "days": "{count} days",
+      "keepGoing": "Keep it up!"
+    },
+    "stats": {
+      "xp": "Total XP",
+      "quizzes": "Quizzes completed",
+      "accuracy": "Accuracy",
+      "level": "Level {level}"
+    },
+    "sections": {
+      "continue": "Pick up where you left off",
+      "recommended": "Recommended for you",
+      "popular": "Most popular",
+      "new": "New arrivals"
+    }
+  },
+  "quiz": {
+    "question": "Question {current}/{total}",
+    "score": "Score: {score}",
+    "timeLeft": "Time left: {time}s",
+    "next": "Next",
+    "finish": "Finish",
+    "correct": "Correct!",
+    "incorrect": "Not quite...",
+    "explanation": "Explanation",
+    "results": {
+      "title": "Quiz complete!",
+      "score": "{score}/{total}",
+      "perfect": "Perfect score! 🎉",
+      "great": "Excellent work! 👏",
+      "good": "Well done! 👍",
+      "tryAgain": "Keep practicing! 💪",
+      "xpEarned": "+{xp} XP",
+      "playAgain": "Play again",
+      "backToHome": "Back to home"
+    }
+  },
+  "explore": {
+    "title": "Explore",
+    "searchPlaceholder": "Search for a quiz...",
+    "filters": {
+      "all": "All",
+      "subject": "Subject",
+      "difficulty": "Difficulty",
+      "duration": "Duration"
+    },
+    "noResults": "No quizzes found",
+    "tryDifferent": "Try different filters"
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": {
+      "title": "Profile",
+      "avatar": "Avatar",
+      "name": "Name",
+      "email": "Email",
+      "changePassword": "Change password"
+    },
+    "preferences": {
+      "title": "Preferences",
+      "language": "Language",
+      "theme": "Theme",
+      "notifications": "Notifications"
+    },
+    "education": {
+      "title": "Education",
+      "country": "Country",
+      "level": "Level",
+      "grade": "Grade",
+      "track": "Track"
+    },
+    "account": {
+      "title": "Account",
+      "subscription": "Subscription",
+      "deleteAccount": "Delete account"
+    }
+  },
+  "domains": {
+    "sciences": "Sciences & Logic",
+    "languages": "Languages & Literature",
+    "humanities": "Humanities",
+    "arts": "Arts & Sports",
+    "professional": "Professional & Technical",
+    "preschool": "Early Learning"
+  },
+  "subjects": {
+    "math": "Mathematics",
+    "physics": "Physics",
+    "chemistry": "Chemistry",
+    "biology": "Biology",
+    "computer_science": "Computer Science",
+    "french": "French",
+    "literature": "Literature",
+    "english": "English",
+    "spanish": "Spanish",
+    "german": "German",
+    "history": "History",
+    "geography": "Geography",
+    "philosophy": "Philosophy",
+    "economics": "Economics",
+    "art": "Art",
+    "music": "Music",
+    "sports": "Physical Education"
+  },
+  "difficulty": {
+    "1": "Very Easy",
+    "2": "Easy",
+    "3": "Easy+",
+    "4": "Medium-",
+    "5": "Medium",
+    "6": "Medium+",
+    "7": "Hard-",
+    "8": "Hard",
+    "9": "Very Hard",
+    "10": "Expert"
+  },
+  "errors": {
+    "generic": "An error occurred",
+    "network": "Connection error",
+    "notFound": "Page not found",
+    "unauthorized": "Unauthorized access",
+    "serverError": "Server error"
+  }
+}

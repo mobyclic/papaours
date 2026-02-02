@@ -1,18 +1,18 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { ChevronLeft, HelpCircle } from 'lucide-svelte';
+  import { HelpCircle, ArrowLeft } from 'lucide-svelte';
   import * as Accordion from "$lib/components/ui/accordion";
 
   const faqs = [
     {
       id: "item-1",
-      question: "Kwizy est-il vraiment gratuit ?",
-      answer: "Oui ! Kwizy est 100% gratuit. Nous nous finançons uniquement grâce aux dons volontaires de notre communauté. Aucune publicité, aucun abonnement caché."
+      question: "Kweez est-il vraiment gratuit ?",
+      answer: "Oui ! Kweez est 100% gratuit. Nous nous finançons uniquement grâce aux dons volontaires de notre communauté. Aucune publicité, aucun abonnement caché."
     },
     {
       id: "item-2",
-      question: "Qui peut utiliser Kwizy ?",
-      answer: "Kwizy s'adresse à tous ! Étudiants, professionnels, curieux... Nos quiz couvrent de nombreux domaines et niveaux de difficulté."
+      question: "Qui peut utiliser Kweez ?",
+      answer: "Kweez s'adresse à tous ! Étudiants, professionnels, curieux... Nos quiz couvrent de nombreux domaines et niveaux de difficulté."
     },
     {
       id: "item-3",
@@ -42,41 +42,53 @@
     {
       id: "item-8",
       question: "Comment puis-je soutenir le projet ?",
-      answer: "Vous pouvez faire un don sur notre page dédiée. Même un petit café à 3€ nous aide énormément ! Vous pouvez aussi parler de Kwizy autour de vous 😊"
+      answer: "Vous pouvez faire un don sur notre page dédiée. Même un petit café à 3€ nous aide énormément ! Vous pouvez aussi parler de Kweez autour de vous 😊"
     }
   ];
 </script>
 
 <svelte:head>
-  <title>FAQ - Kwizy</title>
+  <title>FAQ - Kweez</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
-  <header class="p-4 border-b bg-white">
-    <div class="max-w-2xl mx-auto">
-      <button onclick={() => goto('/dashboard')} class="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
-        <ChevronLeft class="w-5 h-5" />
-        <span>Retour</span>
-      </button>
+<div class="min-h-screen bg-gray-950 text-white">
+  <!-- Grid Background -->
+  <div class="fixed inset-0 bg-[linear-gradient(rgba(251,191,36,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.03)_1px,transparent_1px)] bg-[size:60px_60px] pointer-events-none"></div>
+  
+  <!-- Header -->
+  <header class="relative z-10 border-b border-gray-800/50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+            <span class="text-lg font-black text-gray-900">K</span>
+          </div>
+          <span class="text-xl font-bold">Kweez</span>
+        </a>
+        <button onclick={() => goto('/')} class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft class="w-5 h-5" />
+          <span>Retour</span>
+        </button>
+      </div>
     </div>
   </header>
 
-  <main class="max-w-2xl mx-auto px-4 py-12">
+  <main class="relative z-10 max-w-2xl mx-auto px-4 py-12">
     <div class="text-center mb-10">
-      <div class="inline-flex items-center justify-center w-14 h-14 bg-gray-900 rounded-full mb-4">
-        <HelpCircle class="w-7 h-7 text-white" />
+      <div class="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-500 rounded-xl mb-4 shadow-lg shadow-amber-500/20">
+        <HelpCircle class="w-7 h-7 text-gray-900" />
       </div>
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">Questions fréquentes</h1>
-      <p class="text-gray-500">Tout ce que vous devez savoir sur Kwizy</p>
+      <h1 class="text-3xl font-bold mb-2">Questions fréquentes</h1>
+      <p class="text-gray-400">Tout ce que vous devez savoir sur Kweez</p>
     </div>
 
     <Accordion.Root type="single" class="w-full space-y-2">
       {#each faqs as faq}
-        <Accordion.Item value={faq.id} class="bg-white border border-gray-200 rounded-lg px-1">
-          <Accordion.Trigger class="text-left font-medium text-gray-900 hover:no-underline py-4 px-4">
+        <Accordion.Item value={faq.id} class="bg-gray-900 border border-gray-800 rounded-xl px-1">
+          <Accordion.Trigger class="text-left font-medium text-white hover:no-underline py-4 px-4 hover:text-amber-400 transition-colors">
             {faq.question}
           </Accordion.Trigger>
-          <Accordion.Content class="text-gray-600 pb-4 px-4">
+          <Accordion.Content class="text-gray-400 pb-4 px-4">
             {faq.answer}
           </Accordion.Content>
         </Accordion.Item>
@@ -86,8 +98,8 @@
     <div class="mt-12 text-center">
       <p class="text-gray-500 mb-4">Vous avez une autre question ?</p>
       <a 
-        href="mailto:contact@kwizy.fr"
-        class="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+        href="mailto:contact@kweez.fr"
+        class="inline-flex items-center gap-2 px-6 py-3 bg-amber-400 hover:bg-amber-300 text-gray-900 rounded-xl font-semibold transition-colors"
       >
         Nous contacter
       </a>

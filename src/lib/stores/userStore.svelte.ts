@@ -4,20 +4,61 @@
  */
 import { browser } from '$app/environment';
 
-export type UserType = 'apprenant' | 'tuteur' | 'admin';
+export type ProfileType = 'apprenant' | 'tuteur' | 'etablissement';
 
 export interface AppUser {
   id: string;
   email: string;
   name?: string;
+  nom?: string;
+  prenom?: string;
+  is_admin: boolean;
+  theme_color?: string;
+  profile_type?: ProfileType;
+  
+  // Informations personnelles
+  identifiant?: string;
+  date_naissance?: string;
+  avatar_url?: string;
+  
+  // Champs tuteur
+  tutor_slug?: string | null;
+  identifiant_tuteur?: string | null;
+  
+  // Champs apprenant créé par tuteur
+  created_by_tutor?: string | null;
+  tutor_student_id?: string | null;
+  global_student_id?: string | null;
+  login_code?: string | null;
+  
+  // Champs établissement
+  created_by_establishment?: string | null;
+  
+  // Abonnement
+  subscription_plan?: string;
+  
+  // Éducation & Onboarding
+  onboarding_completed?: boolean;
+  education_system?: string;
+  current_cycle?: string;
+  current_grade?: string;
+  current_track?: string;
+  specialties?: string[];
+  preferred_language?: string;
+  
+  // Progression & XP
+  total_xp?: number;
+  level?: number;
+  current_streak?: number;
+  best_streak?: number;
+  
+  // Legacy - pour compatibilité arrière (à supprimer progressivement)
   pseudo?: string;
   classe?: string;
-  is_admin: boolean;
   classe_id?: string;
   classe_name?: string;
-  theme_color?: string;
-  user_type?: UserType;
-  tutor_id?: string | null; // Si apprenant, ID du tuteur associé
+  user_type?: string;
+  tutor_id?: string | null;
 }
 
 // État réactif global avec runes

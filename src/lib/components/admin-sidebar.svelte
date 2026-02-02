@@ -10,7 +10,10 @@
     ChevronDown,
     Home,
     HelpCircle,
-    Tags
+    Tags,
+    GraduationCap,
+    Award,
+    Library
   } from "lucide-svelte";
   import * as Collapsible from "$lib/components/ui/collapsible";
   import { Button } from "$lib/components/ui/button";
@@ -28,7 +31,7 @@
   let classCategories = $derived(data?.classCategories || []);
   
   // État accordion - un seul menu ouvert à la fois
-  type MenuSection = 'questions' | 'themes' | 'quiz' | 'users' | 'media' | 'system' | null;
+  type MenuSection = 'questions' | 'themes' | 'quiz' | 'users' | 'media' | 'system' | 'cursus' | 'badges' | 'programs' | null;
   let openSection = $state<MenuSection>(null);
   
   // Déterminer la section ouverte en fonction de l'URL courante
@@ -39,6 +42,9 @@
     else if (path.startsWith('/admin/quiz')) openSection = 'quiz';
     else if (path.startsWith('/admin/users')) openSection = 'users';
     else if (path.startsWith('/admin/media')) openSection = 'media';
+    else if (path.startsWith('/admin/cursus')) openSection = 'cursus';
+    else if (path.startsWith('/admin/badges')) openSection = 'badges';
+    else if (path.startsWith('/admin/programs')) openSection = 'programs';
     else if (path.startsWith('/admin/system')) openSection = 'system';
     else openSection = null;
   });
@@ -243,6 +249,45 @@
       </Collapsible.Content>
     </Collapsible.Root>
 
+    <!-- Cursus Section -->
+    <a
+      href="/admin/cursus"
+      class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors"
+      class:bg-amber-100={isActive("/admin/cursus")}
+      class:text-amber-700={isActive("/admin/cursus")}
+      class:text-gray-700={!isActive("/admin/cursus")}
+      class:hover:bg-gray-100={!isActive("/admin/cursus")}
+    >
+      <GraduationCap class="w-4 h-4" />
+      <span class="text-sm font-medium">Cursus</span>
+    </a>
+
+    <!-- Badges Section -->
+    <a
+      href="/admin/badges"
+      class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors"
+      class:bg-yellow-100={isActive("/admin/badges")}
+      class:text-yellow-700={isActive("/admin/badges")}
+      class:text-gray-700={!isActive("/admin/badges")}
+      class:hover:bg-gray-100={!isActive("/admin/badges")}
+    >
+      <Award class="w-4 h-4" />
+      <span class="text-sm font-medium">Badges</span>
+    </a>
+
+    <!-- Programs Section -->
+    <a
+      href="/admin/programs"
+      class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors"
+      class:bg-indigo-100={isActive("/admin/programs")}
+      class:text-indigo-700={isActive("/admin/programs")}
+      class:text-gray-700={!isActive("/admin/programs")}
+      class:hover:bg-gray-100={!isActive("/admin/programs")}
+    >
+      <Library class="w-4 h-4" />
+      <span class="text-sm font-medium">Programmes</span>
+    </a>
+
     <!-- Medias Section -->
     <Collapsible.Root open={openSection === 'media'}>
       <Collapsible.Trigger 
@@ -354,6 +399,16 @@
               class:hover:text-gray-900={!isActive("/admin/system/settings/languages")}
             >
               Langues
+            </a>
+            <a
+              href="/admin/translations"
+              class="block px-3 py-2 text-xs rounded-lg hover:bg-gray-100 transition-colors"
+              class:bg-purple-100={isActive("/admin/translations")}
+              class:text-purple-700={isActive("/admin/translations")}
+              class:text-gray-600={!isActive("/admin/translations")}
+              class:hover:text-gray-900={!isActive("/admin/translations")}
+            >
+              🌍 Traductions
             </a>
           </Collapsible.Content>
         </Collapsible.Root>

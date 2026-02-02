@@ -75,7 +75,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
       WHERE user = $uid 
         AND status = 'completed'
         AND completedAt > $startDate
-      GROUP BY time::format(completedAt, '%Y-%m-%d')
+      GROUP BY date
       ORDER BY date ASC
     `, { userId: cleanUserId });
 
@@ -84,8 +84,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
       LET $uid = type::thing('user', $userId);
       
       SELECT 
-        quiz.matiere_id.name as matiere_name,
-        quiz.matiere_id.slug as matiere_slug,
+        quiz.matiere_id as matiere,
         count() as quiz_count,
         math::sum(score) as total_score,
         math::sum(total_questions) as total_questions,
@@ -96,7 +95,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
         AND quiz.matiere_id != NONE
       GROUP BY quiz.matiere_id
       ORDER BY quiz_count DESC
-      FETCH quiz.matiere_id
+      FETCH matiere
     `, { userId: cleanUserId });
 
     // 4. Performance par thème
@@ -104,16 +103,16 @@ export const GET: RequestHandler = async ({ params, url }) => {
       LET $uid = type::thing('user', $userId);
       
       SELECT 
-        theme.name as theme_name,
-        theme.slug as theme_slug,
+        quiz.theme_ids[0] as theme,
         count() as quiz_count,
         math::sum(score) as total_score,
         math::sum(total_questions) as total_questions,
         math::round((math::sum(score) / math::sum(total_questions)) * 100) as success_rate
-      FROM quiz_session as qs
-      WHERE qs.user = $uid 
-        AND qs.status = 'completed'
-      GROUP BY quiz.theme_ids[0] as theme
+      FROM quiz_session
+      WHERE user = $uid 
+        AND status = 'completed'
+        AND quiz.theme_ids != NONE
+      GROUP BY quiz.theme_ids[0]
       ORDER BY quiz_count DESC
       LIMIT 10
       FETCH theme
@@ -138,20 +137,30 @@ export const GET: RequestHandler = async ({ params, url }) => {
       FETCH quiz
     `, { userId: cleanUserId });
 
-    // 6. Distribution des scores
-    const [scoreDistribution] = await db.query(`
-      LET $uid = type::thing('user', $userId);
-      
+    // 6. Distribution des scores - simplifié sans GROUP BY complexe
+    const [allScores] = await db.query(`
       SELECT 
-        math::floor((score / total_questions) * 10) * 10 as score_range,
-        count() as count
+        score,
+        total_questions,
+        math::round((score / total_questions) * 100) as percentage
       FROM quiz_session
-      WHERE user = $uid 
+      WHERE user = type::thing('user', $userId)
         AND status = 'completed'
         AND total_questions > 0
-      GROUP BY math::floor((score / total_questions) * 10)
-      ORDER BY score_range ASC
     `, { userId: cleanUserId });
+    
+    // Calculer la distribution côté JS
+    const scoreDistribution = (() => {
+      const buckets: Record<number, number> = {};
+      const scores = Array.isArray(allScores) ? allScores : [];
+      for (const s of scores) {
+        const bucket = Math.floor((s.percentage || 0) / 10) * 10;
+        buckets[bucket] = (buckets[bucket] || 0) + 1;
+      }
+      return Object.entries(buckets)
+        .map(([range, count]) => ({ score_range: parseInt(range), count }))
+        .sort((a, b) => a.score_range - b.score_range);
+    })();
 
     // 7. Stats par jour de la semaine
     const [weekdayStats] = await db.query(`
@@ -164,7 +173,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
       FROM quiz_session
       WHERE user = $uid 
         AND status = 'completed'
-      GROUP BY time::format(completedAt, '%w')
+      GROUP BY weekday
       ORDER BY weekday ASC
     `, { userId: cleanUserId });
 
@@ -179,7 +188,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
       FROM quiz_session
       WHERE user = $uid 
         AND status = 'completed'
-      GROUP BY time::format(completedAt, '%H')
+      GROUP BY hour
       ORDER BY hour ASC
     `, { userId: cleanUserId });
 

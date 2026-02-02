@@ -35,8 +35,8 @@ export const POST: RequestHandler = async ({ request }) => {
     // Vérifier le token
     const result = await db.query<any[]>(
       `SELECT *, user_id.* as user FROM password_reset_token 
-       WHERE token = $token AND used = false AND expires_at > time::now()`,
-      { token }
+       WHERE reset_token = $resetToken AND used = false AND expires_at > time::now()`,
+      { resetToken: token }
     );
 
     const tokens = result[0] as any[];
@@ -62,8 +62,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
     // Marquer le token comme utilisé
     await db.query(
-      `UPDATE password_reset_token SET used = true WHERE token = $token`,
-      { token }
+      `UPDATE password_reset_token SET used = true WHERE reset_token = $resetToken`,
+      { resetToken: token }
     );
 
     return json({ 

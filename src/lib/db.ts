@@ -1,4 +1,5 @@
 import Surreal from 'surrealdb';
+import { SURREAL_URL, SURREAL_NAMESPACE, SURREAL_DATABASE, SURREAL_USER, SURREAL_PASS } from '$env/static/private';
 
 // Configuration de la connexion SurrealDB
 const db = new Surreal();
@@ -9,19 +10,24 @@ export async function connectDB() {
   if (isConnected) return db;
 
   try {
-    const url = import.meta.env.SURREAL_URL || 'wss://gentle-island-06di2pv2c9po3a8euttd1alkek.aws-euw1.surreal.cloud';
+    const url = SURREAL_URL || 'wss://gentle-island-06di2pv2c9po3a8euttd1alkek.aws-euw1.surreal.cloud';
+    const namespace = SURREAL_NAMESPACE || 'kweez';
+    const database = SURREAL_DATABASE || 'dbkweez';
+    
+    console.log(`🔌 Connecting to SurrealDB: ${namespace}/${database}`);
+    
     await db.connect(`${url}/rpc`, {
-      namespace: import.meta.env.SURREAL_NAMESPACE || 'papaours',
-      database: import.meta.env.SURREAL_DATABASE || 'dbpapaours',
+      namespace,
+      database,
     });
 
     await db.signin({
-      username: import.meta.env.SURREAL_USER || 'rootuser',
-      password: import.meta.env.SURREAL_PASS || 'n1n@S1mone',
+      username: SURREAL_USER || 'rootuser',
+      password: SURREAL_PASS || 'n1n@S1mone',
     });
 
     isConnected = true;
-    console.log('✅ Connected to SurrealDB');
+    console.log(`✅ Connected to SurrealDB: ${namespace}/${database}`);
     return db;
   } catch (error) {
     console.error('❌ Failed to connect to SurrealDB:', error);
