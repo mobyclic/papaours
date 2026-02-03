@@ -45,30 +45,30 @@
   function getOptionClass(index: number): string {
     if (showResult) {
       if (isCorrect(index) && isSelected(index)) {
-        return 'border-green-500 bg-green-50'; // Correctement sélectionné
+        return 'border-green-500 bg-green-900/30'; // Correctement sélectionné
       } else if (isCorrect(index) && !isSelected(index)) {
-        return 'border-green-500 bg-green-50 ring-2 ring-green-300'; // Aurait dû être sélectionné
+        return 'border-green-500 bg-green-900/30 ring-2 ring-green-500/30'; // Aurait dû être sélectionné
       } else if (!isCorrect(index) && isSelected(index)) {
-        return 'border-red-500 bg-red-50'; // Incorrectement sélectionné
+        return 'border-red-500 bg-red-900/30'; // Incorrectement sélectionné
       }
-      return 'border-gray-200';
+      return 'border-gray-600 bg-gray-800';
     }
     
     if (isSelected(index)) {
-      return 'border-purple-500 bg-purple-50';
+      return 'border-amber-500 bg-gray-800 ring-2 ring-amber-500/30';
     }
     
-    return 'border-gray-200 hover:border-purple-300 hover:bg-purple-50';
+    return 'border-gray-600 bg-gray-800 hover:border-amber-500/50';
   }
 </script>
 
 <div class="space-y-3">
-  <p class="text-sm text-gray-500 mb-2 flex items-center gap-2">
-    <span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-medium">
-      Plusieurs réponses possibles
+  <p class="text-sm text-gray-500 mb-4 flex items-center gap-2">
+    <span class="bg-white text-gray-800 px-3 py-1 rounded text-xs font-bold uppercase tracking-wide border border-gray-200">
+      PLUSIEURS RÉPONSES POSSIBLES
     </span>
     {#if selectedAnswers.length > 0}
-      <span class="text-purple-600">{selectedAnswers.length} sélectionnée{selectedAnswers.length > 1 ? 's' : ''}</span>
+      <span class="text-amber-500">{selectedAnswers.length} sélectionnée{selectedAnswers.length > 1 ? 's' : ''}</span>
     {/if}
   </p>
   
@@ -87,10 +87,10 @@
               ? (isCorrect(index)
                 ? 'border-green-500 bg-green-500'
                 : 'border-red-500 bg-red-500')
-              : 'border-purple-500 bg-purple-500')
+              : 'border-amber-500 bg-amber-500')
             : (showResult && isCorrect(index)
-              ? 'border-green-500 bg-green-100'
-              : 'border-gray-300')}">
+              ? 'border-green-500 bg-green-900/50'
+              : 'border-gray-500')}">
           {#if isSelected(index)}
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
@@ -111,18 +111,18 @@
               class="w-16 h-16 object-cover rounded mb-2"
             />
           {/if}
-          <span class="font-medium">{option}</span>
+          <span class="font-medium text-white">{option}</span>
         </div>
         
         <!-- Result indicator -->
         {#if showResult}
           <div class="ml-2">
             {#if isCorrect(index) && isSelected(index)}
-              <span class="text-green-600 text-xl">✓</span>
+              <span class="text-green-400 text-xl">✓</span>
             {:else if isCorrect(index) && !isSelected(index)}
-              <span class="text-green-600 text-sm">Manquée</span>
+              <span class="text-green-400 text-sm">Manquée</span>
             {:else if !isCorrect(index) && isSelected(index)}
-              <span class="text-red-600 text-xl">✗</span>
+              <span class="text-red-400 text-xl">✗</span>
             {/if}
           </div>
         {/if}

@@ -30,6 +30,9 @@
     onOrderChange
   }: Props = $props();
   
+  // Copie locale des items pour garantir la réactivité
+  let localItems = $derived(items);
+  
   // État drag & drop
   let draggedIndex = $state<number | null>(null);
   let dragOverIndex = $state<number | null>(null);
@@ -104,32 +107,49 @@
   function getItemClass(index: number): string {
     if (showResult) {
       return isCorrectPosition(index)
-        ? 'border-green-500 bg-green-50'
-        : 'border-red-500 bg-red-50';
+        ? 'border-green-500 bg-green-900/30'
+        : 'border-red-500 bg-red-900/30';
     }
     
     if (draggedIndex === index) {
-      return 'opacity-50 border-purple-300 bg-purple-50';
+      return 'opacity-50 border-amber-500 bg-gray-700';
     }
     
     if (dragOverIndex === index && draggedIndex !== null) {
-      return 'border-purple-500 bg-purple-100 border-dashed';
+      return 'border-amber-500 bg-gray-700 border-dashed';
     }
     
-    return 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50';
+    return 'border-gray-600 bg-gray-800 hover:border-amber-500/50';
   }
+
+  // État pour basculer entre ordre utilisateur et ordre correct
+  let showingCorrectOrder = $state(false);
   
-  // Calcul du score
-  let correctCount = $derived(
-    showResult ? currentOrder.filter((id, i) => id === correctOrder[i]).length : 0
-  );
+  // Sauvegarder l'ordre utilisateur pour pouvoir revenir
+  let userOrder = $state<string[]>([]);
+  
+  // Calcul du score - utiliser userOrder quand showResult est actif
+  let correctCount = $derived.by(() => {
+    const orderToCheck = userOrder.length > 0 ? userOrder : currentOrder;
+    return orderToCheck.filter((id, i) => id === correctOrder[i]).length;
+  });
+  
+  $effect(() => {
+    if (showResult && userOrder.length === 0 && currentOrder.length > 0) {
+      userOrder = [...currentOrder];
+    }
+  });
+
+  function toggleOrder() {
+    showingCorrectOrder = !showingCorrectOrder;
+  }
 </script>
 
 <div class="ordering-container">
   <!-- Instructions -->
   <p class="text-sm text-gray-500 mb-4 flex items-center gap-2">
-    <span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-medium">
-      Remets dans l'ordre
+    <span class="bg-white text-gray-800 px-3 py-1 rounded text-xs font-bold uppercase tracking-wide border border-gray-200">
+      REMETS DANS L'ORDRE
     </span>
     <span class="text-gray-400">
       Glisse-dépose ou utilise les flèches pour réorganiser
@@ -138,56 +158,49 @@
   
   <!-- Liste ordonnée -->
   <div class="space-y-2">
-    {#each currentOrder as itemId, index}
-      {@const item = getItemAtPosition(index)}
+    {#each (showResult && userOrder.length > 0 ? (showingCorrectOrder ? correctOrder : userOrder) : currentOrder) as itemId, index (`${showingCorrectOrder}-${index}-${itemId}`)}
+      {@const item = localItems.find(i => i.id === itemId)}
+      {@const isCorrectAtPosition = showingCorrectOrder ? true : (userOrder[index] === correctOrder[index])}
       {#if item}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           role="listitem"
-          draggable={!disabled}
+          draggable={!disabled && !showResult}
           ondragstart={(e) => handleDragStart(index, e)}
           ondragover={(e) => handleDragOver(index, e)}
           ondragleave={handleDragLeave}
           ondrop={(e) => handleDrop(index, e)}
           ondragend={handleDragEnd}
-          class="flex items-center gap-3 p-4 rounded-xl border-2 transition-all
-            {getItemClass(index)}
-            {disabled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}"
+          class="flex items-center gap-3 p-4 rounded-xl border-2 transition-all duration-500 ease-in-out
+            {showResult 
+              ? (isCorrectAtPosition ? 'border-green-500 bg-green-900/30' : 'border-red-500 bg-red-900/30')
+              : getItemClass(index)}
+            {disabled || showResult ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}"
         >
           <!-- Numéro de position -->
-          <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold
+          <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors duration-300
             {showResult 
-              ? (isCorrectPosition(index) ? 'bg-green-200 text-green-700' : 'bg-red-200 text-red-700')
-              : 'bg-purple-200 text-purple-700'}">
+              ? (isCorrectAtPosition ? 'bg-green-500 text-white' : 'bg-red-500 text-white')
+              : 'bg-amber-500 text-gray-900'}">
             {index + 1}
           </div>
-          
-          <!-- Handle de drag -->
-          {#if !disabled}
-            <div class="text-gray-400">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                  d="M4 8h16M4 16h16"></path>
-              </svg>
-            </div>
-          {/if}
           
           <!-- Contenu de l'item -->
           <div class="flex-1 flex items-center gap-3">
             {#if item.image}
               <img src={item.image} alt="" class="w-12 h-12 object-cover rounded" />
             {/if}
-            <span class="font-medium">{item.text}</span>
+            <span class="font-medium text-white">{item.text}</span>
           </div>
           
           <!-- Boutons de déplacement (mobile-friendly) -->
-          {#if !disabled}
+          {#if !disabled && !showResult}
             <div class="flex flex-col gap-1">
               <button
                 onclick={() => moveUp(index)}
                 disabled={index === 0}
                 aria-label="Monter"
-                class="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                class="p-1 rounded text-gray-400 hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
@@ -197,7 +210,7 @@
                 onclick={() => moveDown(index)}
                 disabled={index === currentOrder.length - 1}
                 aria-label="Descendre"
-                class="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                class="p-1 rounded text-gray-400 hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -208,11 +221,11 @@
           
           <!-- Indicateur résultat -->
           {#if showResult}
-            <div class="ml-2">
-              {#if isCorrectPosition(index)}
-                <span class="text-green-600 text-xl">✓</span>
+            <div class="ml-2 transition-all duration-300">
+              {#if isCorrectAtPosition}
+                <span class="text-green-400 text-xl">✓</span>
               {:else}
-                <span class="text-red-600 text-xl">✗</span>
+                <span class="text-red-400 text-xl">✗</span>
               {/if}
             </div>
           {/if}
@@ -223,36 +236,39 @@
   
   <!-- Résultat -->
   {#if showResult}
-    <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+    <div class="mt-4 p-4 bg-gray-800 border border-gray-600 rounded-xl">
       <div class="flex items-center justify-between">
-        <p class="font-medium text-blue-800">
-          {correctCount} / {currentOrder.length} éléments bien placés
+        <p class="font-medium text-gray-200">
+          {correctCount} / {userOrder.length} éléments bien placés
         </p>
-        {#if correctCount < currentOrder.length}
-          <button
-            onclick={() => onOrderChange([...correctOrder])}
-            class="text-sm text-blue-600 hover:text-blue-800 underline"
-          >
+        <button
+          onclick={toggleOrder}
+          class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+            {showingCorrectOrder 
+              ? 'bg-amber-500 text-gray-900 hover:bg-amber-400' 
+              : 'bg-green-500 text-white hover:bg-green-400'}"
+        >
+          {#if showingCorrectOrder}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+            </svg>
+            Voir mes réponses
+          {:else}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
             Voir l'ordre correct
-          </button>
-        {/if}
+          {/if}
+        </button>
       </div>
       
-      {#if correctCount < currentOrder.length}
-        <div class="mt-3 pt-3 border-t border-blue-200">
-          <p class="text-sm text-blue-700 mb-2">Ordre correct :</p>
-          <div class="flex flex-wrap gap-2">
-            {#each correctOrder as id, i}
-              {@const item = items.find(item => item.id === id)}
-              {#if item}
-                <span class="inline-flex items-center gap-1 px-2 py-1 bg-white rounded border border-blue-200 text-sm">
-                  <span class="font-bold text-blue-500">{i + 1}.</span>
-                  <span>{item.text}</span>
-                </span>
-              {/if}
-            {/each}
-          </div>
-        </div>
+      {#if showingCorrectOrder}
+        <p class="mt-2 text-sm text-green-400 flex items-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          Voici l'ordre correct
+        </p>
       {/if}
     </div>
   {/if}

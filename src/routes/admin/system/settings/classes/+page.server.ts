@@ -20,31 +20,40 @@ function serialize<T>(data: T): T {
 export const load: PageServerLoad = async () => {
   const db = await connectDB();
   
-  // Récupérer les catégories
-  const categoriesResult = await db.query<any[]>('SELECT * FROM class_category ORDER BY pos ASC');
-  const categories = (categoriesResult[0] || []);
+  // Récupérer les cycles (remplace les catégories)
+  const cyclesResult = await db.query<any[]>('SELECT * FROM cycle ORDER BY order ASC');
+  const cycles = (cyclesResult[0] || []);
   
-  // Récupérer les classes avec leur catégorie
-  const result = await db.query<any[]>('SELECT *, category_id.* as category FROM classe ORDER BY pos ASC');
-  const classes = (result[0] || []);
+  // Récupérer les grades avec leur cycle
+  const result = await db.query<any[]>('SELECT *, cycle.* as cycle_data FROM grade ORDER BY order ASC');
+  const grades = (result[0] || []);
   
-  // Compter le nombre de questions par classe
-  const questionsResult = await db.query<any[]>('SELECT classe_id, count() as count FROM question WHERE classe_id != NONE GROUP BY classe_id');
+  // Compter le nombre de questions par grade (via grade_difficulties)
+  const questionsResult = await db.query<any[]>(`
+    SELECT grade_difficulties.grade_id as grade_id, count() as count 
+    FROM question 
+    WHERE grade_difficulties != NONE AND array::len(grade_difficulties) > 0
+    GROUP BY grade_difficulties.grade_id
+  `);
   const questionCounts: Record<string, number> = {};
   for (const q of (questionsResult[0] || [])) {
-    if (q.classe_id) {
-      questionCounts[q.classe_id.toString()] = q.count;
+    if (q.grade_id) {
+      const gradeIds = Array.isArray(q.grade_id) ? q.grade_id : [q.grade_id];
+      for (const gId of gradeIds) {
+        const key = gId?.toString() || '';
+        questionCounts[key] = (questionCounts[key] || 0) + (q.count || 0);
+      }
     }
   }
   
-  // Enrichir les classes avec le compte de questions
-  const enrichedClasses = classes.map((c: any) => ({
-    ...serialize(c),
-    question_count: questionCounts[c.id?.toString()] || 0
+  // Enrichir les grades avec le compte de questions
+  const enrichedGrades = grades.map((g: any) => ({
+    ...serialize(g),
+    question_count: questionCounts[g.id?.toString()] || 0
   }));
   
   return {
-    classes: enrichedClasses,
-    categories: serialize(categories)
+    grades: enrichedGrades,
+    cycles: serialize(cycles)
   };
 };

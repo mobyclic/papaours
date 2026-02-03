@@ -3,14 +3,32 @@ import type { RequestHandler } from './$types';
 import { getSurrealDB } from '$lib/server/db';
 
 export const GET: RequestHandler = async ({ cookies }) => {
-  const userId = cookies.get('userId');
+  const sessionToken = cookies.get('session');
   
-  if (!userId) {
+  if (!sessionToken) {
     return json({ error: 'Non authentifié' }, { status: 401 });
   }
 
   try {
     const db = await getSurrealDB();
+    
+    // Valider la session et récupérer l'utilisateur
+    const [sessions] = await db.query<any[]>(`
+      SELECT user FROM session 
+      WHERE session_token = $sessionToken 
+        AND expires_at > time::now()
+    `, { sessionToken });
+    
+    if (!sessions || sessions.length === 0) {
+      return json({ error: 'Session expirée' }, { status: 401 });
+    }
+    
+    const userIdFromSession = sessions[0].user?.toString();
+    if (!userIdFromSession) {
+      return json({ error: 'Session invalide' }, { status: 401 });
+    }
+    
+    const userId = userIdFromSession.includes(':') ? userIdFromSession.split(':')[1] : userIdFromSession;
     
     // Récupérer les badges débloqués par l'utilisateur
     const [userBadges] = await db.query<[any[]]>(`

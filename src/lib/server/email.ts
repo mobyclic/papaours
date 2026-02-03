@@ -129,7 +129,7 @@ export async function sendPasswordResetEmail(
     <p style="font-size: 12px; color: #9ca3af; margin-top: 30px;">
       Lien direct : <a href="${resetUrl}">${resetUrl}</a>
     </p>
-  `, 'Réinitialisez votre mot de passe Kwizy');
+  `, 'Réinitialisez votre mot de passe Kweez');
 
   return sendEmail(to, 'Réinitialisation de votre mot de passe', html);
 }
@@ -162,7 +162,7 @@ export async function sendStudentInviteEmail(
     <p style="font-size: 14px; color: #6b7280;">
       Tu pourras créer ton compte avec un pseudo et un code secret à 4 chiffres facile à retenir.
     </p>
-  `, `${tutorName} t'invite sur Kwizy !`);
+  `, `${tutorName} t'invite sur Kweez !`);
 
   return sendEmail(to, `${tutorName} t'invite sur ${APP_NAME} !`, html);
 }
@@ -190,7 +190,7 @@ export async function sendTutorWelcomeEmail(
     <p style="font-size: 14px; color: #6b7280;">
       Besoin d'aide ? Consultez notre <a href="${APP_URL}/faq">FAQ</a> ou contactez-nous.
     </p>
-  `, 'Bienvenue sur Kwizy !');
+  `, 'Bienvenue sur Kweez !');
 
   return sendEmail(to, `Bienvenue sur ${APP_NAME}, ${tutorName} !`, html);
 }

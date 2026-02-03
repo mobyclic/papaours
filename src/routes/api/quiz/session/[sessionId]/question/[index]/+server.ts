@@ -79,32 +79,37 @@ export const GET: RequestHandler = async ({ params }) => {
     // S'assurer que les entrées user_progress existent pour cette question
     // (pour chaque thème de la question)
     const userId = session.userId?.toString() || session.userId;
-    let classeId = session.classeId?.toString() || session.classeId;
+    let gradeId = session.gradeId?.toString() || session.gradeId;
     
-    // Si pas de classeId dans la session, essayer de le récupérer depuis l'utilisateur
-    if (!classeId && userId && !userId.startsWith('anonymous_')) {
+    // Si pas de gradeId dans la session, essayer de le récupérer depuis l'utilisateur
+    if (!gradeId && userId && !userId.startsWith('anonymous_')) {
       const cleanUserId = userId.includes(':') ? userId.split(':')[1] : userId;
       const userResult = await db.query<any[]>(
-        'SELECT classe_id FROM type::thing("user", $userId)',
+        'SELECT current_grade FROM type::thing("user", $userId)',
         { userId: cleanUserId }
       );
       const user = (userResult[0] as any[])?.[0];
-      if (user?.classe_id) {
-        classeId = user.classe_id.toString();
+      if (user?.current_grade) {
+        gradeId = user.current_grade.toString();
         // Mettre à jour la session pour les prochaines fois
         const cleanSessionId = params.sessionId;
-        await db.query(`UPDATE quiz_session:${cleanSessionId} SET classeId = $classeId`, { classeId });
+        await db.query(`UPDATE quiz_session:${cleanSessionId} SET gradeId = $gradeId`, { gradeId });
       }
     }
     
-    if (userId && classeId) {
-      await ensureUserProgressForQuestion(userId, classeId, questionIdStr);
+    if (userId && gradeId) {
+      await ensureUserProgressForQuestion(userId, gradeId, questionIdStr);
     }
 
     // Récupérer la question depuis la DB avec les métadonnées
     const questionResult = await db.query<any[]>(
-      `SELECT id, question, type, imageUrl, imageCaption, options, difficulty, 
-              matiere_id, theme_ids, class_difficulties,
+      `SELECT id, question, questionType, type, imageUrl, imageCaption, options, optionImages, difficulty,
+              textWithBlanks, correctAnswers, caseSensitive,
+              leftItems, rightItems, correctMatches,
+              items, correctOrder,
+              placeholder, sampleAnswers, expectedKeywords, minWords, maxWords, minLength, maxLength,
+              answers, requireJustification,
+              matiere_id, theme_ids, grade_difficulties,
               matiere_id.name as matiere_name,
               theme_ids.*.name as theme_names
        FROM type::thing("question", $id)`,
@@ -117,13 +122,17 @@ export const GET: RequestHandler = async ({ params }) => {
       return json({ message: 'Question non trouvée dans la base' }, { status: 404 });
     }
     
-    // Calculer la difficulté effective (par classe si disponible)
+    // Calculer la difficulté effective (par grade si disponible)
     let effectiveDifficulty = question.difficulty || 'easy';
-    if (question.class_difficulties && classeId) {
-      const cleanClasseId = classeId.includes(':') ? classeId.split(':')[1] : classeId;
-      const classDiff = question.class_difficulties[cleanClasseId] || question.class_difficulties[`classe:${cleanClasseId}`];
-      if (classDiff) {
-        effectiveDifficulty = classDiff === 1 ? 'easy' : classDiff === 2 ? 'medium' : 'hard';
+    if (question.grade_difficulties && gradeId) {
+      const cleanGradeId = gradeId.includes(':') ? gradeId.split(':')[1] : gradeId;
+      // grade_difficulties est maintenant un tableau d'objets [{grade_id, difficulty, points}]
+      const gradeDiff = (question.grade_difficulties || []).find((gd: any) => {
+        const gdId = gd.grade_id?.toString() || gd.grade_id;
+        return gdId === cleanGradeId || gdId === `grade:${cleanGradeId}`;
+      });
+      if (gradeDiff) {
+        effectiveDifficulty = gradeDiff.difficulty === 1 ? 'easy' : gradeDiff.difficulty === 2 ? 'medium' : 'hard';
       }
     }
 
@@ -137,15 +146,75 @@ export const GET: RequestHandler = async ({ params }) => {
     const shuffledOptions = shuffleOrder.map((origIdx: number) => originalOptions[origIdx]);
     
     // Construire la question pour le client
-    const clientQuestion = {
+    const questionType = question.questionType || question.type || 'qcm';
+    
+    const clientQuestion: any = {
       id: question.id?.toString() || questionIdStr,
       question: question.question,
-      type: question.type || 'qcm',
+      questionType: questionType,
+      type: questionType,
       options: shuffledOptions,
+      optionImages: question.optionImages,
       imageUrl: question.imageUrl,
       imageCaption: question.imageCaption,
-      // PAS de correctAnswer !
+      // PAS de correctAnswer pour QCM !
     };
+    
+    // Ajouter les champs spécifiques selon le type de question
+    if (questionType === 'fill_blank') {
+      clientQuestion.textWithBlanks = question.textWithBlanks || question.question;
+      // Ne pas envoyer correctAnswers au client pour ne pas tricher
+      // mais on en a besoin pour l'affichage du format {réponse}
+      // Le composant FillBlank extrait les réponses du textWithBlanks si format {réponse}
+    }
+    
+    if (questionType === 'true_false') {
+      clientQuestion.requireJustification = question.requireJustification || false;
+      // Ne pas envoyer correctAnswer
+    }
+    
+    if (questionType === 'qcm_multiple') {
+      // Pour QCM multiple, mélanger les réponses de manière déterministe
+      const originalAnswers = question.answers || [];
+      const answerSeed = `${params.sessionId}-${questionIdStr}`;
+      const answerShuffleOrder = seededShuffle(originalAnswers.length, answerSeed);
+      
+      // Mélanger les answers et créer les options
+      const shuffledAnswers = answerShuffleOrder.map((origIdx: number) => originalAnswers[origIdx]);
+      clientQuestion.answers = shuffledAnswers.map((a: any) => ({ text: a.text }));
+      clientQuestion.options = shuffledAnswers.map((a: any) => a.text);
+    }
+    
+    if (questionType === 'matching') {
+      // Mélanger les items de droite pour rendre la question plus intéressante
+      const originalRightItems = question.rightItems || [];
+      const rightSeed = `${params.sessionId}-${questionIdStr}-right`;
+      const rightShuffleOrder = seededShuffle(originalRightItems.length, rightSeed);
+      const shuffledRightItems = rightShuffleOrder.map((origIdx: number) => originalRightItems[origIdx]);
+      
+      clientQuestion.leftItems = question.leftItems || [];
+      clientQuestion.rightItems = shuffledRightItems;
+      // Ne pas envoyer correctMatches
+    }
+    
+    if (questionType === 'ordering') {
+      // Mélanger les items pour la présentation
+      const items = question.items || [];
+      const itemSeed = `${params.sessionId}-${questionIdStr}-items`;
+      const itemShuffleOrder = seededShuffle(items.length, itemSeed);
+      clientQuestion.items = itemShuffleOrder.map((idx: number) => items[idx]);
+      clientQuestion.shuffledOrder = clientQuestion.items.map((i: any) => i.id);
+      // Ne pas envoyer correctOrder
+    }
+    
+    if (questionType === 'open_short' || questionType === 'open_long') {
+      clientQuestion.placeholder = question.placeholder || '';
+      clientQuestion.minLength = question.minLength || 0;
+      clientQuestion.maxLength = question.maxLength || 0;
+      clientQuestion.minWords = question.minWords || 0;
+      clientQuestion.maxWords = question.maxWords || 0;
+      // Ne pas envoyer sampleAnswers ni expectedKeywords
+    }
 
     // Vérifier si cette question a déjà été répondue
     const existingAnswer = session.answers?.find((a: any) => a.questionIndex === questionIndex);
@@ -164,7 +233,7 @@ export const GET: RequestHandler = async ({ params }) => {
         difficulty: effectiveDifficulty,
         matiere: question.matiere_name || null,
         themes: themeNames,
-        classeId: classeId || null
+        gradeId: gradeId || null
       }
     });
 

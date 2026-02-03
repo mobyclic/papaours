@@ -9,33 +9,24 @@
   
   let { data, children } = $props();
   
-  // Afficher la sidebar sur toutes les pages admin
+  // Ne pas afficher la sidebar sur la page de login
   let showSidebar = $derived(
-    $page.url.pathname.startsWith('/admin')
+    $page.url.pathname.startsWith('/admin') && !$page.url.pathname.startsWith('/admin/login')
   );
   
   onMount(() => {
     mounted = true;
-    
-    // Charger l'utilisateur depuis localStorage
     loadAdminUser();
-    
-    // TODO: Ajouter vérification d'authentification en production
-    // const unsubscribe = isAuthenticated.subscribe(value => {
-    //   // Ne pas rediriger depuis la page de login
-    //   if (mounted && !value && $page.url.pathname !== '/admin') {
-    //     goto('/admin');
-    //   }
-    // });
-    
-    // return unsubscribe;
   });
 </script>
 
 {#if showSidebar}
-  <div class="flex h-screen bg-gray-50">
+  <div class="dark flex h-screen bg-gray-950">
+    <!-- Grid background pattern -->
+    <div class="fixed inset-0 bg-[linear-gradient(rgba(251,191,36,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none"></div>
+    
     <AdminSidebar {data} />
-    <main class="flex-1 flex flex-col overflow-hidden">
+    <main class="flex-1 flex flex-col overflow-hidden relative z-10">
       <div class="flex-1 overflow-y-auto">
         {@render children()}
       </div>

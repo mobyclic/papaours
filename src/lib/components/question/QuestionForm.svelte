@@ -2,13 +2,13 @@
   import { Button } from "$lib/components/ui/button";
   import { 
     Plus, Trash2, GripVertical, Globe, Image, Music, Video,
-    ArrowRight, AlertTriangle
+    ArrowRight, AlertTriangle, Settings2
   } from "lucide-svelte";
   import { 
-    QUESTION_TYPES, AVAILABLE_LANGUAGES, 
+    QUESTION_TYPES, AVAILABLE_LANGUAGES, METADATA_PRESETS,
     type QuestionType, type Question, type Answer, 
     type MatchingPair, type OrderingItem, type MediaError,
-    type QuestionTranslation
+    type QuestionTranslation, type QuestionMetadata
   } from "$lib/types/question";
 
   interface Props {
@@ -104,6 +104,22 @@
   let mediaErrors = $state<MediaError[]>(
     initialQuestion.media_errors || []
   );
+
+  // Metadata (options flexibles de validation/affichage)
+  // svelte-ignore state_referenced_locally
+  let metadata = $state<QuestionMetadata>(
+    initialQuestion.metadata || {}
+  );
+  // svelte-ignore state_referenced_locally
+  let selectedPreset = $state<string>('');
+
+  // Appliquer un preset de metadata
+  function applyMetadataPreset(presetKey: string) {
+    if (presetKey && METADATA_PRESETS[presetKey]) {
+      metadata = { ...metadata, ...METADATA_PRESETS[presetKey] };
+    }
+    selectedPreset = presetKey;
+  }
 
   // Type categories for grouping
   const typeCategories = [
@@ -322,6 +338,11 @@
 
     if (questionType === 'error_spotting') {
       questionData.media_errors = mediaErrors;
+    }
+
+    // Ajouter metadata si défini (pour questions ouvertes principalement)
+    if (['open_short', 'open_long', 'fill_blank'].includes(questionType) && Object.keys(metadata).length > 0) {
+      questionData.metadata = metadata;
     }
 
     onSave(questionData);
@@ -817,6 +838,196 @@
           />
         </div>
       </div>
+    </div>
+  {/if}
+
+  <!-- Metadata / Options de validation avancées (pour questions ouvertes) -->
+  {#if questionType === 'open_short' || questionType === 'open_long' || questionType === 'fill_blank'}
+    <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <Settings2 class="w-5 h-5 text-gray-500" />
+        Options de validation avancées
+      </h2>
+      
+      <!-- Presets -->
+      <div class="mb-6">
+        <span class="block text-sm font-medium text-gray-700 mb-2">Préréglages rapides</span>
+        <div class="flex flex-wrap gap-2">
+          {#each Object.entries(METADATA_PRESETS) as [key, preset]}
+            <button
+              type="button"
+              onclick={() => applyMetadataPreset(key)}
+              class="px-3 py-1.5 text-sm rounded-lg border transition-all
+                {selectedPreset === key 
+                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
+                  : 'border-gray-300 hover:border-gray-400 text-gray-600'}"
+            >
+              {key === 'year' ? '📅 Année' : 
+               key === 'integer' ? '🔢 Entier' :
+               key === 'float' ? '🔢 Décimal' :
+               key === 'percentage' ? '📊 Pourcentage' :
+               key === 'distance_km' ? '📏 Distance (km)' :
+               key === 'chemical_symbol' ? '🧪 Symbole chimique' :
+               key === 'word' ? '📝 Mot simple' : key}
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <!-- Type de réponse -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Type de réponse</span>
+          <select
+            bind:value={metadata.answerType}
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value={undefined}>Texte libre</option>
+            <option value="text">Texte</option>
+            <option value="integer">Nombre entier</option>
+            <option value="float">Nombre décimal</option>
+            <option value="year">Année (AAAA)</option>
+            <option value="date">Date</option>
+            <option value="regex">Expression régulière</option>
+          </select>
+        </div>
+
+        <!-- Unité -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Unité (optionnel)</span>
+          <input
+            type="text"
+            bind:value={metadata.unit}
+            placeholder="Ex: km, °C, ans, %"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+
+        <!-- Tolérance (pour nombres) -->
+        {#if metadata.answerType === 'integer' || metadata.answerType === 'float' || metadata.answerType === 'year'}
+          <div>
+            <span class="block text-sm font-medium text-gray-700 mb-1">Tolérance (±)</span>
+            <input
+              type="number"
+              bind:value={metadata.tolerance}
+              placeholder="Ex: 10"
+              min="0"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <span class="block text-sm font-medium text-gray-700 mb-1">Type de tolérance</span>
+            <select
+              bind:value={metadata.toleranceType}
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="absolute">Valeur absolue (±X)</option>
+              <option value="percent">Pourcentage (±X%)</option>
+            </select>
+          </div>
+        {/if}
+
+        <!-- Limites de caractères -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Min caractères</span>
+          <input
+            type="number"
+            bind:value={metadata.minChars}
+            placeholder="Ex: 1"
+            min="0"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Max caractères</span>
+          <input
+            type="number"
+            bind:value={metadata.maxChars}
+            placeholder="Ex: 100"
+            min="0"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+
+        <!-- Regex pattern -->
+        {#if metadata.answerType === 'regex'}
+          <div class="col-span-2">
+            <span class="block text-sm font-medium text-gray-700 mb-1">Pattern regex</span>
+            <input
+              type="text"
+              bind:value={metadata.pattern}
+              placeholder="Ex: ^[A-Z][a-z]+$"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+            />
+            <p class="text-xs text-gray-500 mt-1">Expression régulière pour valider la réponse</p>
+          </div>
+        {/if}
+
+        <!-- Normalisation -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Normalisation</span>
+          <select
+            bind:value={metadata.normalize}
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value={undefined}>Aucune</option>
+            <option value="trim">Supprimer espaces</option>
+            <option value="lowercase">Minuscules</option>
+            <option value="uppercase">Majuscules</option>
+          </select>
+        </div>
+
+        <!-- Type d'input HTML -->
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Type de clavier</span>
+          <select
+            bind:value={metadata.inputType}
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value={undefined}>Texte standard</option>
+            <option value="text">Texte</option>
+            <option value="number">Numérique</option>
+            <option value="tel">Téléphone</option>
+          </select>
+          <p class="text-xs text-gray-500 mt-1">Affecte le clavier sur mobile</p>
+        </div>
+      </div>
+
+      <!-- Placeholder et hint -->
+      <div class="grid grid-cols-2 gap-4 mt-4">
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Placeholder</span>
+          <input
+            type="text"
+            bind:value={metadata.inputPlaceholder}
+            placeholder="Ex: Entre ta réponse..."
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <span class="block text-sm font-medium text-gray-700 mb-1">Texte d'aide</span>
+          <input
+            type="text"
+            bind:value={metadata.inputHint}
+            placeholder="Ex: Format: AAAA"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+      </div>
+
+      <!-- Aperçu metadata -->
+      {#if Object.keys(metadata).filter(k => metadata[k as keyof QuestionMetadata] !== undefined).length > 0}
+        <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+          <span class="text-xs font-medium text-gray-500 uppercase">Aperçu metadata</span>
+          <pre class="text-xs text-gray-700 mt-1 overflow-x-auto">{JSON.stringify(
+            Object.fromEntries(
+              Object.entries(metadata).filter(([_, v]) => v !== undefined && v !== '')
+            ), 
+            null, 
+            2
+          )}</pre>
+        </div>
+      {/if}
     </div>
   {/if}
 

@@ -1,11 +1,21 @@
 import type { LayoutServerLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 import { connectDB } from '$lib/db';
+import { getBackofficeUser, type BackofficeUser } from '$lib/server/backoffice-auth';
 
-export const load: LayoutServerLoad = async ({ locals }) => {
-  // TODO: Ajouter vérification d'authentification en production
-  // if (!locals.user) {
-  //   throw new Error('User not authenticated');
-  // }
+export const load: LayoutServerLoad = async ({ cookies, url }) => {
+  // Vérifier l'authentification backoffice
+  const backofficeUser = await getBackofficeUser(cookies);
+  
+  // Si pas connecté, rediriger vers la page de login (sauf si on y est déjà)
+  if (!backofficeUser && !url.pathname.startsWith('/admin/login')) {
+    throw redirect(302, '/admin/login');
+  }
+
+  // Si on est sur la page de login et déjà connecté, rediriger vers le dashboard
+  if (backofficeUser && url.pathname === '/admin/login') {
+    throw redirect(302, '/admin');
+  }
 
   try {
     const db = await connectDB();
@@ -82,24 +92,25 @@ export const load: LayoutServerLoad = async ({ locals }) => {
       };
     }));
     
-    // Charger les catégories de classes avec le nombre d'utilisateurs par catégorie
-    const classCategoriesResult = await db.query(`
-      SELECT * FROM class_category WHERE is_active = true ORDER BY pos ASC
+    // Charger les cycles avec le nombre d'utilisateurs par cycle
+    const cyclesResult = await db.query(`
+      SELECT * FROM cycle ORDER BY order ASC
     `);
-    const allClassCategories = (classCategoriesResult[0] as any[]) || [];
+    const allCycles = (cyclesResult[0] as any[]) || [];
     
-    const classCategories = await Promise.all(allClassCategories.map(async (cat: any) => {
-      const catIdStr = cat.id?.toString() || cat.id;
-      // Compter les utilisateurs dont la classe appartient à cette catégorie
+    const cycles = await Promise.all(allCycles.map(async (cycle: any) => {
+      const cycleIdStr = cycle.id?.toString() || cycle.id;
+      const cleanCycleId = cycleIdStr.includes(':') ? cycleIdStr.split(':')[1] : cycleIdStr;
+      // Compter les utilisateurs dont le grade appartient à ce cycle
       const countResult = await db.query(
-        `SELECT count() as total FROM user WHERE classe_id.category_id = type::thing("class_category", $catId) GROUP ALL`,
-        { catId: catIdStr.includes(':') ? catIdStr.split(':')[1] : catIdStr }
+        `SELECT count() as total FROM user WHERE current_grade.cycle = type::thing("cycle", $cycleId) GROUP ALL`,
+        { cycleId: cleanCycleId }
       );
       const userCount = (countResult[0] as any[])?.[0]?.total || 0;
       return {
-        id: catIdStr,
-        name: cat.name_fr || cat.name,
-        slug: cat.slug,
+        id: cycleIdStr,
+        name: cycle.name,
+        code: cycle.code,
         userCount
       };
     }));
@@ -108,8 +119,9 @@ export const load: LayoutServerLoad = async ({ locals }) => {
       themes,
       questionThemes,
       matieres: matieres.filter(m => m.themeCount > 0),
-      classCategories,
-      user: locals.user || { email: 'admin@example.com', name: 'Admin' }
+      cycles,
+      backofficeUser,
+      user: backofficeUser || { email: 'admin@example.com', name: 'Admin' }
     };
   } catch (error) {
     console.error('Error loading layout data:', error);
@@ -117,8 +129,9 @@ export const load: LayoutServerLoad = async ({ locals }) => {
       themes: [],
       questionThemes: [],
       matieres: [],
-      classCategories: [],
-      user: locals.user || { email: 'admin@example.com', name: 'Admin' }
+      cycles: [],
+      backofficeUser,
+      user: backofficeUser || { email: 'admin@example.com', name: 'Admin' }
     };
   }
 };

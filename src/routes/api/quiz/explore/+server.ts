@@ -9,7 +9,7 @@ export const GET: RequestHandler = async ({ url }) => {
     // Paramètres de filtrage
     const matiere = url.searchParams.get('matiere');
     const theme = url.searchParams.get('theme');
-    const classe = url.searchParams.get('classe');
+    const grade = url.searchParams.get('grade') || url.searchParams.get('classe'); // Support ancien param
     const difficulty = url.searchParams.get('difficulty');
     const search = url.searchParams.get('search');
     const limit = parseInt(url.searchParams.get('limit') || '50');
@@ -29,9 +29,9 @@ export const GET: RequestHandler = async ({ url }) => {
       params.themeId = theme.includes(':') ? theme.split(':')[1] : theme;
     }
 
-    if (classe) {
-      conditions.push('classe_id = type::thing("classe", $classeId)');
-      params.classeId = classe.includes(':') ? classe.split(':')[1] : classe;
+    if (grade) {
+      conditions.push('type::thing("grade", $gradeId) INSIDE target_grades');
+      params.gradeId = grade.includes(':') ? grade.split(':')[1] : grade;
     }
 
     if (difficulty) {
@@ -53,7 +53,7 @@ export const GET: RequestHandler = async ({ url }) => {
         difficulty_level, questionType, maxQuestions,
         matiere_id, matiere_id.name as matiere_name, matiere_id.color as matiere_color,
         theme_ids, theme_ids.*.name as theme_names,
-        classe_id, classe_id.name as classe_name,
+        target_grades, target_grades.*.name as grade_names,
         createdAt
       FROM quiz 
       ${whereClause}
@@ -80,10 +80,7 @@ export const GET: RequestHandler = async ({ url }) => {
         color: q.matiere_color
       } : null,
       themes: (q.theme_names || []).filter(Boolean),
-      classe: q.classe_name ? {
-        id: q.classe_id?.toString(),
-        name: q.classe_name
-      } : null,
+      grades: (q.grade_names || []).filter(Boolean),
       createdAt: q.createdAt
     }));
 
@@ -93,10 +90,10 @@ export const GET: RequestHandler = async ({ url }) => {
     const total = (countResult[0] as any[])?.[0]?.count || 0;
 
     // Récupérer les filtres disponibles
-    const [matieresResult, themesResult, classesResult] = await Promise.all([
+    const [matieresResult, themesResult, gradesResult] = await Promise.all([
       db.query<any[]>('SELECT id, name, slug, color, pos FROM matiere WHERE is_active = true ORDER BY pos ASC, name ASC'),
       db.query<any[]>('SELECT id, name, slug, matiere_id FROM theme WHERE is_active = true ORDER BY name ASC'),
-      db.query<any[]>('SELECT id, name, level_order FROM classe WHERE is_active = true ORDER BY level_order ASC')
+      db.query<any[]>('SELECT id, name, code, order FROM grade ORDER BY order ASC')
     ]);
 
     const matieres = (matieresResult[0] || []).map((m: any) => ({
@@ -113,10 +110,11 @@ export const GET: RequestHandler = async ({ url }) => {
       matiere_id: t.matiere_id?.toString()?.split(':')[1] || t.matiere_id
     }));
 
-    const classes = (classesResult[0] || []).map((c: any) => ({
-      id: c.id?.toString()?.split(':')[1] || c.id,
-      name: c.name,
-      level_order: c.level_order
+    const grades = (gradesResult[0] || []).map((g: any) => ({
+      id: g.id?.toString()?.split(':')[1] || g.id,
+      name: g.name,
+      code: g.code,
+      order: g.order
     }));
 
     return json({
@@ -127,7 +125,7 @@ export const GET: RequestHandler = async ({ url }) => {
       filters: {
         matieres,
         themes,
-        classes
+        grades
       }
     });
   } catch (error) {
@@ -137,7 +135,7 @@ export const GET: RequestHandler = async ({ url }) => {
       total: 0, 
       limit: 50, 
       offset: 0,
-      filters: { matieres: [], themes: [], classes: [] },
+      filters: { matieres: [], themes: [], grades: [] },
       error: 'Erreur lors du chargement des quiz'
     }, { status: 500 });
   }

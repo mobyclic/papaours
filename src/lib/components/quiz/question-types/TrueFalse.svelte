@@ -35,7 +35,7 @@
       if (isCorrectValue && isSelected) {
         return 'border-green-500 bg-green-100 text-green-700';
       } else if (isCorrectValue && !isSelected) {
-        return 'border-green-500 bg-green-50 ring-2 ring-green-300';
+        return 'border-green-500 bg-green-50 text-green-700 ring-2 ring-green-300';
       } else if (!isCorrectValue && isSelected) {
         return 'border-red-500 bg-red-100 text-red-700';
       }
@@ -48,7 +48,7 @@
         : 'border-red-500 bg-red-100 text-red-700';
     }
     
-    return 'border-gray-200 hover:border-purple-300 hover:bg-purple-50';
+    return 'border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700';
   }
 </script>
 

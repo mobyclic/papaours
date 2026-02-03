@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
           price_data: {
             currency: 'eur',
             product_data: {
-              name: 'Don pour Kwizy',
+              name: 'Don pour Kweez',
               description: message 
                 ? `Message de ${donorName || 'Anonyme'}: "${message}"`
                 : `Don de ${donorName || 'Anonyme'}`,

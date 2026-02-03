@@ -131,11 +131,12 @@ export const load: PageServerLoad = async ({ url }) => {
     matiere_ids: (t.matiere_ids || []).map((m: any) => m?.toString()?.split(':')[1] || m)
   }));
 
-  // Charger toutes les classes pour le générateur IA
-  const classesResult = await db.query('SELECT id, name FROM classe ORDER BY pos, name');
-  const classes = ((classesResult[0] as any[]) || []).map(c => ({
-    id: c.id?.toString()?.split(':')[1] || c.id,
-    name: c.name
+  // Charger tous les grades pour le générateur IA
+  const gradesResult = await db.query('SELECT id, name, code FROM grade ORDER BY order');
+  const grades = ((gradesResult[0] as any[]) || []).map(g => ({
+    id: g.id?.toString()?.split(':')[1] || g.id,
+    name: g.name,
+    code: g.code
   }));
   
   // Stats rapides
@@ -154,7 +155,7 @@ export const load: PageServerLoad = async ({ url }) => {
     themesMap,
     matieres,
     themes,
-    classes,
+    grades,
     stats,
     total,
     page,

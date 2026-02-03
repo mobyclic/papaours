@@ -1,7 +1,7 @@
 import { connectDB } from './db';
 
 /**
- * Système de progression utilisateur par matière/thème/classe
+ * Système de progression utilisateur par matière/thème/grade
  * 
  * Niveaux : débutant → apprenti → confirmé → expert → maître
  * Points requis : 0 → 100 → 300 → 600 → 1000
@@ -19,7 +19,7 @@ export interface UserProgress {
   user_id: string;
   matiere_id: string;
   theme_id: string;
-  classe_id: string;
+  grade_id: string;
   niveau: 'débutant' | 'apprenti' | 'confirmé' | 'expert' | 'maître';
   points: number;
   quizzes_completed: number;
@@ -74,20 +74,20 @@ const NIVEAUX_CONFIG: Record<string, { points_min: number; points_max: number }>
 };
 
 /**
- * Récupère ou crée la progression d'un utilisateur pour une matière/thème/classe donnée
+ * Récupère ou crée la progression d'un utilisateur pour une matière/thème/grade donnée
  */
 export async function getOrCreateUserProgress(
   userId: string, 
   matiereId: string, 
   themeId: string,
-  classeId: string
+  gradeId: string
 ): Promise<UserProgress> {
   const db = await connectDB();
   
   const cleanUserId = userId.includes(':') ? userId.split(':')[1] : userId;
   const cleanMatiereId = matiereId.includes(':') ? matiereId.split(':')[1] : matiereId;
   const cleanThemeId = themeId.includes(':') ? themeId.split(':')[1] : themeId;
-  const cleanClasseId = classeId.includes(':') ? classeId.split(':')[1] : classeId;
+  const cleanGradeId = gradeId.includes(':') ? gradeId.split(':')[1] : gradeId;
   
   // Chercher la progression existante (l'index unique est sur user_id, matiere_id, theme_id)
   const existing = await db.query<any[]>(`
@@ -103,13 +103,13 @@ export async function getOrCreateUserProgress(
   
   if ((existing[0] as any[])?.length) {
     const progress = (existing[0] as any[])[0] as UserProgress;
-    // Mettre à jour classe_id si différent (l'utilisateur a changé de classe)
-    if (progress.classe_id?.toString() !== `classe:${cleanClasseId}`) {
+    // Mettre à jour grade_id si différent (l'utilisateur a changé de niveau)
+    if (progress.grade_id?.toString() !== `grade:${cleanGradeId}`) {
       await db.query(`
-        UPDATE type::thing('user_progress', $id) SET classe_id = type::thing('classe', $classeId)
+        UPDATE type::thing('user_progress', $id) SET grade_id = type::thing('grade', $gradeId)
       `, { 
         id: progress.id?.toString().split(':')[1] || progress.id,
-        classeId: cleanClasseId 
+        gradeId: cleanGradeId 
       });
     }
     return progress;
@@ -122,7 +122,7 @@ export async function getOrCreateUserProgress(
         user_id = type::thing('user', $userId),
         matiere_id = type::thing('matiere', $matiereId),
         theme_id = type::thing('theme', $themeId),
-        classe_id = type::thing('classe', $classeId),
+        grade_id = type::thing('grade', $gradeId),
         niveau = 'débutant',
         points = 0,
         quizzes_completed = 0,
@@ -136,7 +136,7 @@ export async function getOrCreateUserProgress(
       userId: cleanUserId,
       matiereId: cleanMatiereId,
       themeId: cleanThemeId,
-      classeId: cleanClasseId
+      gradeId: cleanGradeId
     });
     
     const created = (createResult[0] as any[])?.[0];
@@ -166,7 +166,7 @@ export async function updateProgressAfterQuiz(
   userId: string,
   matiereId: string,
   themeId: string,
-  classeId: string,
+  gradeId: string,
   score: number,
   totalQuestions: number,
   correctAnswers: number
@@ -185,7 +185,7 @@ export async function updateProgressAfterQuiz(
   else pointsEarned = 2; // Points de participation
   
   // Récupérer la progression actuelle
-  const progress = await getOrCreateUserProgress(userId, matiereId, themeId, classeId);
+  const progress = await getOrCreateUserProgress(userId, matiereId, themeId, gradeId);
   
   // Calculer les nouvelles valeurs
   const newPoints = progress.points + pointsEarned;
@@ -263,37 +263,37 @@ export async function getUserProgressAll(userId: string): Promise<UserProgress[]
 }
 
 /**
- * Récupère le niveau d'un utilisateur pour une matière/thème/classe spécifique
+ * Récupère le niveau d'un utilisateur pour une matière/thème/grade spécifique
  * Retourne 'débutant' si pas encore de progression
  */
 export async function getUserNiveau(
   userId: string, 
   matiereId: string, 
   themeId: string,
-  classeId: string
+  gradeId: string
 ): Promise<string> {
-  const progress = await getOrCreateUserProgress(userId, matiereId, themeId, classeId);
+  const progress = await getOrCreateUserProgress(userId, matiereId, themeId, gradeId);
   return progress.niveau;
 }
 
 /**
- * Récupère les progressions d'un utilisateur pour tous les thèmes d'une matière et classe donnée
+ * Récupère les progressions d'un utilisateur pour tous les thèmes d'une matière et grade donnée
  * Utile pour savoir quels niveaux utiliser pour sélectionner les questions
  */
 export async function getUserProgressByThemes(
   userId: string,
-  classeId: string,
+  gradeId: string,
   themeIds: string[]
 ): Promise<Map<string, UserProgress>> {
   const db = await connectDB();
   const cleanUserId = userId.includes(':') ? userId.split(':')[1] : userId;
-  const cleanClasseId = classeId.includes(':') ? classeId.split(':')[1] : classeId;
+  const cleanGradeId = gradeId.includes(':') ? gradeId.split(':')[1] : gradeId;
   
   // Construire la requête pour récupérer toutes les progressions des thèmes concernés
   const themeConditions = themeIds.map((_, i) => `theme_id = type::thing('theme', $theme${i})`).join(' OR ');
   const params: Record<string, string> = {
     userId: cleanUserId,
-    classeId: cleanClasseId
+    gradeId: cleanGradeId
   };
   themeIds.forEach((id, i) => {
     params[`theme${i}`] = id.includes(':') ? id.split(':')[1] : id;
@@ -302,7 +302,7 @@ export async function getUserProgressByThemes(
   const result = await db.query<any[]>(`
     SELECT * FROM user_progress 
     WHERE user_id = type::thing('user', $userId)
-      AND classe_id = type::thing('classe', $classeId)
+      AND grade_id = type::thing('grade', $gradeId)
       AND (${themeConditions})
   `, params);
   
@@ -320,38 +320,38 @@ export async function getUserProgressByThemes(
  * 
  * @param allQuestions - Toutes les questions disponibles
  * @param userNiveau - Le niveau de l'utilisateur (ou le niveau moyen pour plusieurs thèmes)
- * @param classeId - L'ID de la classe pour filtrer les difficultés
+ * @param gradeId - L'ID du grade pour filtrer les difficultés
  * @param maxQuestions - Nombre max de questions à retourner
  * @returns Questions sélectionnées et mélangées
  */
 export function selectQuestionsForLevel(
   allQuestions: any[],
   userNiveau: string,
-  classeId: string,
+  gradeId: string,
   maxQuestions: number
 ): any[] {
   const distribution = DIFFICULTY_DISTRIBUTION[userNiveau] || DIFFICULTY_DISTRIBUTION['débutant'];
-  const cleanClasseId = classeId.includes(':') ? classeId : `classe:${classeId}`;
+  const cleanGradeId = gradeId.includes(':') ? gradeId : `grade:${gradeId}`;
   
-  // Séparer les questions par difficulté pour cette classe
+  // Séparer les questions par difficulté pour ce grade
   const easyQuestions: any[] = [];
   const mediumQuestions: any[] = [];
   const hardQuestions: any[] = [];
   
   for (const q of allQuestions) {
-    // Trouver la difficulté pour cette classe
-    const classDiff = (q.class_difficulties || []).find((cd: any) => {
-      const cdClasseId = cd.classe_id?.toString() || cd.classe_id;
-      return cdClasseId === cleanClasseId || cdClasseId === classeId;
+    // Trouver la difficulté pour ce grade (chercher dans grade_difficulties ou class_difficulties pour rétrocompatibilité)
+    const gradeDiff = (q.grade_difficulties || q.class_difficulties || []).find((gd: any) => {
+      const gdGradeId = gd.grade_id?.toString() || gd.classe_id?.toString() || gd.grade_id || gd.classe_id;
+      return gdGradeId === cleanGradeId || gdGradeId === gradeId;
     });
     
-    if (!classDiff) {
-      // Si pas de difficulté définie pour cette classe, considérer comme facile
+    if (!gradeDiff) {
+      // Si pas de difficulté définie pour ce grade, considérer comme facile
       easyQuestions.push(q);
       continue;
     }
     
-    const difficulty = classDiff.difficulty || 1;
+    const difficulty = gradeDiff.difficulty || 1;
     if (difficulty === 1) easyQuestions.push(q);
     else if (difficulty === 2) mediumQuestions.push(q);
     else hardQuestions.push(q);
@@ -470,11 +470,11 @@ export async function getAllNiveaux(): Promise<Niveau[]> {
 }
 
 /**
- * Récupère toutes les classes
+ * Récupère tous les grades
  */
-export async function getAllClasses(): Promise<{ name: string; slug: string; category_id: string }[]> {
+export async function getAllGrades(): Promise<{ name: string; code: string; cycle: string }[]> {
   const db = await connectDB();
-  const result = await db.query<any[]>('SELECT * FROM classe WHERE is_active = true ORDER BY pos');
+  const result = await db.query<any[]>('SELECT * FROM grade ORDER BY `order`');
   return (result[0] as any[]) || [];
 }
 
@@ -493,7 +493,7 @@ export const POINTS_PER_DIFFICULTY: Record<number, number> = {
  */
 export async function ensureUserProgressForQuestion(
   userId: string,
-  classeId: string,
+  gradeId: string,
   questionId: string
 ): Promise<void> {
   // Ignorer les utilisateurs anonymes
@@ -516,7 +516,7 @@ export async function ensureUserProgressForQuestion(
   // Créer une entrée pour chaque thème de la question
   for (const themeId of question.theme_ids) {
     const themeIdStr = themeId?.toString() || themeId;
-    await getOrCreateUserProgress(userId, matiereId, themeIdStr, classeId);
+    await getOrCreateUserProgress(userId, matiereId, themeIdStr, gradeId);
   }
 }
 
@@ -526,7 +526,7 @@ export async function ensureUserProgressForQuestion(
  */
 export async function updateProgressAfterAnswer(
   userId: string,
-  classeId: string,
+  gradeId: string,
   questionId: string,
   isCorrect: boolean
 ): Promise<void> {
@@ -538,19 +538,22 @@ export async function updateProgressAfterAnswer(
   
   // Récupérer la question avec ses thèmes, matière et difficulté
   const questionResult = await db.query<any[]>(
-    'SELECT matiere_id, theme_ids, difficulty, class_difficulties FROM type::thing("question", $id)',
+    'SELECT matiere_id, theme_ids, difficulty, grade_difficulties FROM type::thing("question", $id)',
     { id: cleanQuestionId }
   );
   
   const question = (questionResult[0] as any[])?.[0];
   if (!question || !question.matiere_id || !question.theme_ids?.length) return;
   
-  // Déterminer la difficulté (soit par classe, soit globale)
+  // Déterminer la difficulté (soit par grade, soit globale)
   let difficulty = question.difficulty || 1;
-  if (question.class_difficulties && classeId) {
-    const cleanClasseId = classeId.includes(':') ? classeId.split(':')[1] : classeId;
-    const classDiff = question.class_difficulties[cleanClasseId] || question.class_difficulties[`classe:${cleanClasseId}`];
-    if (classDiff) difficulty = classDiff;
+  if (question.grade_difficulties && gradeId) {
+    const cleanGradeId = gradeId.includes(':') ? gradeId.split(':')[1] : gradeId;
+    const gradeDiff = (question.grade_difficulties || []).find((gd: any) => {
+      const gdId = gd.grade_id?.toString() || gd.grade_id;
+      return gdId === `grade:${cleanGradeId}` || gdId === cleanGradeId;
+    });
+    if (gradeDiff) difficulty = gradeDiff.difficulty || difficulty;
   }
   
   // Calculer les points
@@ -559,7 +562,7 @@ export async function updateProgressAfterAnswer(
   
   const matiereId = question.matiere_id?.toString() || question.matiere_id;
   const cleanMatiereId = matiereId.includes(':') ? matiereId.split(':')[1] : matiereId;
-  const cleanClasseId = classeId.includes(':') ? classeId.split(':')[1] : classeId;
+  const cleanGradeId = gradeId.includes(':') ? gradeId.split(':')[1] : gradeId;
   
   // Mettre à jour chaque thème
   for (const themeId of question.theme_ids) {
@@ -567,7 +570,7 @@ export async function updateProgressAfterAnswer(
     const cleanThemeId = themeIdStr.includes(':') ? themeIdStr.split(':')[1] : themeIdStr;
     
     // Récupérer ou créer la progression
-    const progress = await getOrCreateUserProgress(userId, matiereId, themeIdStr, classeId);
+    const progress = await getOrCreateUserProgress(userId, matiereId, themeIdStr, gradeId);
     
     // Calculer les nouveaux points (minimum 0)
     const newPoints = Math.max(0, progress.points + pointsChange);

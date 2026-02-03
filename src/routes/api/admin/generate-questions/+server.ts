@@ -117,7 +117,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const difficultyLabel = difficulty === 1 ? 'facile' : difficulty === 2 ? 'moyen' : 'difficile';
     const typeDescription = QUESTION_TYPES[questionType as keyof typeof QUESTION_TYPES] || QUESTION_TYPES.qcm;
 
-    const systemPrompt = `Tu es un expert en création de questions pédagogiques pour une application éducative française appelée "Kwizy". 
+    const systemPrompt = `Tu es un expert en création de questions pédagogiques pour une application éducative française appelée "Kweez". 
 Tu dois générer des questions de qualité, adaptées au niveau demandé.
 
 RÈGLES IMPORTANTES:

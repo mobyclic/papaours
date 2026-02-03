@@ -4,13 +4,21 @@
   import { goto } from '$app/navigation';
   import { t } from '$lib/i18n';
   import { Button } from '$lib/components/ui/button';
-  import { Brain, UserPlus, User, LogOut, ChevronDown, Search, Plus, X, Users, GraduationCap } from 'lucide-svelte';
+  import { Brain, UserPlus, User, LogOut, ChevronDown, Search, Plus, X, Users, GraduationCap, Clock, Trash2, Play } from 'lucide-svelte';
   import QuizExploreModal from '$lib/components/QuizExploreModal.svelte';
+  import SubjectProgramModal from '$lib/components/SubjectProgramModal.svelte';
 
   // Dropdown state
   let showUserDropdown = $state(false);
+  
+  // Delete confirmation modal
+  let showDeleteConfirmModal = $state(false);
+  let quizToDelete = $state<any>(null);
+  let deletingQuiz = $state(false);
   let showExploreModal = $state(false);
   let showTutorModal = $state(false);
+  let showSubjectModal = $state(false);
+  let selectedSubject = $state<any>(null);
 
   // User context data
   let userContext = $state<{
@@ -28,13 +36,14 @@
   let activeSessions = $state<any[]>([]);
   let badges = $state<any[]>([]);
   let officialProgram = $state<any[]>([]);
+  let programByDomain = $state<Record<string, any[]>>({});
   let greeting = $state('');
+  let userProgram = $state<any[]>([]); // Quiz ajoutés au programme personnel  
+  let globalProgress = $state(0); // Progression globale du programme
   
   // Modal state for quiz
   let showQuizModal = $state(false);
   let selectedQuiz = $state<any>(null);
-  let selectedMode = $state<'revision' | 'epreuve'>('revision');
-  let selectedTimeLimit = $state<number | null>(null);
   let startingQuiz = $state(false);
   
   // Stats calculées
@@ -65,10 +74,7 @@
 
   // Libellé adapté selon l'âge/cycle
   let cursusLabel = $derived.by(() => {
-    const cycle = userContext.cycle?.toLowerCase() || '';
-    if (cycle.includes('maternelle') || cycle.includes('primaire')) return 'Mes aventures';
-    if (cycle.includes('college')) return 'Mon parcours';
-    return 'Mon cursus';
+    return 'Ma sélection';
   });
 
   onMount(async () => {
@@ -98,7 +104,8 @@
       loadQuizzes(),
       loadResults(),
       loadBadges(),
-      loadOfficialProgram()
+      loadOfficialProgram(),
+      loadUserProgram()
     ]);
     
     loading = false;
@@ -112,6 +119,53 @@
       }
     } catch (e) {
       console.error('Erreur chargement contexte:', e);
+    }
+  }
+
+  async function loadUserProgram() {
+    try {
+      const res = await fetch('/api/user/program');
+      if (res.ok) {
+        const data = await res.json();
+        userProgram = data.programs || [];
+        globalProgress = data.globalProgress || 0;
+      }
+    } catch (e) {
+      console.error('Erreur chargement programme utilisateur:', e);
+    }
+  }
+
+  async function removeFromUserProgram(quizId: string) {
+    deletingQuiz = true;
+    try {
+      const res = await fetch('/api/user/program', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quizId })
+      });
+      if (res.ok) {
+        userProgram = userProgram.filter(p => p.quizId !== quizId);
+      }
+    } catch (e) {
+      console.error('Erreur suppression programme:', e);
+    } finally {
+      deletingQuiz = false;
+      showDeleteConfirmModal = false;
+      quizToDelete = null;
+    }
+  }
+
+  function confirmDeleteQuiz(programItem: any) {
+    // Si le quiz n'est pas commencé ou partiellement terminé, demander confirmation
+    const hasProgress = userResults.some(r => r.quizId === programItem.quizId);
+    if (hasProgress) {
+      // Quiz en cours ou partiellement fait - demander confirmation
+      quizToDelete = programItem;
+      showDeleteConfirmModal = true;
+    } else {
+      // Quiz pas commencé - demander quand même confirmation
+      quizToDelete = programItem;
+      showDeleteConfirmModal = true;
     }
   }
 
@@ -159,10 +213,22 @@
       if (res.ok) {
         const data = await res.json();
         officialProgram = data.subjects || [];
+        programByDomain = data.byDomain || {};
       }
     } catch (e) {
       console.error('Erreur chargement programme:', e);
     }
+  }
+
+  function openSubjectModal(subject: any) {
+    selectedSubject = subject;
+    showSubjectModal = true;
+  }
+
+  function handlePlayQuizFromSubject(quiz: any) {
+    showSubjectModal = false;
+    selectedQuiz = quiz;
+    showQuizModal = true;
   }
 
   function playQuiz(quiz: any) {
@@ -180,8 +246,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId: $currentUser?.id,
-          mode: selectedMode,
-          timeLimit: selectedTimeLimit
+          mode: 'revision'  // Mode fixe - les tuteurs pourront créer des épreuves
         })
       });
       
@@ -377,7 +442,7 @@
                 <span>📚</span> {cursusLabel}
               </h2>
               <button 
-                onclick={() => goto('/explore')}
+                onclick={() => showExploreModal = true}
                 class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-gray-900 text-sm font-medium transition-colors"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,34 +456,73 @@
             <div class="mb-4">
               <div class="flex justify-between text-sm mb-1">
                 <span class="text-gray-400">Progression globale</span>
-                <span class="text-amber-400 font-medium">{averageScore}%</span>
+                <span class="text-amber-400 font-medium">{globalProgress}%</span>
               </div>
               <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all" style="width: {averageScore}%"></div>
+                <div class="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all" style="width: {globalProgress}%"></div>
               </div>
             </div>
             
-            <!-- Quiz en cours -->
-            {#if quizzesInProgress.length > 0}
-              <div class="space-y-3">
-                <h3 class="text-sm font-medium text-gray-400">En cours</h3>
-                {#each quizzesInProgress as quiz}
-                  {@const lastResult = userResults.filter(r => r.quizId === quiz.id).sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0]}
-                  <button 
-                    onclick={() => playQuiz(quiz)}
-                    class="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-amber-500/50 transition-all text-left"
-                  >
-                    <span class="text-2xl">{getSubjectIcon(quiz.subject || quiz.theme || '')}</span>
+            <!-- Quiz du programme -->
+            {#if userProgram.length > 0}
+              <div class="space-y-2">
+                {#each userProgram as programItem}
+                  <div class="flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 border border-gray-700 group">
+                    <!-- Icône du quiz avec indicateur de progression -->
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 relative {programItem.isCompleted ? 'bg-green-500/20' : programItem.hasStarted ? 'bg-blue-500/20' : 'bg-amber-500/20'}">
+                      {#if programItem.isCompleted}
+                        <span class="text-lg">✅</span>
+                      {:else}
+                        <Play class="w-5 h-5 {programItem.hasStarted ? 'text-blue-400' : 'text-amber-400'}" />
+                      {/if}
+                    </div>
+                    
+                    <!-- Infos quiz avec progression -->
                     <div class="flex-1 min-w-0">
-                      <div class="font-medium text-white truncate">{quiz.title}</div>
-                      {#if lastResult}
-                        <div class="text-xs text-gray-500">
-                          Dernier: {lastResult.score}/{lastResult.totalQuestions}
+                      <div class="font-medium text-white truncate">{programItem.title}</div>
+                      <div class="flex items-center gap-2 text-xs text-gray-500">
+                        {#if programItem.difficulty}
+                          <span>Niveau {programItem.difficulty}/10</span>
+                        {/if}
+                        {#if programItem.matiere}
+                          <span class="text-gray-600">• {programItem.matiere}</span>
+                        {/if}
+                      </div>
+                      
+                      <!-- Barre de progression individuelle -->
+                      {#if programItem.hasStarted}
+                        <div class="mt-1.5 flex items-center gap-2">
+                          <div class="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div 
+                              class="h-full transition-all {programItem.isCompleted ? 'bg-green-500' : 'bg-blue-500'}" 
+                              style="width: {programItem.progress}%"
+                            ></div>
+                          </div>
+                          <span class="text-xs {programItem.isCompleted ? 'text-green-400' : 'text-blue-400'} font-medium">
+                            {programItem.progress}%
+                          </span>
                         </div>
                       {/if}
                     </div>
-                    <span class="text-amber-400 text-sm">Continuer →</span>
-                  </button>
+                    
+                    <!-- Bouton Démarrer/Continuer -->
+                    <Button
+                      onclick={() => playQuiz(programItem)}
+                      size="sm"
+                      class="{programItem.hasStarted && !programItem.isCompleted ? 'bg-blue-500 hover:bg-blue-600' : 'bg-amber-500 hover:bg-amber-600'} text-gray-900 font-medium shrink-0"
+                    >
+                      {programItem.isCompleted ? 'Rejouer' : programItem.hasStarted ? 'Continuer' : 'Démarrer'}
+                    </Button>
+                    
+                    <!-- Bouton Supprimer -->
+                    <button 
+                      onclick={() => confirmDeleteQuiz(programItem)}
+                      class="w-8 h-8 rounded-lg bg-gray-700/50 hover:bg-red-500/20 flex items-center justify-center shrink-0 transition-colors"
+                      title="Supprimer du programme"
+                    >
+                      <Trash2 class="w-4 h-4 text-gray-400 hover:text-red-400" />
+                    </button>
+                  </div>
                 {/each}
               </div>
             {:else}
@@ -480,32 +584,91 @@
 
         <!-- Right Column: Hub / Matières -->
         <div class="space-y-6">
-          <!-- Bibliothèque des matières -->
+          <!-- Programme officiel -->
           <section class="bg-gray-900/80 rounded-2xl border border-gray-800 p-6">
-            <h2 class="text-lg font-bold text-white flex items-center gap-2 mb-4">
-              <span>📖</span> Programme officiel
-            </h2>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <span>📖</span> Programme officiel
+              </h2>
+              {#if userContext.gradeName}
+                <span class="text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-400">
+                  {userContext.gradeName}
+                </span>
+              {/if}
+            </div>
             
             {#if officialProgram.length > 0}
-              <div class="space-y-2">
-                {#each officialProgram as subject}
-                  <button 
-                    onclick={() => goto(`/subjects/${subject.code}`)}
-                    class="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 transition-all text-left"
-                  >
-                    <span class="text-xl">{subject.icon || getSubjectIcon(subject.code)}</span>
-                    <div class="flex-1">
-                      <div class="font-medium text-white">{subject.name}</div>
-                      {#if subject.chaptersCount}
-                        <div class="text-xs text-gray-500">{subject.chaptersCount} chapitres</div>
-                      {/if}
+              <!-- Affichage groupé par domaine -->
+              {#if Object.keys(programByDomain).length > 0}
+                <div class="space-y-4">
+                  {#each Object.entries(programByDomain) as [domain, subjects]}
+                    {@const domainInfo = {
+                      sciences: { label: '🔬 Sciences', color: 'blue' },
+                      langues: { label: '🌍 Langues', color: 'green' },
+                      humanites: { label: '📚 Humanités', color: 'amber' },
+                      arts: { label: '🎨 Arts & Sport', color: 'purple' }
+                    }[domain] || { label: domain, color: 'gray' }}
+                    
+                    <div>
+                      <div class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                        {domainInfo.label}
+                      </div>
+                      <div class="grid grid-cols-2 gap-2">
+                        {#each subjects as subject}
+                          <button 
+                            onclick={() => openSubjectModal(subject)}
+                            class="flex items-center gap-2 p-2.5 rounded-lg bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-{domainInfo.color}-500/30 transition-all text-left group"
+                          >
+                            <span class="text-lg">{subject.icon}</span>
+                            <div class="flex-1 min-w-0">
+                              <div class="text-sm font-medium text-white truncate">{subject.name}</div>
+                              <div class="flex items-center gap-1.5 text-[10px] text-gray-500">
+                                {#if subject.hoursPerWeek}
+                                  <span class="flex items-center gap-0.5">
+                                    <Clock class="w-2.5 h-2.5" />
+                                    {subject.hoursPerWeek}h
+                                  </span>
+                                {/if}
+                                {#if subject.chaptersCount}
+                                  <span>• {subject.chaptersCount} ch.</span>
+                                {/if}
+                              </div>
+                            </div>
+                          </button>
+                        {/each}
+                      </div>
                     </div>
-                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                  </button>
-                {/each}
-              </div>
+                  {/each}
+                </div>
+              {:else}
+                <!-- Affichage simple si pas de groupement -->
+                <div class="grid grid-cols-2 gap-2">
+                  {#each officialProgram as subject}
+                    <button 
+                      onclick={() => openSubjectModal(subject)}
+                      class="flex items-center gap-2 p-2.5 rounded-lg bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-amber-500/30 transition-all text-left"
+                    >
+                      <span class="text-lg">{subject.icon || '📚'}</span>
+                      <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-white truncate">{subject.name}</div>
+                        {#if subject.chaptersCount}
+                          <div class="text-[10px] text-gray-500">{subject.chaptersCount} chapitres</div>
+                        {/if}
+                      </div>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+              
+              <!-- Total horaire -->
+              {@const totalHours = officialProgram.reduce((sum, s) => sum + (s.hoursPerWeek || 0), 0)}
+              {#if totalHours > 0}
+                <div class="mt-4 pt-3 border-t border-gray-800 text-center">
+                  <span class="text-xs text-gray-500">
+                    Total: <span class="text-amber-400 font-medium">{totalHours}h</span>/semaine
+                  </span>
+                </div>
+              {/if}
             {:else}
               <div class="text-center py-6 text-gray-500">
                 <p class="text-sm">Complète ton profil pour voir ton programme</p>
@@ -597,28 +760,61 @@
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
     <div class="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-md p-6">
       <h2 class="text-xl font-bold text-white mb-2">{selectedQuiz.title}</h2>
-      <p class="text-gray-400 text-sm mb-6">{selectedQuiz.description || 'Prêt à tester tes connaissances ?'}</p>
       
-      <!-- Mode selection -->
-      <div class="mb-4">
-        <label class="text-sm font-medium text-gray-300 mb-2 block">Mode</label>
-        <div class="grid grid-cols-2 gap-2">
-          <button 
-            onclick={() => selectedMode = 'revision'}
-            class="p-3 rounded-lg border transition-colors {selectedMode === 'revision' ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-gray-700 text-gray-400 hover:border-gray-600'}"
-          >
-            <div class="text-lg mb-1">📖</div>
-            <div class="text-sm font-medium">Révision</div>
-          </button>
-          <button 
-            onclick={() => selectedMode = 'epreuve'}
-            class="p-3 rounded-lg border transition-colors {selectedMode === 'epreuve' ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-gray-700 text-gray-400 hover:border-gray-600'}"
-          >
-            <div class="text-lg mb-1">⏱️</div>
-            <div class="text-sm font-medium">Épreuve</div>
-          </button>
+      <!-- Description du quiz -->
+      {#if selectedQuiz.description}
+        <p class="text-gray-400 text-sm mb-4">{selectedQuiz.description}</p>
+      {:else}
+        <p class="text-gray-400 text-sm mb-4">Prêt à tester tes connaissances ?</p>
+      {/if}
+      
+      <!-- Infos quiz -->
+      <div class="mb-4 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
+        <div class="flex items-center gap-4 text-sm text-gray-400">
+          {#if selectedQuiz.difficulty}
+            <span class="flex items-center gap-1">
+              <span>📊</span> Niveau {selectedQuiz.difficulty}/10
+            </span>
+          {/if}
+          {#if selectedQuiz.maxQuestions}
+            <span class="flex items-center gap-1">
+              <span>📝</span> {selectedQuiz.maxQuestions} questions
+            </span>
+          {/if}
         </div>
       </div>
+      
+      <!-- Progression si quiz déjà commencé -->
+      {#if selectedQuiz.hasStarted}
+        <div class="mb-6 p-4 bg-gray-800/50 rounded-xl border {selectedQuiz.isCompleted ? 'border-green-500/30' : 'border-blue-500/30'}">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm {selectedQuiz.isCompleted ? 'text-green-400' : 'text-blue-400'} font-medium">
+              {selectedQuiz.isCompleted ? '✅ Quiz terminé' : '🔄 En cours'}
+            </span>
+            <span class="text-sm font-bold {selectedQuiz.isCompleted ? 'text-green-400' : 'text-blue-400'}">
+              {selectedQuiz.progress}%
+            </span>
+          </div>
+          <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div 
+              class="h-full transition-all {selectedQuiz.isCompleted ? 'bg-green-500' : 'bg-blue-500'}" 
+              style="width: {selectedQuiz.progress}%"
+            ></div>
+          </div>
+          {#if selectedQuiz.isCompleted && (selectedQuiz.lastScore !== null || selectedQuiz.bestScore !== null)}
+            <div class="mt-2 text-xs text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
+              {#if selectedQuiz.lastScore !== null}
+                <span>Dernier score : <span class="text-amber-400 font-medium">{selectedQuiz.lastScore} points</span></span>
+              {/if}
+              {#if selectedQuiz.bestScore !== null}
+                <span>Meilleur score : <span class="text-green-400 font-medium">{selectedQuiz.bestScore} points</span></span>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {:else}
+        <div class="mb-6"></div>
+      {/if}
       
       <!-- Actions -->
       <div class="flex gap-3">
@@ -632,12 +828,12 @@
         <Button 
           onclick={startQuiz}
           disabled={startingQuiz}
-          class="flex-1 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold"
+          class="flex-1 {selectedQuiz.hasStarted && !selectedQuiz.isCompleted ? 'bg-blue-500 hover:bg-blue-600' : 'bg-amber-500 hover:bg-amber-600'} text-gray-900 font-semibold"
         >
           {#if startingQuiz}
             <span class="animate-spin mr-2">⏳</span>
           {/if}
-          Commencer
+          {selectedQuiz.isCompleted ? 'Rejouer' : selectedQuiz.hasStarted ? 'Continuer' : 'Commencer'}
         </Button>
       </div>
     </div>
@@ -728,3 +924,56 @@
   onClose={() => showExploreModal = false}
   onSelectQuiz={(quiz) => playQuiz(quiz)}
 />
+<!-- Subject Program Modal -->
+<SubjectProgramModal 
+  bind:open={showSubjectModal}
+  subject={selectedSubject}
+  onPlayQuiz={handlePlayQuizFromSubject}
+  onProgramChange={loadUserProgram}
+/>
+
+<!-- Modal de confirmation de suppression -->
+{#if showDeleteConfirmModal && quizToDelete}
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-md p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
+          <Trash2 class="w-6 h-6 text-red-400" />
+        </div>
+        <div>
+          <h2 class="text-lg font-bold text-white">Supprimer ce quiz ?</h2>
+          <p class="text-sm text-gray-400">Cette action est irréversible</p>
+        </div>
+      </div>
+      
+      <div class="p-3 bg-gray-800/50 rounded-xl border border-gray-700 mb-6">
+        <div class="font-medium text-white">{quizToDelete.title}</div>
+        {#if userResults.some(r => r.quizId === quizToDelete.quizId)}
+          <div class="text-xs text-amber-400 mt-1 flex items-center gap-1">
+            <span>⚠️</span> Tu as commencé ce quiz - ta progression sera perdue
+          </div>
+        {/if}
+      </div>
+      
+      <div class="flex gap-3">
+        <Button 
+          variant="outline"
+          onclick={() => { showDeleteConfirmModal = false; quizToDelete = null; }}
+          class="flex-1 border-gray-700 text-gray-300 hover:bg-gray-800"
+        >
+          Annuler
+        </Button>
+        <Button 
+          onclick={() => removeFromUserProgram(quizToDelete.quizId)}
+          disabled={deletingQuiz}
+          class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold"
+        >
+          {#if deletingQuiz}
+            <span class="animate-spin mr-2">⏳</span>
+          {/if}
+          Supprimer
+        </Button>
+      </div>
+    </div>
+  </div>
+{/if}

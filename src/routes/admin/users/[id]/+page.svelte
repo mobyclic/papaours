@@ -71,7 +71,7 @@
           <p class="text-gray-500">@{user.pseudo || 'sans-pseudo'}</p>
           <div class="flex items-center gap-3 mt-2">
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-              {user.classe_name || 'Classe non définie'}
+              {user.grade_name || 'Niveau non défini'}
             </span>
             {#if user.is_admin}
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
@@ -167,8 +167,8 @@
           </dd>
         </div>
         <div>
-          <dt class="text-sm text-gray-500">Classe</dt>
-          <dd class="text-sm font-medium text-gray-900">{user.classe_name || '-'}</dd>
+          <dt class="text-sm text-gray-500">Niveau</dt>
+          <dd class="text-sm font-medium text-gray-900">{user.grade_name || '-'}</dd>
         </div>
         <div>
           <dt class="text-sm text-gray-500">Inscrit le</dt>

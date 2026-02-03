@@ -113,7 +113,7 @@
 </script>
 
 <svelte:head>
-  <title>Mes Favoris - Kwizy</title>
+  <title>Mes Favoris - Kweez</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gradient-to-br from-pink-50 via-red-50 to-orange-50">

@@ -76,6 +76,14 @@ export function loadAdminUser() {
 /**
  * Déconnexion admin
  */
-export function logout() {
+export async function logout() {
+  // Appeler l'API pour supprimer la session côté serveur
+  if (browser) {
+    try {
+      await fetch('/api/admin/auth', { method: 'DELETE' });
+    } catch (e) {
+      console.error('Logout API error:', e);
+    }
+  }
   adminUser.value = null;
 }

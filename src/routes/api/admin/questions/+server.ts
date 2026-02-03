@@ -64,6 +64,19 @@ export const POST: RequestHandler = async ({ request }) => {
       questionData.theme_ids = data.theme_ids;
     }
     
+    // Metadata pour options de validation avancées (questions ouvertes)
+    if (data.metadata && Object.keys(data.metadata).length > 0) {
+      questionData.metadata = data.metadata;
+    }
+    
+    // Champs spécifiques aux questions ouvertes
+    if (data.sampleAnswers) {
+      questionData.sampleAnswers = data.sampleAnswers;
+    }
+    if (data.expectedKeywords) {
+      questionData.expectedKeywords = data.expectedKeywords;
+    }
+    
     const question = await db.create('question', questionData);
 
     return json(question);

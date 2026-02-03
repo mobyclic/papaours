@@ -40,7 +40,14 @@
   let showExplanation = $state(false);
   let lastAnswerCorrect = $state(false);
   let lastExplanation = $state('');
-  let lastCorrectAnswer = $state<number | null>(null);
+  let lastCorrectAnswer = $state<number | number[] | Record<string, string> | null>(null);
+  let lastAiEvaluation = $state<{
+    score: number;
+    feedback: string;
+    strengths: string[];
+    improvements: string[];
+    correctedAnswer?: string;
+  } | null>(null);
   
   // Common state
   let score = $state(0);
@@ -208,6 +215,7 @@
     lastAnswerCorrect = false;
     lastExplanation = '';
     lastCorrectAnswer = null;
+    lastAiEvaluation = null;
   }
   
   // Obtenir la réponse actuelle selon le type de question
@@ -307,6 +315,7 @@
         lastAnswerCorrect = data.isCorrect;
         lastExplanation = data.explanation;
         lastCorrectAnswer = data.correctAnswer;
+        lastAiEvaluation = data.aiEvaluation || null;
         score = data.score;
         session = data.session;
         
@@ -425,159 +434,164 @@
 </script>
 
 <svelte:head>
-  <title>{quiz?.title || 'Quiz'} - Kwizy</title>
+  <title>{quiz?.title || 'Quiz'} - Kweez</title>
 </svelte:head>
 
-<main class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4">
+<!-- Focus Mode: Dark theme, minimal distractions -->
+<main class="min-h-screen bg-gray-950 text-white">
   {#if loading}
     <div class="flex items-center justify-center min-h-screen">
       <div class="text-center">
-        <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
-        <p class="text-xl text-gray-600">Chargement du quiz...</p>
+        <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-amber-500 mx-auto mb-4"></div>
+        <p class="text-xl text-gray-400">Chargement du quiz...</p>
       </div>
     </div>
   {:else if error}
     <div class="flex items-center justify-center min-h-screen">
-      <div class="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
+      <div class="bg-gray-900 rounded-2xl border border-gray-800 p-8 max-w-md text-center">
         <div class="text-6xl mb-4">😕</div>
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Oups !</h2>
-        <p class="text-gray-600 mb-6">{error}</p>
+        <h2 class="text-2xl font-bold text-white mb-4">Oups !</h2>
+        <p class="text-gray-400 mb-6">{error}</p>
         <button
           onclick={goHome}
-          class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          class="px-6 py-3 bg-amber-500 text-gray-900 font-semibold rounded-lg hover:bg-amber-400 transition-colors"
         >
           Retour à l'accueil
         </button>
       </div>
     </div>
   {:else if !isQuizFinished && currentQuestion}
-    <div class="max-w-4xl mx-auto py-8">
-      <!-- Header -->
-      <div class="mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <button
-            onclick={goHome}
-            class="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-          >
-            <span class="text-2xl">←</span>
-            <span>Quitter</span>
-          </button>
-          
-          <div class="flex items-center gap-4">
-            <!-- Timer -->
-            {#if timeLimit}
-              <QuizTimer 
-                bind:this={timerComponent}
-                initialSeconds={session.timeRemaining || timeLimit}
-                onTimeUp={handleTimeUp}
-                paused={timerPaused}
-              />
-            {/if}
-            
-            <!-- Mode Badge -->
-            <span class="px-3 py-1 rounded-full text-sm font-medium
-              {isEpreuveMode ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">
-              {isEpreuveMode ? '🏆 Épreuve' : '📖 Révision'}
-            </span>
-          </div>
-          
-          <div class="text-right">
-            <div class="text-sm text-gray-600">Question {currentQuestionIndex + 1} / {totalQuestions}</div>
-            {#if !isEpreuveMode}
-              <div class="text-lg font-bold text-purple-600">Score: {score}</div>
-            {:else}
-              <div class="text-sm text-gray-500">{answeredCount} répondue{answeredCount > 1 ? 's' : ''}</div>
-            {/if}
-          </div>
-        </div>
+    <!-- Quiz Header - Minimal -->
+    <header class="fixed top-0 left-0 right-0 z-40 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800">
+      <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <!-- Quitter -->
+        <button
+          onclick={goHome}
+          class="flex items-center gap-2 text-gray-500 hover:text-white transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          <span class="hidden sm:inline">Quitter</span>
+        </button>
         
-        {#if resumed && !isEpreuveMode}
-          <div class="mb-4 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
-            📌 Tu reprends ta session en cours
-          </div>
-        {/if}
-        
-        <!-- Progress bar -->
-        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-          <div 
-            class="h-full transition-all duration-500
-              {isEpreuveMode ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : 'bg-gradient-to-r from-purple-500 to-pink-500'}"
-            style="width: {progress}%"
-          ></div>
-        </div>
-      </div>
-      
-      <!-- Question Navigator (Mode Épreuve) -->
-      {#if isEpreuveMode}
-        <div class="mb-6">
-          <QuestionNavigator
-            {totalQuestions}
-            currentIndex={currentQuestionIndex}
-            answeredQuestions={answeredQuestions}
-            onNavigate={navigateToQuestion}
-          />
-        </div>
-      {/if}
-
-      <!-- Question Card -->
-      <div class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-purple-200 relative">
-        <!-- Loading overlay -->
-        {#if loadingQuestion}
-          <div class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-          </div>
-        {/if}
-        
-        <!-- Image -->
-        {#if currentQuestion.imageUrl}
-          <div class="bg-gradient-to-br from-purple-100 to-pink-100 p-8 flex justify-center items-center">
-            <div class="max-w-md">
-              <img 
-                src={currentQuestion.imageUrl} 
-                alt={currentQuestion.imageCaption || currentQuestion.question}
-                class="rounded-lg shadow-lg w-full h-auto"
-              />
-              {#if currentQuestion.imageCaption}
-                <p class="text-center text-sm text-gray-600 mt-3 italic">{currentQuestion.imageCaption}</p>
-              {/if}
+        <!-- Centre: Progress -->
+        <div class="flex-1 max-w-xs mx-4">
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-gray-500 font-medium">{currentQuestionIndex + 1}/{totalQuestions}</span>
+            <div class="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div 
+                class="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500"
+                style="width: {progress}%"
+              ></div>
             </div>
           </div>
+        </div>
+        
+        <!-- Droite: Timer / Score -->
+        <div class="flex items-center gap-3">
+          {#if timeLimit}
+            <QuizTimer 
+              bind:this={timerComponent}
+              initialSeconds={session.timeRemaining || timeLimit}
+              onTimeUp={handleTimeUp}
+              paused={timerPaused}
+            />
+          {/if}
+          {#if !isEpreuveMode}
+            <div class="px-3 py-1 bg-amber-500/20 rounded-full">
+              <span class="text-amber-400 font-semibold">{score} pts</span>
+            </div>
+          {/if}
+        </div>
+      </div>
+    </header>
+    
+    <!-- Quiz Content -->
+    <div class="pt-20 pb-32 px-4">
+      <div class="max-w-3xl mx-auto">
+        
+        <!-- Question Navigator (Mode Épreuve) -->
+        {#if isEpreuveMode}
+          <div class="mb-6">
+            <QuestionNavigator
+              {totalQuestions}
+              currentIndex={currentQuestionIndex}
+              answeredQuestions={answeredQuestions}
+              onNavigate={navigateToQuestion}
+            />
+          </div>
         {/if}
 
-        <!-- Question -->
-        <div class="p-8">
-          <!-- Métadonnées -->
-          {#if currentMetadata}
-            <div class="flex flex-wrap gap-2 mb-4 text-sm">
-              {#if currentMetadata.matiere}
-                <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
-                  📚 {currentMetadata.matiere}
-                </span>
-              {/if}
-              {#if currentMetadata.difficulty}
-                <span class="px-3 py-1 rounded-full font-medium {
-                  currentMetadata.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                  currentMetadata.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-red-100 text-red-700'
-                }">
-                  {currentMetadata.difficulty === 'easy' ? '⭐ Facile' :
-                   currentMetadata.difficulty === 'medium' ? '⭐⭐ Moyen' :
-                   '⭐⭐⭐ Difficile'}
-                </span>
-              {/if}
-              {#if currentMetadata.themes && currentMetadata.themes.length > 0}
-                {#each currentMetadata.themes as theme}
-                  <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full">
-                    🏷️ {theme}
-                  </span>
-                {/each}
-              {/if}
+        <!-- Question Card -->
+        <div class="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden relative">
+          <!-- Loading overlay -->
+          {#if loadingQuestion}
+            <div class="absolute inset-0 bg-gray-900/90 flex items-center justify-center z-10">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
             </div>
           {/if}
           
-          <h2 class="text-2xl font-bold text-gray-800 mb-6">
-            {currentQuestion.question}
-          </h2>
+          <!-- Image -->
+          {#if currentQuestion.imageUrl}
+            <div class="bg-gray-800/50 p-6 flex justify-center items-center">
+              <div class="max-w-md">
+                <img 
+                  src={currentQuestion.imageUrl} 
+                  alt={currentQuestion.imageCaption || currentQuestion.question}
+                  class="rounded-xl w-full h-auto"
+                />
+                {#if currentQuestion.imageCaption}
+                  <p class="text-center text-sm text-gray-500 mt-3 italic">{currentQuestion.imageCaption}</p>
+                {/if}
+              </div>
+            </div>
+          {/if}
+
+          <!-- Question Text -->
+          <div class="p-6 sm:p-8">
+            <!-- Métadonnées discrètes -->
+            {#if currentMetadata && (currentMetadata.matiere || currentMetadata.difficulty)}
+              <div class="flex flex-wrap gap-2 mb-4 text-xs">
+                {#if currentMetadata.matiere}
+                  <span class="px-2 py-1 bg-gray-800 text-gray-400 rounded-full">
+                    {currentMetadata.matiere}
+                  </span>
+                {/if}
+                {#if currentMetadata.difficulty}
+                  <span class="px-2 py-1 rounded-full {
+                    currentMetadata.difficulty === 'easy' ? 'bg-green-500/20 text-green-400' :
+                    currentMetadata.difficulty === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                    'bg-red-500/20 text-red-400'
+                  }">
+                    {currentMetadata.difficulty === 'easy' ? 'Facile' :
+                     currentMetadata.difficulty === 'medium' ? 'Moyen' :
+                     'Difficile'}
+                  </span>
+                {/if}
+              </div>
+            {/if}
+            
+            <h2 class="text-xl sm:text-2xl font-bold text-white mb-6 leading-relaxed">
+              {currentQuestion.question}
+            </h2>
+
+          <!-- Explanation between question and answers (Mode révision uniquement) -->
+          {#if showExplanation && !isEpreuveMode}
+            <div class="p-4 rounded-xl {lastAnswerCorrect ? 'bg-green-500/10 border border-green-500/30' : 'bg-amber-500/10 border border-amber-500/30'} mb-6">
+              <div class="flex items-start gap-3">
+                <div class="text-2xl">
+                  {lastAnswerCorrect ? '🎉' : '💡'}
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-bold text-lg mb-2 {lastAnswerCorrect ? 'text-green-400' : 'text-amber-400'}">
+                    {lastAnswerCorrect ? 'Bravo !' : 'Pas tout à fait...'}
+                  </h3>
+                  <p class="text-gray-300">{lastExplanation || 'Pas d\'explication disponible.'}</p>
+                </div>
+              </div>
+            </div>
+          {/if}
 
           <!-- Question Display by Type -->
           {#if currentQuestion.questionType === 'qcm_multiple'}
@@ -589,7 +603,7 @@
                 selectedAnswers={selectedAnswers}
                 disabled={(showExplanation && !isEpreuveMode) || submitting}
                 showResult={showExplanation && !isEpreuveMode}
-                correctAnswers={currentQuestion.answers?.map((a: any, i: number) => a.is_correct ? i : -1).filter((i: number) => i >= 0) || []}
+                correctAnswers={showExplanation && lastCorrectAnswer ? (Array.isArray(lastCorrectAnswer) ? lastCorrectAnswer : [lastCorrectAnswer]) : (currentQuestion.answers?.map((a: any, i: number) => a.is_correct ? i : -1).filter((i: number) => i >= 0) || [])}
                 onSelect={(answers) => {
                   selectedAnswers = answers;
                   if (isEpreuveMode) saveAnswerForEpreuve(answers as any);
@@ -639,7 +653,7 @@
                 matches={matchingAnswers}
                 disabled={(showExplanation && !isEpreuveMode) || submitting}
                 showResult={showExplanation && !isEpreuveMode}
-                correctMatches={currentQuestion.correctMatches || {}}
+                correctMatches={showExplanation && lastCorrectAnswer && typeof lastCorrectAnswer === 'object' && !Array.isArray(lastCorrectAnswer) ? lastCorrectAnswer as Record<string, string> : (currentQuestion.correctMatches || {})}
                 onMatchChange={(matches) => {
                   matchingAnswers = matches;
                   if (isEpreuveMode) saveAnswerForEpreuve(matches as any);
@@ -654,7 +668,7 @@
                 currentOrder={orderingAnswer.length > 0 ? orderingAnswer : (currentQuestion.shuffledOrder || currentQuestion.items?.map((i: any) => i.id) || [])}
                 disabled={(showExplanation && !isEpreuveMode) || submitting}
                 showResult={showExplanation && !isEpreuveMode}
-                correctOrder={currentQuestion.correctOrder || []}
+                correctOrder={showExplanation && lastCorrectAnswer ? (Array.isArray(lastCorrectAnswer) ? lastCorrectAnswer : []) : (currentQuestion.correctOrder || [])}
                 onOrderChange={(order) => {
                   orderingAnswer = order;
                   if (isEpreuveMode) saveAnswerForEpreuve(order as any);
@@ -676,6 +690,8 @@
                 showResult={showExplanation && !isEpreuveMode}
                 sampleAnswers={currentQuestion.sampleAnswers || []}
                 expectedKeywords={currentQuestion.expectedKeywords || []}
+                evaluation={lastAiEvaluation ? { mode: 'ai', ...lastAiEvaluation } : null}
+                metadata={currentQuestion.metadata}
                 onAnswerChange={(answer) => {
                   openTextAnswer = answer;
                   // Pas de sauvegarde auto pour open en épreuve (trop de traffic)
@@ -689,16 +705,16 @@
                 <button
                   onclick={() => selectAnswer(index)}
                   disabled={(showExplanation && !isEpreuveMode) || submitting}
-                  class="relative rounded-xl border-4 transition-all overflow-hidden aspect-square
+                  class="relative rounded-xl border-2 transition-all overflow-hidden aspect-square
                     {selectedAnswer === index 
                       ? (showExplanation && !isEpreuveMode
                         ? (index === lastCorrectAnswer
-                          ? 'border-green-500 ring-4 ring-green-200'
-                          : 'border-red-500 ring-4 ring-red-200')
-                        : 'border-purple-500 ring-4 ring-purple-200')
+                          ? 'border-green-500 ring-2 ring-green-500/30'
+                          : 'border-red-500 ring-2 ring-red-500/30')
+                        : 'border-amber-500 ring-2 ring-amber-500/30')
                       : (showExplanation && !isEpreuveMode && index === lastCorrectAnswer
-                        ? 'border-green-500 ring-4 ring-green-200'
-                        : 'border-gray-200 hover:border-purple-300 hover:ring-2 hover:ring-purple-100')}
+                        ? 'border-green-500 ring-2 ring-green-500/30'
+                        : 'border-gray-700 hover:border-amber-500/50')}
                     {(showExplanation && !isEpreuveMode) || submitting ? 'cursor-not-allowed' : 'cursor-pointer'}"
                 >
                   <img 
@@ -712,10 +728,10 @@
                         ? (index === lastCorrectAnswer
                           ? 'border-green-500 bg-green-500'
                           : 'border-red-500 bg-red-500')
-                        : 'border-purple-500 bg-purple-500')
+                        : 'border-amber-500 bg-amber-500')
                       : (showExplanation && !isEpreuveMode && index === lastCorrectAnswer
                         ? 'border-green-500 bg-green-500'
-                        : 'border-white bg-white/80')}">
+                        : 'border-gray-600 bg-gray-800/80')}">
                     {#if showExplanation && !isEpreuveMode}
                       {#if index === lastCorrectAnswer}
                         <span class="text-white text-lg">✓</span>
@@ -727,7 +743,7 @@
                     {/if}
                   </div>
                   {#if currentQuestion.options?.[index]}
-                    <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-sm py-2 px-3 text-center">
+                    <div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-sm py-2 px-3 text-center">
                       {currentQuestion.options[index]}
                     </div>
                   {/if}
@@ -745,12 +761,12 @@
                     {selectedAnswer === index 
                       ? (showExplanation && !isEpreuveMode
                         ? (index === lastCorrectAnswer
-                          ? 'border-green-500 bg-green-50'
-                          : 'border-red-500 bg-red-50')
-                        : 'border-purple-500 bg-purple-50')
+                          ? 'border-green-500 bg-green-500/10'
+                          : 'border-red-500 bg-red-500/10')
+                        : 'border-amber-500 bg-amber-500/10')
                       : (showExplanation && !isEpreuveMode && index === lastCorrectAnswer
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50')}
+                        ? 'border-green-500 bg-green-500/10'
+                        : 'border-gray-700 hover:border-amber-500/50 hover:bg-gray-800')}
                     {(showExplanation && !isEpreuveMode) || submitting ? 'cursor-not-allowed' : 'cursor-pointer'}"
                 >
                   <div class="flex items-center">
@@ -760,10 +776,10 @@
                           ? (index === lastCorrectAnswer
                             ? 'border-green-500 bg-green-500'
                             : 'border-red-500 bg-red-500')
-                          : 'border-purple-500 bg-purple-500')
+                          : 'border-amber-500 bg-amber-500')
                         : (showExplanation && !isEpreuveMode && index === lastCorrectAnswer
                           ? 'border-green-500 bg-green-500'
-                          : 'border-gray-300')}">
+                          : 'border-gray-600')}">
                       {#if showExplanation && !isEpreuveMode}
                         {#if index === lastCorrectAnswer}
                           <span class="text-white text-lg">✓</span>
@@ -771,82 +787,69 @@
                           <span class="text-white text-lg">✗</span>
                         {/if}
                       {:else if selectedAnswer === index}
-                        <span class="text-white text-sm">●</span>
+                        <span class="text-gray-900 text-sm">●</span>
                       {/if}
                     </div>
-                    <span class="font-medium">{option}</span>
+                    <span class="font-medium text-white">{option}</span>
                   </div>
                 </button>
               {/each}
             </div>
           {/if}
 
-          <!-- Explanation (Mode révision uniquement) -->
-          {#if showExplanation && !isEpreuveMode}
-            <div class="p-4 rounded-xl {lastAnswerCorrect ? 'bg-green-50 border-2 border-green-200' : 'bg-orange-50 border-2 border-orange-200'} mb-6">
-              <div class="flex items-start gap-3">
-                <div class="text-2xl">
-                  {lastAnswerCorrect ? '🎉' : '💡'}
-                </div>
-                <div class="flex-1">
-                  <h3 class="font-bold text-lg mb-2">
-                    {lastAnswerCorrect ? 'Bravo !' : 'Pas tout à fait...'}
-                  </h3>
-                  <p class="text-gray-700">{lastExplanation || 'Pas d\'explication disponible.'}</p>
-                </div>
-              </div>
-            </div>
-          {/if}
-
-          <!-- Actions -->
-          <div class="flex gap-3">
-            {#if isEpreuveMode}
-              <!-- Mode Épreuve: Navigation et Submit -->
-              <button
-                onclick={previousQuestion}
-                disabled={currentQuestionIndex === 0}
-                class="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                ← Précédente
-              </button>
-              
-              {#if currentQuestionIndex < totalQuestions - 1}
-                <button
-                  onclick={nextQuestion}
-                  class="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200"
-                >
-                  Suivante →
-                </button>
-              {/if}
-              
-              <button
-                onclick={submitEpreuve}
-                disabled={submitting}
-                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-bold hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 transition-all"
-              >
-                {submitting ? 'Soumission...' : '✓ Terminer l\'épreuve'}
-              </button>
-            {:else}
-              <!-- Mode Révision: Valider puis Suivant -->
-              {#if !showExplanation}
-                <button
-                  onclick={validateAnswer}
-                  disabled={!hasAnswer() || submitting}
-                  class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105"
-                >
-                  {submitting ? 'Validation...' : 'Valider'}
-                </button>
-              {:else}
-                <button
-                  onclick={nextQuestion}
-                  class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105"
-                >
-                  {currentQuestionIndex < totalQuestions - 1 ? 'Question suivante →' : 'Voir mes résultats'}
-                </button>
-              {/if}
-            {/if}
           </div>
         </div>
+      </div>
+    </div>
+    
+    <!-- Fixed Action Bar -->
+    <div class="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 p-4 z-40">
+      <div class="max-w-3xl mx-auto flex gap-3">
+        {#if isEpreuveMode}
+          <!-- Mode Épreuve: Navigation et Submit -->
+          <button
+            onclick={previousQuestion}
+            disabled={currentQuestionIndex === 0}
+            class="px-5 py-3 bg-gray-800 text-gray-300 rounded-xl font-medium hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            ← Précédente
+          </button>
+          
+          {#if currentQuestionIndex < totalQuestions - 1}
+            <button
+              onclick={nextQuestion}
+              class="flex-1 px-5 py-3 bg-gray-800 text-gray-300 rounded-xl font-medium hover:bg-gray-700 transition-colors"
+            >
+              Suivante →
+            </button>
+          {/if}
+          
+          <button
+            onclick={submitEpreuve}
+            disabled={submitting}
+            class="px-6 py-3 bg-amber-500 text-gray-900 rounded-xl font-bold hover:bg-amber-400 disabled:opacity-50 transition-colors"
+          >
+            {submitting ? 'Soumission...' : '✓ Terminer'}
+          </button>
+        {:else}
+          <!-- Mode Révision: Valider puis Suivant -->
+          {#if !showExplanation}
+            <button
+              onclick={validateAnswer}
+              disabled={!hasAnswer() || submitting}
+              class="flex-1 px-6 py-4 bg-amber-500 text-gray-900 rounded-xl font-bold hover:bg-amber-400 disabled:opacity-50 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
+            >
+              {submitting ? 'Validation...' : 'Valider ma réponse'}
+            </button>
+          {:else}
+            <button
+              onclick={nextQuestion}
+              class="flex-1 px-6 py-4 bg-amber-500 text-gray-900 rounded-xl font-bold hover:bg-amber-400 transition-colors"
+            >
+              {currentQuestionIndex < totalQuestions - 1 ? 'Question suivante →' : 'Voir mes résultats'}
+            </button>
+          {/if}
+        {/if}
       </div>
     </div>
   {:else if isQuizFinished}
@@ -863,21 +866,28 @@
       />
     {:else}
       <!-- Mode Révision Results -->
-      <div class="max-w-2xl mx-auto py-16">
-        <div class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-12 text-center border border-purple-200">
-          <div class="text-8xl mb-6">
+      <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-gray-900 rounded-2xl border border-gray-800 p-8 sm:p-12 text-center max-w-md w-full">
+          <div class="text-7xl mb-6">
             {score === totalQuestions ? '🏆' : score >= totalQuestions * 0.7 ? '🎉' : score >= totalQuestions * 0.5 ? '👍' : '💪'}
           </div>
           
-          <h2 class="text-4xl font-bold text-gray-800 mb-4">
+          <h2 class="text-3xl font-bold text-white mb-4">
             Quiz terminé !
           </h2>
           
-          <div class="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-6">
+          <div class="text-5xl font-bold text-amber-400 mb-4">
             {score} / {totalQuestions}
           </div>
           
-          <p class="text-xl text-gray-600 mb-8">
+          <div class="h-2 bg-gray-800 rounded-full overflow-hidden mb-6">
+            <div 
+              class="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all"
+              style="width: {(score / totalQuestions) * 100}%"
+            ></div>
+          </div>
+          
+          <p class="text-lg text-gray-400 mb-8">
             {score === totalQuestions 
               ? 'Parfait ! Tu es un expert !' 
               : score >= totalQuestions * 0.7 
@@ -887,10 +897,10 @@
               : 'Continue à apprendre, tu vas y arriver !'}
           </p>
           
-          <div class="flex gap-4 justify-center flex-wrap">
+          <div class="flex flex-col gap-3">
             <button
               onclick={restartQuiz}
-              class="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105"
+              class="w-full px-6 py-4 bg-amber-500 text-gray-900 rounded-xl font-bold hover:bg-amber-400 transition-colors"
             >
               🔄 Recommencer
             </button>
@@ -904,9 +914,9 @@
             
             <button
               onclick={goHome}
-              class="px-8 py-4 bg-white border-2 border-purple-600 text-purple-600 rounded-xl font-bold hover:bg-purple-50 transition-all"
+              class="w-full px-6 py-3 bg-gray-800 text-gray-300 rounded-xl font-medium hover:bg-gray-700 transition-colors"
             >
-              🏠 Mon espace
+              ← Retour au tableau de bord
             </button>
           </div>
         </div>

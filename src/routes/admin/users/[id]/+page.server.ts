@@ -7,12 +7,12 @@ export const load: PageServerLoad = async ({ params }) => {
     const db = await connectDB();
     const userId = params.id;
     
-    // Récupérer l'utilisateur avec sa classe
+    // Récupérer l'utilisateur avec son grade
     const userResult = await db.query(`
       SELECT *, 
-        classe_id.name as classe_name, 
-        classe_id.slug as classe_slug,
-        classe_id.category_id.name as classe_category
+        current_grade.name as grade_name, 
+        current_grade.code as grade_code,
+        current_grade.cycle.name as cycle_name
       FROM user 
       WHERE id = type::thing("user", $userId)
     `, { userId });

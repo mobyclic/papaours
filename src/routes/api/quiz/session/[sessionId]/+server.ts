@@ -3,6 +3,9 @@ import { connectDB } from '$lib/db';
 import { updateProgressAfterAnswer } from '$lib/progress';
 import { checkAndAwardBadges, updateDailyStreak } from '$lib/server/badges';
 import type { RequestHandler } from './$types';
+import { env } from '$env/dynamic/private';
+
+const GITHUB_MODELS_URL = 'https://models.inference.ai.azure.com/chat/completions';
 
 /**
  * Met à jour les compétences utilisateur après une réponse
@@ -88,6 +91,95 @@ async function updateUserCompetences(db: any, userId: string, questionId: string
 }
 
 /**
+ * Évalue une réponse ouverte avec l'IA (pour utilisateurs premium/tutorés)
+ */
+async function evaluateOpenAnswerWithAI(
+  question: string,
+  answer: string,
+  expectedKeywords: string[],
+  sampleAnswers: string[],
+  questionContext?: string
+): Promise<{
+  score: number;
+  feedback: string;
+  strengths: string[];
+  improvements: string[];
+  correctedAnswer?: string;
+}> {
+  const systemPrompt = `Tu es un correcteur pédagogique bienveillant pour enfants (6-12 ans). 
+Tu dois évaluer une réponse à une question ouverte.
+Sois encourageant mais honnête. Utilise un langage simple adapté aux enfants.
+Réponds UNIQUEMENT en JSON valide, sans markdown ni code blocks.`;
+
+  const userPrompt = `Question : ${question}
+${questionContext ? `Contexte : ${questionContext}` : ''}
+${expectedKeywords.length > 0 ? `Points clés attendus : ${expectedKeywords.join(', ')}` : ''}
+${sampleAnswers.length > 0 ? `Exemples de bonnes réponses : ${sampleAnswers.slice(0, 2).join(' | ')}` : ''}
+
+Réponse de l'élève : ${answer}
+
+Évalue cette réponse et réponds en JSON :
+{
+  "score": <nombre de 0 à 100>,
+  "feedback": "<feedback encourageant et constructif en 1-2 phrases>",
+  "strengths": ["<point positif 1>", "<point positif 2>"],
+  "improvements": ["<suggestion d'amélioration 1>"],
+  "correctedAnswer": "<version améliorée courte si score < 70, sinon null>"
+}`;
+
+  try {
+    const response = await fetch(GITHUB_MODELS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.GITHUB_TOKEN}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 400,
+        temperature: 0.3
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub Models API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('Empty response from API');
+    }
+
+    // Nettoyer et parser le JSON
+    const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const evaluation = JSON.parse(cleanedContent);
+
+    return {
+      score: Math.min(100, Math.max(0, evaluation.score || 50)),
+      feedback: evaluation.feedback || 'Réponse évaluée.',
+      strengths: evaluation.strengths || [],
+      improvements: evaluation.improvements || [],
+      correctedAnswer: evaluation.correctedAnswer || undefined
+    };
+  } catch (error) {
+    console.error('AI evaluation error:', error);
+    // Fallback : retourne un résultat neutre
+    return {
+      score: 50,
+      feedback: 'Évaluation automatique. Vérifie avec ton tuteur.',
+      strengths: [],
+      improvements: []
+    };
+  }
+}
+
+/**
  * Génère un ordre de mélange déterministe basé sur un seed
  * Le même seed produira toujours le même ordre
  */
@@ -158,8 +250,21 @@ async function verifyAnswerMultiType(
   sessionId: string, 
   questionId: string, 
   questionType: string,
-  answer: any
-): Promise<{ isCorrect: boolean; correctAnswer: any; explanation?: string; partialScore?: number }> {
+  answer: any,
+  isPremium: boolean = false
+): Promise<{ 
+  isCorrect: boolean; 
+  correctAnswer: any; 
+  explanation?: string; 
+  partialScore?: number;
+  aiEvaluation?: {
+    score: number;
+    feedback: string;
+    strengths: string[];
+    improvements: string[];
+    correctedAnswer?: string;
+  };
+}> {
   const cleanId = questionId.includes(':') ? questionId.split(':')[1] : questionId;
   
   const result = await db.query(
@@ -192,12 +297,23 @@ async function verifyAnswerMultiType(
     
     case 'qcm_multiple': {
       // Plusieurs bonnes réponses possibles
-      const correctIndices = (question.answers || [])
-        .map((a: any, i: number) => a.is_correct ? i : -1)
-        .filter((i: number) => i >= 0);
+      // Les options ont été mélangées côté client, il faut recalculer les indices corrects
+      const originalAnswers = question.answers || [];
+      const seed = `${sessionId}-${questionId}`;
+      const shuffleOrder = seededShuffle(originalAnswers.length, seed);
+      
+      // shuffleOrder[i] = index original de l'option affichée à la position i
+      // On doit trouver les positions mélangées des bonnes réponses
+      const correctShuffledIndices: number[] = [];
+      for (let shuffledIdx = 0; shuffledIdx < shuffleOrder.length; shuffledIdx++) {
+        const originalIdx = shuffleOrder[shuffledIdx];
+        if (originalAnswers[originalIdx]?.is_correct) {
+          correctShuffledIndices.push(shuffledIdx);
+        }
+      }
       
       const selectedSet = new Set(answer || []);
-      const correctSet = new Set(correctIndices);
+      const correctSet = new Set(correctShuffledIndices);
       
       // Vérifier si les sets sont identiques
       const isExactMatch = selectedSet.size === correctSet.size && 
@@ -206,11 +322,11 @@ async function verifyAnswerMultiType(
       // Score partiel: combien de bonnes réponses sur le total
       const correctSelected = [...selectedSet].filter(i => correctSet.has(i)).length;
       const incorrectSelected = [...selectedSet].filter(i => !correctSet.has(i)).length;
-      const partialScore = Math.max(0, (correctSelected - incorrectSelected) / correctIndices.length);
+      const partialScore = Math.max(0, (correctSelected - incorrectSelected) / correctShuffledIndices.length);
       
       return {
         isCorrect: isExactMatch,
-        correctAnswer: correctIndices,
+        correctAnswer: correctShuffledIndices,
         explanation,
         partialScore
       };
@@ -299,14 +415,163 @@ async function verifyAnswerMultiType(
     
     case 'open_short':
     case 'open_long': {
-      // Pour les questions ouvertes, on vérifie les mots-clés si définis
+      // Pour les questions ouvertes
       const expectedKeywords = question.expectedKeywords || [];
       const sampleAnswers = question.sampleAnswers || [];
-      const userAnswer = (answer || '').toLowerCase();
+      const metadata = question.metadata || {};
+      let userAnswer = (answer || '').trim();
       
+      // Appliquer la normalisation si définie dans metadata
+      if (metadata.normalize === 'lowercase') {
+        userAnswer = userAnswer.toLowerCase();
+      } else if (metadata.normalize === 'uppercase') {
+        userAnswer = userAnswer.toUpperCase();
+      }
+      
+      // === Validation avancée basée sur metadata ===
+      if (metadata.answerType && sampleAnswers.length > 0) {
+        const expectedAnswer = sampleAnswers[0]; // Première réponse = réponse principale
+        const alternatives = metadata.alternativeAnswers || [];
+        
+        // Normaliser aussi la réponse attendue
+        let normalizedExpected = expectedAnswer.trim();
+        if (metadata.normalize === 'lowercase') {
+          normalizedExpected = normalizedExpected.toLowerCase();
+        } else if (metadata.normalize === 'uppercase') {
+          normalizedExpected = normalizedExpected.toUpperCase();
+        }
+        
+        let isCorrect = false;
+        let partialScore = 0;
+        let nearMatch = false;
+        
+        switch (metadata.answerType) {
+          case 'integer':
+          case 'float':
+          case 'year': {
+            // Validation numérique avec tolérance
+            const userNum = parseFloat(userAnswer.replace(',', '.'));
+            const expectedNum = parseFloat(normalizedExpected.replace(',', '.'));
+            
+            if (!isNaN(userNum) && !isNaN(expectedNum)) {
+              const tolerance = metadata.tolerance || 0;
+              let allowedDiff = tolerance;
+              
+              if (metadata.toleranceType === 'percent') {
+                allowedDiff = Math.abs(expectedNum * tolerance / 100);
+              }
+              
+              const diff = Math.abs(userNum - expectedNum);
+              isCorrect = diff <= allowedDiff;
+              
+              // Score partiel basé sur la proximité
+              if (isCorrect) {
+                partialScore = 1;
+              } else if (diff <= allowedDiff * 2) {
+                // Proche mais pas dans la tolérance
+                nearMatch = true;
+                partialScore = 0.5;
+              } else {
+                partialScore = Math.max(0, 1 - (diff / Math.max(Math.abs(expectedNum), 1)));
+              }
+            }
+            break;
+          }
+          
+          case 'date': {
+            // Validation de date (formats: JJ/MM/AAAA, AAAA-MM-JJ)
+            const normalizeDate = (d: string) => d.replace(/[\/\-\.]/g, '');
+            isCorrect = normalizeDate(userAnswer) === normalizeDate(normalizedExpected);
+            partialScore = isCorrect ? 1 : 0;
+            break;
+          }
+          
+          case 'regex': {
+            // Validation par regex
+            if (metadata.pattern) {
+              try {
+                const regex = new RegExp(metadata.pattern, 'i');
+                isCorrect = regex.test(userAnswer);
+                partialScore = isCorrect ? 1 : 0;
+              } catch {
+                // Regex invalide, fallback vers comparaison texte
+                isCorrect = userAnswer.toLowerCase() === normalizedExpected.toLowerCase();
+              }
+            }
+            break;
+          }
+          
+          case 'text':
+          default: {
+            // Comparaison texte (avec ou sans normalisation)
+            const userLower = metadata.normalize ? userAnswer : userAnswer.toLowerCase();
+            const expectedLower = metadata.normalize ? normalizedExpected : normalizedExpected.toLowerCase();
+            
+            isCorrect = userLower === expectedLower;
+            
+            // Vérifier les alternatives
+            if (!isCorrect && alternatives.length > 0) {
+              for (const alt of alternatives) {
+                const altNormalized = metadata.normalize === 'uppercase' 
+                  ? alt.toUpperCase() 
+                  : metadata.normalize === 'lowercase' 
+                    ? alt.toLowerCase() 
+                    : alt.toLowerCase();
+                if (userLower === altNormalized) {
+                  isCorrect = true;
+                  break;
+                }
+              }
+            }
+            
+            partialScore = isCorrect ? 1 : 0;
+          }
+        }
+        
+        return {
+          isCorrect,
+          correctAnswer: sampleAnswers,
+          explanation,
+          partialScore,
+          nearMatch: nearMatch ? { message: metadata.nearMatchMessage || 'Tu étais proche !' } : undefined
+        };
+      }
+      
+      // === Mode classique : évaluation IA ou mots-clés ===
+      const userAnswerLower = userAnswer.toLowerCase();
+      
+      // Si l'utilisateur est premium (a un tuteur), utiliser l'évaluation IA
+      if (isPremium && userAnswer.length > 0) {
+        try {
+          const aiResult = await evaluateOpenAnswerWithAI(
+            question.text || question.question || '',
+            answer,
+            expectedKeywords,
+            sampleAnswers,
+            question.matiere?.name || undefined
+          );
+          
+          // Score >= 70 = considéré comme correct
+          const isCorrect = aiResult.score >= 70;
+          const partialScore = aiResult.score / 100;
+          
+          return {
+            isCorrect,
+            correctAnswer: sampleAnswers,
+            explanation,
+            partialScore,
+            aiEvaluation: aiResult
+          };
+        } catch (error) {
+          console.error('AI evaluation failed, falling back to keywords:', error);
+          // Continuer avec l'évaluation par mots-clés
+        }
+      }
+      
+      // Évaluation par mots-clés (mode gratuit ou fallback)
       let keywordCount = 0;
       for (const keyword of expectedKeywords) {
-        if (userAnswer.includes(keyword.toLowerCase())) {
+        if (userAnswerLower.includes(keyword.toLowerCase())) {
           keywordCount++;
         }
       }
@@ -317,11 +582,10 @@ async function verifyAnswerMultiType(
         : undefined; // undefined indique qu'il faudra une correction manuelle
       
       // Considéré comme "correct" si tous les mots-clés sont présents
-      // Sinon, nécessite correction manuelle
       const isCorrect = expectedKeywords.length > 0 && keywordCount === expectedKeywords.length;
       
       return {
-        isCorrect: expectedKeywords.length > 0 ? isCorrect : false, // false = correction manuelle
+        isCorrect: expectedKeywords.length > 0 ? isCorrect : false,
         correctAnswer: sampleAnswers,
         explanation,
         partialScore
@@ -530,37 +794,50 @@ export const POST: RequestHandler = async ({ params, request }) => {
       return json({ message: 'Question non trouvée dans la session' }, { status: 404 });
     }
 
+    // Vérifier si l'utilisateur a un tuteur (premium = évaluation IA pour questions ouvertes)
+    let isPremiumUser = false;
+    const userId = session.userId?.toString() || session.userId;
+    if (userId && !userId.startsWith('anonymous_')) {
+      const cleanUserId = userId.includes(':') ? userId.split(':')[1] : userId;
+      const userResult = await db.query<any[]>(
+        'SELECT tutor_id FROM type::thing("user", $userId)',
+        { userId: cleanUserId }
+      );
+      const userForTutor = (userResult[0] as any[])?.[0];
+      isPremiumUser = !!userForTutor?.tutor_id;
+    }
+
     // Vérifier la réponse côté serveur (sécurité !)
-    // Utilise la nouvelle fonction multi-type
+    // Utilise la nouvelle fonction multi-type avec support IA pour premium
     const verification = await verifyAnswerMultiType(
       db, 
       params.sessionId!, 
       questionId.toString(), 
       actualQuestionType,
-      actualAnswer
+      actualAnswer,
+      isPremiumUser
     );
     
     // Mettre à jour la progression utilisateur (points par thème)
-    const userId = session.userId?.toString() || session.userId;
-    let classeId = session.classeId?.toString() || session.classeId;
+    let gradeId = session.gradeId?.toString() || session.gradeId;
     
-    // Si pas de classeId dans la session, essayer de le récupérer depuis l'utilisateur
-    if (!classeId && userId && !userId.startsWith('anonymous_')) {
+    // Si pas de gradeId dans la session, essayer de le récupérer depuis l'utilisateur
+    if (!gradeId && userId && !userId.startsWith('anonymous_')) {
       const cleanUserId = userId.includes(':') ? userId.split(':')[1] : userId;
       const userResult = await db.query<any[]>(
-        'SELECT classe_id FROM type::thing("user", $userId)',
+        'SELECT current_grade FROM type::thing("user", $userId)',
         { userId: cleanUserId }
       );
       const user = (userResult[0] as any[])?.[0];
-      if (user?.classe_id) {
-        classeId = user.classe_id.toString();
+      if (user?.current_grade) {
+        gradeId = user.current_grade.toString();
         // Mettre à jour la session pour les prochaines fois
-        await db.query(`UPDATE quiz_session:${params.sessionId} SET classeId = $classeId`, { classeId });
+        await db.query(`UPDATE quiz_session:${params.sessionId} SET gradeId = $gradeId`, { gradeId });
       }
     }
     
-    if (userId && classeId) {
-      await updateProgressAfterAnswer(userId, classeId, questionId.toString(), verification.isCorrect);
+    if (userId && gradeId) {
+      await updateProgressAfterAnswer(userId, gradeId, questionId.toString(), verification.isCorrect);
     }
     
     // Mettre à jour les compétences de l'utilisateur
@@ -569,7 +846,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     }
     
     // Créer l'objet réponse
-    const answerRecord = {
+    const answerRecord: any = {
       questionIndex,
       questionId: questionId.toString(),
       questionType: actualQuestionType,
@@ -579,6 +856,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
       partialScore: verification.partialScore,
       answeredAt: new Date().toISOString()
     };
+    
+    // Ajouter l'évaluation IA si disponible (pour questions ouvertes premium)
+    if (verification.aiEvaluation) {
+      answerRecord.aiEvaluation = verification.aiEvaluation;
+    }
 
     // Calculer le nouveau score
     // Score partiel possible pour certains types de questions
@@ -650,6 +932,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       isCorrect: verification.isCorrect,
       correctAnswer: verification.correctAnswer,
       explanation: verification.explanation,
+      aiEvaluation: verification.aiEvaluation,
       session: {
         ...updatedSession,
         id: updatedSession?.id?.toString()

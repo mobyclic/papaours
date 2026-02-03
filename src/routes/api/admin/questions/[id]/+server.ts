@@ -46,6 +46,15 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     if (data.sampleAnswers !== undefined) sets.push(`sampleAnswers = ${JSON.stringify(data.sampleAnswers)}`);
     if (data.expectedKeywords !== undefined) sets.push(`expectedKeywords = ${JSON.stringify(data.expectedKeywords)}`);
     
+    // Metadata (options de validation avancées)
+    if (data.metadata !== undefined) {
+      if (data.metadata && Object.keys(data.metadata).length > 0) {
+        sets.push(`metadata = ${JSON.stringify(data.metadata)}`);
+      } else {
+        sets.push(`metadata = NONE`);
+      }
+    }
+    
     // Matière
     if (data.matiere_id !== undefined) {
       if (data.matiere_id) {

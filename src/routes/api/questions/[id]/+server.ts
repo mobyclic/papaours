@@ -87,23 +87,25 @@ export const PUT = async ({ params, request }: RequestEvent) => {
       ? `[${themeIdsClauses.join(', ')}]` 
       : '[]';
 
-    // Build class_difficulties array - convert classe_id to RecordId
-    const classDifficultiesFormatted = (data.class_difficulties || []).map((cd: any) => {
-      const classeIdClean = cd.classe_id?.includes(':') 
-        ? cd.classe_id.split(':')[1] 
-        : cd.classe_id;
+    // Build grade_difficulties array - convert grade_id to RecordId
+    const gradeDifficultiesFormatted = (data.grade_difficulties || data.class_difficulties || []).map((cd: any) => {
+      // Support both old format (classe_id) and new format (grade_id)
+      const gradeIdRaw = cd.grade_id || cd.classe_id;
+      const gradeIdClean = gradeIdRaw?.includes(':') 
+        ? gradeIdRaw.split(':')[1] 
+        : gradeIdRaw;
       return {
-        classe_id: classeIdClean, // Will be converted to RecordId in query
+        grade_id: gradeIdClean,
         difficulty: cd.difficulty || 'medium',
         points: cd.points ?? 20
       };
     });
 
-    // Build the class_difficulties SurrealQL array
-    const classDiffClauses = classDifficultiesFormatted.map((cd: any) => 
-      `{ classe_id: type::thing("classe", "${cd.classe_id}"), difficulty: "${cd.difficulty}", points: ${cd.points} }`
+    // Build the grade_difficulties SurrealQL array
+    const gradeDiffClauses = gradeDifficultiesFormatted.map((gd: any) => 
+      `{ grade_id: type::thing("grade", "${gd.grade_id}"), difficulty: "${gd.difficulty}", points: ${gd.points} }`
     );
-    const classDiffArray = `[${classDiffClauses.join(', ')}]`;
+    const gradeDiffArray = `[${gradeDiffClauses.join(', ')}]`;
 
     // Build competence_ids array for SurrealQL
     const competenceIdsClauses = (data.competence_ids || []).map((cid: string) => {
@@ -117,7 +119,7 @@ export const PUT = async ({ params, request }: RequestEvent) => {
     // Build optionImages array if present
     const optionImagesJson = JSON.stringify(data.optionImages || []);
 
-    // Update query with class_difficulties, questionType, optionImages, and competence_ids
+    // Update query with grade_difficulties, questionType, optionImages, and competence_ids
     const updateQuery = `
       UPDATE type::thing("question", $id) SET
         question = $question,
@@ -129,7 +131,7 @@ export const PUT = async ({ params, request }: RequestEvent) => {
         isActive = $isActive,
         matiere_id = type::thing("matiere", $matiereId),
         theme_ids = ${themeIdsArray},
-        class_difficulties = ${classDiffArray},
+        grade_difficulties = ${gradeDiffArray},
         competence_ids = ${competenceIdsArray},
         updatedAt = time::now()
     `;
@@ -220,24 +222,25 @@ export const PATCH = async ({ params, request }: RequestEvent) => {
       updates.push(`theme_ids = ${themeIdsArray}`);
     }
 
-    // Handle class_difficulties update
-    if (data.class_difficulties !== undefined) {
-      const classDifficultiesFormatted = (data.class_difficulties || []).map((cd: any) => {
-        const classeIdClean = cd.classe_id?.includes(':') 
-          ? cd.classe_id.split(':')[1] 
-          : cd.classe_id;
+    // Handle grade_difficulties update (supports old class_difficulties format too)
+    if (data.grade_difficulties !== undefined || data.class_difficulties !== undefined) {
+      const gradeDifficultiesFormatted = (data.grade_difficulties || data.class_difficulties || []).map((cd: any) => {
+        const gradeIdRaw = cd.grade_id || cd.classe_id;
+        const gradeIdClean = gradeIdRaw?.includes(':') 
+          ? gradeIdRaw.split(':')[1] 
+          : gradeIdRaw;
         return {
-          classe_id: classeIdClean,
+          grade_id: gradeIdClean,
           difficulty: cd.difficulty || 'medium',
           points: cd.points ?? 20
         };
       });
 
-      const classDiffClauses = classDifficultiesFormatted.map((cd: any) => 
-        `{ classe_id: type::thing("classe", "${cd.classe_id}"), difficulty: "${cd.difficulty}", points: ${cd.points} }`
+      const gradeDiffClauses = gradeDifficultiesFormatted.map((gd: any) => 
+        `{ grade_id: type::thing("grade", "${gd.grade_id}"), difficulty: "${gd.difficulty}", points: ${gd.points} }`
       );
-      const classDiffArray = classDiffClauses.length > 0 ? `[${classDiffClauses.join(', ')}]` : '[]';
-      updates.push(`class_difficulties = ${classDiffArray}`);
+      const gradeDiffArray = gradeDiffClauses.length > 0 ? `[${gradeDiffClauses.join(', ')}]` : '[]';
+      updates.push(`grade_difficulties = ${gradeDiffArray}`);
     }
 
     // Handle competence_ids update

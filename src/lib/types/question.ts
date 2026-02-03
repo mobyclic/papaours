@@ -7,10 +7,115 @@ export type QuestionType =
   | 'true_false'    // Vrai/Faux avec justification
   | 'open_short'    // Question ouverte courte
   | 'open_long'     // Question ouverte longue/argumentée
+  | 'fill_blank'    // Texte à trous
   | 'media_analysis'// Analyse de média
   | 'error_spotting'// Repérage d'erreurs
   | 'matching'      // Association/appariement
   | 'ordering'      // Classement/ordonnancement
+
+/**
+ * Metadata flexible pour les questions
+ * Permet d'ajouter des options de validation et d'affichage
+ * sans modifier le schéma de base
+ */
+export interface QuestionMetadata {
+  // === VALIDATION DE RÉPONSE ===
+  
+  /** Type de réponse attendue pour validation intelligente */
+  answerType?: 'text' | 'integer' | 'float' | 'date' | 'year' | 'regex';
+  
+  /** Pattern regex personnalisé (si answerType = 'regex') */
+  pattern?: string; // ex: "^[a-zA-Z0-9]+$"
+  
+  /** Tolérance pour réponses numériques (ex: 10 pour ±10) */
+  tolerance?: number;
+  
+  /** Type de tolérance: valeur absolue ou pourcentage */
+  toleranceType?: 'absolute' | 'percent';
+  
+  /** Nombre minimum de caractères */
+  minChars?: number;
+  
+  /** Nombre maximum de caractères */
+  maxChars?: number;
+  
+  // === AFFICHAGE / UX ===
+  
+  /** Placeholder pour l'input */
+  inputPlaceholder?: string; // ex: "Année (AAAA)"
+  
+  /** Texte d'aide sous l'input */
+  inputHint?: string; // ex: "Format: AAAA"
+  
+  /** Type d'input HTML (affecte le clavier mobile) */
+  inputType?: 'text' | 'number' | 'tel';
+  
+  /** Normalisation de la réponse avant comparaison */
+  normalize?: 'lowercase' | 'uppercase' | 'trim' | 'none';
+  
+  /** Accepter des réponses alternatives (synonymes) */
+  alternativeAnswers?: string[];
+  
+  // === FEEDBACK ===
+  
+  /** Afficher la réponse exacte attendue après validation ? */
+  showExpectedAnswer?: boolean;
+  
+  /** Message personnalisé si réponse proche mais pas exacte */
+  nearMatchMessage?: string; // ex: "Tu étais proche !"
+  
+  /** Unité à afficher (ex: "km", "°C", "ans") */
+  unit?: string;
+}
+
+/** Presets de metadata pour faciliter la création de questions */
+export const METADATA_PRESETS: Record<string, Partial<QuestionMetadata>> = {
+  year: {
+    answerType: 'year',
+    maxChars: 4,
+    inputType: 'number',
+    inputPlaceholder: 'AAAA',
+    inputHint: 'Entre une année (ex: 1789)',
+  },
+  integer: {
+    answerType: 'integer',
+    inputType: 'number',
+    inputPlaceholder: 'Nombre',
+  },
+  float: {
+    answerType: 'float',
+    inputType: 'number',
+    inputPlaceholder: 'Nombre décimal',
+  },
+  percentage: {
+    answerType: 'integer',
+    inputType: 'number',
+    tolerance: 5,
+    toleranceType: 'absolute',
+    unit: '%',
+    inputPlaceholder: 'Pourcentage',
+  },
+  distance_km: {
+    answerType: 'integer',
+    inputType: 'number',
+    tolerance: 10,
+    toleranceType: 'percent',
+    unit: 'km',
+    inputPlaceholder: 'Distance en km',
+  },
+  chemical_symbol: {
+    answerType: 'text',
+    normalize: 'uppercase',
+    maxChars: 3,
+    inputPlaceholder: 'Symbole',
+    inputHint: 'Ex: Au, Fe, O',
+  },
+  word: {
+    answerType: 'text',
+    normalize: 'lowercase',
+    inputPlaceholder: 'Un mot',
+  },
+};
 
 export interface Answer {
   id: string;
@@ -101,6 +206,9 @@ export interface Question {
   min_words?: number;
   max_words?: number;
   require_justification?: boolean;
+  
+  // Metadata flexible pour options de validation/affichage
+  metadata?: QuestionMetadata;
   
   // Tracking
   created_at: string;

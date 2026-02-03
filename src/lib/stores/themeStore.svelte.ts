@@ -4,7 +4,7 @@
  */
 import { browser } from '$app/environment';
 
-const STORAGE_KEY = 'kwizy_theme_color';
+const STORAGE_KEY = 'kweez_theme_color';
 
 // Couleurs disponibles avec leurs classes Tailwind
 export const THEME_COLORS = [

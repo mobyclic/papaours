@@ -60,7 +60,7 @@
     themeColorValue = ($currentUser.theme_color as ThemeColorId) || loadThemeColor();
     
     // Charger les préférences sauvegardées
-    const savedPrefs = localStorage.getItem('kwizy_preferences');
+    const savedPrefs = localStorage.getItem('kweez_preferences');
     if (savedPrefs) {
       try {
         const prefs = JSON.parse(savedPrefs);
@@ -124,7 +124,7 @@
       soundEnabled,
       animationsEnabled
     };
-    localStorage.setItem('kwizy_preferences', JSON.stringify(prefs));
+    localStorage.setItem('kweez_preferences', JSON.stringify(prefs));
     saved = true;
     setTimeout(() => saved = false, 2000);
   }
@@ -162,7 +162,7 @@
 </script>
 
 <svelte:head>
-  <title>Paramètres - Kwizy</title>
+  <title>Paramètres - Kweez</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
