@@ -8,7 +8,7 @@ export const GET: RequestHandler = async () => {
     const db = await getSurrealDB();
     
     const [programs] = await db.query<[any[]]>(`
-      SELECT * FROM official_program ORDER BY grade.order ASC
+      SELECT *, grade.\`order\` as grade_order FROM official_program ORDER BY grade_order ASC
     `);
 
     return json({ programs: programs || [] });

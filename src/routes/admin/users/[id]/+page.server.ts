@@ -116,7 +116,7 @@ export const load: PageServerLoad = async ({ params }) => {
         nom: user.nom || '',
         pseudo: user.pseudo || '',
         email: user.email || '',
-        classe_name: user.classe_name || user.classe || '',
+        grade_name: user.grade_name || user.classe_name || user.classe || '',
         classe_category: user.classe_category || '',
         date_naissance: user.date_naissance,
         is_active: user.is_active ?? true,

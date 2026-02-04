@@ -12,7 +12,7 @@ export const load: PageServerLoad = async () => {
     
     const quizzes = (quizzesResult[0] as any[]) || [];
     
-    // Pour chaque quiz, compter les questions via theme_ids (prioritaire) ou matiere_id
+    // Pour chaque quiz, compter les questions via theme_ids (prioritaire) ou subject
     const formattedQuizzes = await Promise.all(quizzes.map(async (quiz) => {
       let questionCount = 0;
       
@@ -27,12 +27,14 @@ export const load: PageServerLoad = async () => {
           `SELECT count() FROM question WHERE (${themeConditions}) AND isActive = true GROUP ALL`
         );
         questionCount = (countResult[0] as any[])?.[0]?.count || 0;
-      } else if (quiz.matiere_id) {
-        // Fallback par matière
-        const cleanMatiereId = quiz.matiere_id.toString().split(':')[1] || quiz.matiere_id.toString();
+      } else if (quiz.subject) {
+        // Fallback par subject
+        const subjectCode = quiz.subject.toString().includes(':') 
+          ? quiz.subject.toString().split(':')[1] 
+          : quiz.subject.toString();
         const countResult = await db.query(
-          'SELECT count() FROM question WHERE matiere_id = type::thing("matiere", $matiereId) AND isActive = true GROUP ALL',
-          { matiereId: cleanMatiereId }
+          'SELECT count() FROM question WHERE subject.code = $subjectCode AND isActive = true GROUP ALL',
+          { subjectCode }
         );
         questionCount = (countResult[0] as any[])?.[0]?.count || 0;
       }
@@ -51,41 +53,42 @@ export const load: PageServerLoad = async () => {
       };
     }));
     
-    // Récupérer les matières pour le formulaire de création
-    const matieresResult = await db.query(`
-      SELECT id, name, slug FROM matiere WHERE is_active = true ORDER BY name ASC
+    // Récupérer les subjects (matières) pour le formulaire de création
+    const subjectsResult = await db.query(`
+      SELECT id, code, name, icon FROM subject WHERE is_active = true ORDER BY name ASC
     `);
-    const matieres = (matieresResult[0] as any[]) || [];
+    const subjects = (subjectsResult[0] as any[]) || [];
     
-    // Récupérer les thèmes groupés par matière pour le sélecteur
+    // Récupérer les thèmes groupés par subject pour le sélecteur
     const themesResult = await db.query(`
-      SELECT id, name, slug, matiere_id, matiere_id.name as matiere_name 
+      SELECT id, name, slug, subject, subject.name as subject_name 
       FROM theme 
       WHERE is_active = true 
-      ORDER BY matiere_id.name ASC, name ASC
+      ORDER BY subject_name ASC, name ASC
     `);
     const themes = (themesResult[0] as any[]) || [];
 
     return {
       quizzes: formattedQuizzes,
-      matieres: matieres.map((m: any) => ({
-        id: m.id?.toString() || m.id,
-        name: m.name,
-        slug: m.slug
+      subjects: subjects.map((s: any) => ({
+        id: s.id?.toString() || s.id,
+        code: s.code,
+        name: s.name,
+        icon: s.icon
       })),
       themes: themes.map((t: any) => ({
         id: t.id?.toString() || t.id,
         name: t.name,
         slug: t.slug,
-        matiere_id: t.matiere_id?.toString() || '',
-        matiere_name: t.matiere_name || 'Sans matière'
+        subject_code: t.subject?.toString()?.split(':')[1] || '',
+        subject_name: t.subject_name || 'Sans matière'
       }))
     };
   } catch (error) {
     console.error('Error loading quizzes:', error);
     return {
       quizzes: [],
-      matieres: [],
+      subjects: [],
       themes: []
     };
   }

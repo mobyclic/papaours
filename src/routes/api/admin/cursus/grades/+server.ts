@@ -11,9 +11,10 @@ export const GET: RequestHandler = async () => {
       SELECT 
         *,
         cycle.name AS cycle_name,
-        cycle.slug AS cycle_slug
+        cycle.slug AS cycle_slug,
+        cycle.\`order\` AS cycle_order
       FROM grade 
-      ORDER BY cycle.order ASC, order ASC
+      ORDER BY cycle_order ASC, \`order\` ASC
     `);
 
     return json({ grades: grades || [] });

@@ -6,7 +6,7 @@ export const GET: RequestHandler = async () => {
   try {
     const db = await connectDB();
     
-    const result = await db.query('SELECT * FROM quiz ORDER BY order ASC, createdAt DESC');
+    const result = await db.query('SELECT * FROM quiz ORDER BY `order` ASC, createdAt DESC');
     const quiz = result[0] || [];
 
     return json({ quiz });

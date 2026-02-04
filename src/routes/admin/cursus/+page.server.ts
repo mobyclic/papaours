@@ -12,11 +12,11 @@ export const load: PageServerLoad = async () => {
         name,
         slug,
         description,
-        order,
+        \`order\` AS cycle_order,
         is_active,
         (SELECT count() FROM grade WHERE cycle = $parent.id) AS grades_count
       FROM cycle
-      ORDER BY order ASC
+      ORDER BY cycle_order ASC
     `);
 
     // Récupérer toutes les classes avec leur cycle
@@ -29,9 +29,10 @@ export const load: PageServerLoad = async () => {
         order,
         is_active,
         cycle.name AS cycle_name,
-        cycle.slug AS cycle_slug
+        cycle.slug AS cycle_slug,
+        cycle.\`order\` AS cycle_order
       FROM grade
-      ORDER BY cycle.order ASC, order ASC
+      ORDER BY cycle_order ASC, \`order\` ASC
     `);
 
     // Sérialiser les RecordId

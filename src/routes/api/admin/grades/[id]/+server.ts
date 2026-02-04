@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/db';
+import { getSurrealDB } from '$lib/server/db';
 import type { RequestHandler } from './$types';
 
 // GET - Obtenir un grade par ID
 export const GET: RequestHandler = async ({ params }) => {
   try {
-    const db = await connectDB();
+    const db = await getSurrealDB();
     
     const result = await db.query(
       'SELECT * FROM grade WHERE id = $id',
@@ -28,7 +28,7 @@ export const GET: RequestHandler = async ({ params }) => {
 // PUT - Mettre à jour un grade
 export const PUT: RequestHandler = async ({ params, request }) => {
   try {
-    const db = await connectDB();
+    const db = await getSurrealDB();
     const data = await request.json();
     
     const { name, code, cycle_id, order, is_active } = data;
@@ -88,7 +88,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 // DELETE - Supprimer un grade
 export const DELETE: RequestHandler = async ({ params }) => {
   try {
-    const db = await connectDB();
+    const db = await getSurrealDB();
     
     // Vérifier si des questions utilisent ce grade (via grade_difficulties)
     const questionsCount = await db.query(`

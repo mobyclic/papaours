@@ -13,8 +13,10 @@ export const load: PageServerLoad = async () => {
         education_system.name AS education_system_name,
         cycle.name AS cycle_name,
         cycle.slug AS cycle_slug,
+        cycle.\`order\` AS cycle_order,
         grade.name AS grade_name,
         grade.slug AS grade_slug,
+        grade.\`order\` AS grade_order,
         subject.name AS subject_name,
         subject.code AS subject_code,
         subject.icon AS subject_icon,
@@ -23,21 +25,23 @@ export const load: PageServerLoad = async () => {
         created_at,
         (SELECT count() FROM chapter WHERE official_program = $parent.id) AS chapters_count
       FROM official_program
-      ORDER BY cycle.order ASC, grade.order ASC, subject.name ASC
+      ORDER BY cycle_order ASC, grade_order ASC, subject_name ASC
     `);
 
     // Récupérer les cycles et classes pour le formulaire
     const [cycles] = await db.query<[any[]]>(`
-      SELECT id, name, slug FROM cycle WHERE is_active = true ORDER BY order ASC
+      SELECT id, name, slug, \`order\` AS cycle_order FROM cycle WHERE is_active = true ORDER BY cycle_order ASC
     `);
 
     const [grades] = await db.query<[any[]]>(`
       SELECT 
         id, name, slug, 
-        cycle.slug AS cycle_slug
+        cycle.slug AS cycle_slug,
+        cycle.\`order\` AS cycle_order,
+        \`order\` AS grade_order
       FROM grade 
       WHERE is_active = true 
-      ORDER BY cycle.order ASC, order ASC
+      ORDER BY cycle_order ASC, grade_order ASC
     `);
 
     // Récupérer les matières

@@ -17,8 +17,8 @@ export const GET: RequestHandler = async ({ params }) => {
         quiz_id.description as quiz_description,
         quiz_id.coverImage as quiz_cover,
         quiz_id.difficulty_level as quiz_difficulty,
-        quiz_id.matiere_id.name as matiere_name,
-        quiz_id.matiere_id.color as matiere_color
+        quiz_id.subject.name as subject_name,
+        quiz_id.subject.color as subject_color
       FROM user_favorite 
       WHERE user_id = type::thing("user", $userId)
       ORDER BY created_at DESC
@@ -32,8 +32,8 @@ export const GET: RequestHandler = async ({ params }) => {
       quizDescription: f.quiz_description,
       quizCover: f.quiz_cover,
       quizDifficulty: f.quiz_difficulty || 1,
-      matiereName: f.matiere_name,
-      matiereColor: f.matiere_color,
+      subjectName: f.subject_name,
+      subjectColor: f.subject_color,
       createdAt: f.created_at,
       notes: f.notes
     }));

@@ -27,9 +27,9 @@ export const load: PageServerLoad = async () => {
     const themeCountResult = await db.query(`SELECT count() as total FROM theme WHERE is_active = true GROUP ALL`);
     const totalThemes = (themeCountResult[0] as any)?.[0]?.total || 0;
     
-    // Compter les matières
-    const matiereCountResult = await db.query(`SELECT count() as total FROM matiere WHERE is_active = true GROUP ALL`);
-    const totalMatieres = (matiereCountResult[0] as any)?.[0]?.total || 0;
+    // Compter les matières (subjects)
+    const subjectCountResult = await db.query(`SELECT count() as total FROM subject WHERE is_active = true GROUP ALL`);
+    const totalSubjects = (subjectCountResult[0] as any)?.[0]?.total || 0;
     
     // Compter les résultats récents (cette semaine)
     const oneWeekAgo = new Date();
@@ -52,7 +52,7 @@ export const load: PageServerLoad = async () => {
         activeQuestions,
         totalMedia,
         totalThemes,
-        totalMatieres,
+        totalSubjects,
         recentResults,
         totalUsers
       }
@@ -67,7 +67,7 @@ export const load: PageServerLoad = async () => {
         activeQuestions: 0,
         totalMedia: 0,
         totalThemes: 0,
-        totalMatieres: 0,
+        totalSubjects: 0,
         recentResults: 0,
         totalUsers: 0
       }

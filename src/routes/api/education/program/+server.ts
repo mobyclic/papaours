@@ -126,7 +126,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 async function getSubjectDetails(db: any, gradeId: string, subjectCode: string) {
   try {
     // Récupérer le programme officiel pour cette matière
-    const [programs] = await db.query<[any[]]>(`
+    const [programs] = await db.query(`
       SELECT 
         id,
         name,
@@ -141,7 +141,7 @@ async function getSubjectDetails(db: any, gradeId: string, subjectCode: string) 
         AND subject.code = $subjectCode
         AND is_active = true
       LIMIT 1
-    `, { gradeId, subjectCode });
+    `, { gradeId, subjectCode }) as [any[]];
 
     if (!programs || programs.length === 0) {
       return json({ error: 'Programme non trouvé' }, { status: 404 });
@@ -168,7 +168,7 @@ async function getSubjectDetails(db: any, gradeId: string, subjectCode: string) 
 
     // Récupérer les chapitres de ce programme
     // Les quiz sont matchés par theme (slug) + matière, pas par lien direct
-    const [chapters] = await db.query<[any[]]>(`
+    const [chapters] = await db.query(`
       SELECT 
         id,
         name,
@@ -178,12 +178,12 @@ async function getSubjectDetails(db: any, gradeId: string, subjectCode: string) 
       FROM chapter
       WHERE official_program = type::thing("official_program", $programId)
         AND is_active = true
-      ORDER BY order ASC
-    `, { programId: programId.replace('official_program:', '') });
+      ORDER BY \`order\` ASC
+    `, { programId: programId.replace('official_program:', '') }) as [any[]];
 
     // Pour chaque chapter, trouver les quiz correspondants par theme + matière
     const chaptersWithQuizzes = await Promise.all((chapters || []).map(async (chapter: any) => {
-      const [quizzes] = await db.query<[any[]]>(`
+      const [quizzes] = await db.query(`
         SELECT id, title, slug, difficulty, maxQuestions, favorite_count
         FROM quiz
         WHERE theme = $chapterSlug
@@ -196,7 +196,7 @@ async function getSubjectDetails(db: any, gradeId: string, subjectCode: string) 
         chapterSlug: chapter.slug, 
         matiereSlugList,
         subjectCode 
-      });
+      }) as [any[]];
       
       return {
         ...chapter,
@@ -209,7 +209,7 @@ async function getSubjectDetails(db: any, gradeId: string, subjectCode: string) 
     }));
 
     // Récupérer aussi les quiz sans theme (legacy) - ceux qui ne sont pas liés à un chapitre
-    const [unassignedQuizzes] = await db.query<[any[]]>(`
+    const [unassignedQuizzes] = await db.query(`
       SELECT 
         id,
         title,
@@ -228,7 +228,7 @@ async function getSubjectDetails(db: any, gradeId: string, subjectCode: string) 
         AND visibility = 'public'
       ORDER BY favorite_count DESC
       LIMIT 10
-    `, { subjectCode, matiereSlugList });
+    `, { subjectCode, matiereSlugList }) as [any[]];
 
     return json({
       program: {
@@ -244,7 +244,7 @@ async function getSubjectDetails(db: any, gradeId: string, subjectCode: string) 
         }
       },
       chapters: chaptersWithQuizzes,
-      quizzes: (unassignedQuizzes || []).map(q => ({
+      quizzes: (unassignedQuizzes || []).map((q: any) => ({
         ...q,
         id: q.id?.toString()
       }))

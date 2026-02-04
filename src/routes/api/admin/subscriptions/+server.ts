@@ -30,7 +30,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const db = await getSurrealDB();
     const cleanId = userId.includes(':') ? userId.split(':')[1] : userId;
-    const adminId = locals.user.id.includes(':') ? locals.user.id.split(':')[1] : locals.user.id;
+    const adminId = locals.user!.id!.includes(':') ? locals.user!.id!.split(':')[1] : locals.user!.id!;
 
     // Récupérer l'utilisateur cible
     const [users] = await db.query(`
@@ -140,7 +140,7 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 
     const db = await getSurrealDB();
     const cleanId = userId.includes(':') ? userId.split(':')[1] : userId;
-    const adminId = locals.user.id.includes(':') ? locals.user.id.split(':')[1] : locals.user.id;
+    const adminId = locals.user!.id!.includes(':') ? locals.user!.id!.split(':')[1] : locals.user!.id!;
 
     // Récupérer l'utilisateur cible
     const [users] = await db.query(`

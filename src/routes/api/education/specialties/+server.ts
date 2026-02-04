@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ url }) => {
       SELECT id, code, name, order 
       FROM specialty 
       WHERE track = type::thing("track", $trackId)
-      ORDER BY order
+      ORDER BY \`order\`
     `, { trackId: cleanId });
     
     return json(specialties || []);

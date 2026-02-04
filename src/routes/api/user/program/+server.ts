@@ -7,11 +7,11 @@ async function getAuthenticatedUserId(cookies: any, db: any): Promise<string | n
   const sessionToken = cookies.get('session');
   if (!sessionToken) return null;
 
-  const [sessions] = await db.query<any[]>(`
+  const [sessions] = await db.query(`
     SELECT user FROM session 
     WHERE session_token = $sessionToken 
       AND expires_at > time::now()
-  `, { sessionToken });
+  `, { sessionToken }) as [any[]];
 
   if (!sessions || sessions.length === 0) return null;
 
@@ -40,7 +40,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
         quiz.difficulty AS quiz_difficulty,
         quiz.maxQuestions AS quiz_max_questions,
         quiz.description AS quiz_description,
-        quiz.matiere_id.name AS matiere_name,
+        quiz.subject.name AS subject_name,
         quiz.theme AS quiz_theme,
         added_at,
         completed,
@@ -120,7 +120,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
         difficulty: p.quiz_difficulty,
         maxQuestions: p.quiz_max_questions,
         description: p.quiz_description,
-        matiere: p.matiere_name,
+        subject: p.subject_name,
         theme: p.quiz_theme,
         addedAt: p.added_at,
         completed: p.completed || isCompleted,

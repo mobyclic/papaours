@@ -14,8 +14,8 @@
     quizDescription?: string;
     quizCover?: string;
     quizDifficulty: number;
-    matiereName?: string;
-    matiereColor?: string;
+    subjectName?: string;
+    subjectColor?: string;
     createdAt: string;
     notes?: string;
   }
@@ -24,7 +24,7 @@
   let loading = $state(true);
   let removing = $state<string | null>(null);
 
-  const matiereColors: Record<string, string> = {
+  const subjectColors: Record<string, string> = {
     'Mathématiques': 'from-blue-400 to-blue-600',
     'Français': 'from-red-400 to-red-600',
     'Histoire': 'from-amber-400 to-amber-600',
@@ -90,9 +90,9 @@
     }
   }
 
-  function getMatiereGradient(matiereName?: string): string {
-    if (!matiereName) return matiereColors['default'];
-    return matiereColors[matiereName] || matiereColors['default'];
+  function getSubjectGradient(subjectName?: string): string {
+    if (!subjectName) return subjectColors['default'];
+    return subjectColors[subjectName] || subjectColors['default'];
   }
 
   function getDifficultyStars(level: number): string {
@@ -155,7 +155,7 @@
         {#each favorites as fav}
           <div class="bg-white rounded-xl shadow-sm overflow-hidden flex group">
             <!-- Cover -->
-            <div class="w-32 md:w-48 flex-shrink-0 bg-gradient-to-br {getMatiereGradient(fav.matiereName)} relative">
+            <div class="w-32 md:w-48 flex-shrink-0 bg-gradient-to-br {getSubjectGradient(fav.subjectName)} relative">
               {#if fav.quizCover}
                 <img 
                   src={fav.quizCover} 
@@ -177,8 +177,8 @@
                     <h3 class="font-semibold text-lg text-gray-800 group-hover:text-purple-600 transition-colors">
                       {fav.quizTitle}
                     </h3>
-                    {#if fav.matiereName}
-                      <span class="text-sm text-gray-500">{fav.matiereName}</span>
+                    {#if fav.subjectName}
+                      <span class="text-sm text-gray-500">{fav.subjectName}</span>
                     {/if}
                   </div>
                   <span class="text-sm">{getDifficultyStars(fav.quizDifficulty)}</span>

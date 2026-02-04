@@ -16,9 +16,9 @@
   let themesByMatiere = $derived.by(() => {
     const grouped: Record<string, { matiere_name: string; themes: typeof themes }> = {};
     for (const theme of themes) {
-      const key = theme.matiere_id || 'none';
+      const key = (theme as any).matiere_id || 'none';
       if (!grouped[key]) {
-        grouped[key] = { matiere_name: theme.matiere_name, themes: [] };
+        grouped[key] = { matiere_name: (theme as any).matiere_name || theme.subject_name, themes: [] };
       }
       grouped[key].themes.push(theme);
     }
@@ -41,7 +41,7 @@
     const matiereNames = new Set<string>();
     for (const themeId of formThemeIds) {
       const theme = themes.find(t => t.id === themeId);
-      if (theme?.matiere_name) matiereNames.add(theme.matiere_name);
+      if ((theme as any)?.matiere_name || theme?.subject_name) matiereNames.add((theme as any)?.matiere_name || theme?.subject_name);
     }
     return Array.from(matiereNames);
   });

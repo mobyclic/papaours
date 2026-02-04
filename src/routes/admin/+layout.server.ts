@@ -20,38 +20,59 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
   try {
     const db = await connectDB();
 
-    // Charger les matières avec le nombre de quiz associés
-    const matieresResult = await db.query(`
-      SELECT id, name FROM matiere ORDER BY name
+    // Charger les subjects (matières unifiées) avec leurs stats
+    const subjectsResult = await db.query(`
+      SELECT id, code, name, icon, color, domain FROM subject WHERE is_active = true ORDER BY name
     `);
-    const allMatieres = (matieresResult[0] as any[]) || [];
+    const allSubjects = (subjectsResult[0] as any[]) || [];
     
-    // Pour chaque matière, compter les quiz actifs
-    const themes = await Promise.all(allMatieres.map(async (m: any) => {
-      const matiereIdStr = m.id?.toString() || m.id;
-      const cleanMatiereId = matiereIdStr.includes(':') ? matiereIdStr.split(':')[1] : matiereIdStr;
-      const countResult = await db.query(
-        'SELECT count() FROM quiz WHERE matiere_id = type::thing("matiere", $matiereId) AND isActive = true GROUP ALL',
-        { matiereId: cleanMatiereId }
+    // Pour chaque subject, compter les questions et thèmes
+    const subjects = await Promise.all(allSubjects.map(async (s: any) => {
+      const subjectCode = s.code;
+      
+      // Compter les questions avec ce subject
+      const questionCountResult = await db.query(
+        `SELECT count() as total FROM question WHERE subject.code = $code GROUP ALL`,
+        { code: subjectCode }
       );
-      const quizCount = (countResult[0] as any[])?.[0]?.count || 0;
+      const questionCount = (questionCountResult[0] as any[])?.[0]?.total || 0;
+      
+      // Compter les thèmes avec ce subject
+      const themeCountResult = await db.query(
+        `SELECT count() as total FROM theme WHERE subject.code = $code AND is_active = true GROUP ALL`,
+        { code: subjectCode }
+      );
+      const themeCount = (themeCountResult[0] as any[])?.[0]?.total || 0;
+      
+      // Compter les quiz avec ce subject
+      const quizCountResult = await db.query(
+        `SELECT count() as total FROM quiz WHERE subject.code = $code AND isActive = true GROUP ALL`,
+        { code: subjectCode }
+      );
+      const quizCount = (quizCountResult[0] as any[])?.[0]?.total || 0;
+      
       return {
-        name: m.name,
-        slug: m.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'),
+        id: s.id?.toString() || s.id,
+        code: subjectCode,
+        name: s.name,
+        slug: subjectCode, // On utilise le code comme slug
+        icon: s.icon || null,
+        color: s.color || null,
+        domain: s.domain?.toString() || s.domain || null,
+        themeCount,
+        questionCount,
         quizCount
       };
     }));
 
-    // Charger le nombre de questions par thème via theme_ids
-    // On récupère les thèmes avec leurs noms et on compte les questions qui les référencent
+    // Charger les thèmes pour les menus (questions par thème)
     const themeTableResult = await db.query(`
-      SELECT id, name FROM theme ORDER BY name
+      SELECT id, name, subject.code as subject_code FROM theme WHERE is_active = true ORDER BY name
     `);
     const allThemes = (themeTableResult[0] as any[]) || [];
     
-    const questionsByTheme: Record<string, number> = {};
+    const questionsByTheme: Record<string, { name: string; count: number; subjectCode: string }> = {};
     
-    // Pour chaque thème, compter les questions qui ont ce thème dans leurs theme_ids
     for (const theme of allThemes) {
       const themeIdStr = theme.id?.toString() || theme.id;
       const cleanThemeId = themeIdStr.includes(':') ? themeIdStr.split(':')[1] : themeIdStr;
@@ -61,40 +82,26 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
       );
       const count = (countResult[0] as any[])?.[0]?.count || 0;
       if (count > 0) {
-        questionsByTheme[theme.name] = count;
+        questionsByTheme[theme.name] = {
+          name: theme.name,
+          count,
+          subjectCode: theme.subject_code || ''
+        };
       }
     }
     
-    const questionThemes = Object.entries(questionsByTheme)
-      .map(([name, count]) => ({
+    const questionThemes = Object.values(questionsByTheme)
+      .map(({ name, count, subjectCode }) => ({
         name,
         slug: name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'),
-        questionCount: count
+        questionCount: count,
+        subjectCode
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
-
-    // Préparer les matières pour le menu Thèmes avec le nombre de thèmes par matière
-    const matieres = await Promise.all(allMatieres.map(async (m: any) => {
-      const matiereIdStr = m.id?.toString() || m.id;
-      const cleanMatiereId = matiereIdStr.includes(':') ? matiereIdStr.split(':')[1] : matiereIdStr;
-      // Compter les thèmes qui ont cette matière (dans matiere_id OU matiere_ids)
-      const countResult = await db.query(
-        `SELECT count() as total FROM theme WHERE 
-          (matiere_id = type::thing("matiere", "${cleanMatiereId}") OR type::thing("matiere", "${cleanMatiereId}") INSIDE matiere_ids)
-          AND is_active = true GROUP ALL`
-      );
-      const themeCount = (countResult[0] as any[])?.[0]?.total || 0;
-      return {
-        id: matiereIdStr,
-        name: m.name,
-        slug: cleanMatiereId,
-        themeCount
-      };
-    }));
     
     // Charger les cycles avec le nombre d'utilisateurs par cycle
     const cyclesResult = await db.query(`
-      SELECT * FROM cycle ORDER BY order ASC
+      SELECT * FROM cycle ORDER BY \`order\` ASC
     `);
     const allCycles = (cyclesResult[0] as any[]) || [];
     
@@ -116,9 +123,8 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
     }));
 
     return {
-      themes,
+      subjects, // Remplace matieres - table unifiée
       questionThemes,
-      matieres: matieres.filter(m => m.themeCount > 0),
       cycles,
       backofficeUser,
       user: backofficeUser || { email: 'admin@example.com', name: 'Admin' }
@@ -126,9 +132,8 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
   } catch (error) {
     console.error('Error loading layout data:', error);
     return {
-      themes: [],
+      subjects: [],
       questionThemes: [],
-      matieres: [],
       cycles: [],
       backofficeUser,
       user: backofficeUser || { email: 'admin@example.com', name: 'Admin' }

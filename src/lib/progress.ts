@@ -252,11 +252,13 @@ export async function getUserProgressAll(userId: string): Promise<UserProgress[]
     SELECT *, 
            matiere_id.name as matiere_name,
            matiere_id.slug as matiere_slug,
+           matiere_id.pos as matiere_pos,
            theme_id.name as theme_name,
-           theme_id.slug as theme_slug
+           theme_id.slug as theme_slug,
+           theme_id.pos as theme_pos
     FROM user_progress 
     WHERE user_id = type::thing('user', $userId)
-    ORDER BY matiere_id.pos, theme_id.pos
+    ORDER BY matiere_pos ASC, theme_pos ASC
   `, { userId: cleanUserId });
   
   return (result[0] as any[]) || [];
@@ -439,7 +441,7 @@ export function getAverageNiveau(progressMap: Map<string, UserProgress>, themeId
  */
 export async function getAllMatieres(): Promise<Matiere[]> {
   const db = await connectDB();
-  const result = await db.query<any[]>('SELECT * FROM matiere WHERE is_active = true ORDER BY order');
+  const result = await db.query<any[]>('SELECT * FROM matiere WHERE is_active = true ORDER BY `order`');
   return (result[0] as any[]) || [];
 }
 
@@ -454,7 +456,7 @@ export async function getThemesByMatiere(matiereId: string): Promise<Theme[]> {
     SELECT * FROM theme 
     WHERE matiere_id = type::thing('matiere', $matiereId) 
       AND is_active = true 
-    ORDER BY order
+    ORDER BY \`order\`
   `, { matiereId: cleanId });
   
   return (result[0] as any[]) || [];

@@ -53,7 +53,7 @@
         name: cycle.name,
         slug: cycle.slug,
         description: cycle.description || '',
-        order: cycle.order || 0,
+        order: cycle.cycle_order || 0,
         is_active: cycle.is_active ?? true
       };
     } else {
@@ -255,7 +255,7 @@
           <tbody class="divide-y divide-gray-200">
             {#each data.cycles as cycle}
               <tr class="hover:bg-gray-50">
-                <td class="px-4 py-3 text-sm text-gray-600">{cycle.order}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">{cycle.cycle_order}</td>
                 <td class="px-4 py-3">
                   <span class="font-medium text-gray-900">{cycle.name}</span>
                   {#if cycle.description}

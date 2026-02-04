@@ -132,7 +132,7 @@ export const load: PageServerLoad = async ({ url }) => {
   }));
 
   // Charger tous les grades pour le générateur IA
-  const gradesResult = await db.query('SELECT id, name, code FROM grade ORDER BY order');
+  const gradesResult = await db.query('SELECT id, name, code FROM grade ORDER BY `order`');
   const grades = ((gradesResult[0] as any[]) || []).map(g => ({
     id: g.id?.toString()?.split(':')[1] || g.id,
     name: g.name,

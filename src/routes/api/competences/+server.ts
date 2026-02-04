@@ -6,28 +6,28 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ url }) => {
   try {
     const db = await connectDB();
-    const matiereId = url.searchParams.get('matiere');
-    const type = url.searchParams.get('type'); // 'general' ou 'matiere'
+    const subjectCode = url.searchParams.get('subject') || url.searchParams.get('matiere');
+    const type = url.searchParams.get('type'); // 'general' ou 'subject'
     
-    let query = 'SELECT *, matiere_id.name as matiere_name, matiere_id.slug as matiere_slug FROM competence';
+    let query = 'SELECT *, subject.name as subject_name, subject.code as subject_code FROM competence';
     const conditions: string[] = [];
     const params: Record<string, any> = {};
     
     if (type) {
       conditions.push('type = $type');
-      params.type = type;
+      params.type = type === 'matiere' ? 'subject' : type; // Rétrocompat
     }
     
-    if (matiereId) {
-      conditions.push('matiere_id = type::thing("matiere", $matiereId)');
-      params.matiereId = matiereId;
+    if (subjectCode) {
+      conditions.push('subject.code = $subjectCode');
+      params.subjectCode = subjectCode;
     }
     
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
     
-    query += ' ORDER BY type DESC, matiere_id, `order`';
+    query += ' ORDER BY type DESC, subject, `order`';
     
     const result = await db.query(query, params);
     const competences = ((result[0] as any[]) || []).map(c => ({
@@ -36,9 +36,9 @@ export const GET: RequestHandler = async ({ url }) => {
       name: c.name,
       description: c.description,
       type: c.type,
-      matiere_id: c.matiere_id?.toString(),
-      matiere_name: c.matiere_name,
-      matiere_slug: c.matiere_slug,
+      subject_id: c.subject?.toString(),
+      subject_name: c.subject_name,
+      subject_code: c.subject_code,
       color: c.color,
       icon: c.icon,
       order: c.order
@@ -47,15 +47,15 @@ export const GET: RequestHandler = async ({ url }) => {
     // Grouper par type pour faciliter l'affichage
     const grouped = {
       general: competences.filter(c => c.type === 'general'),
-      byMatiere: {} as Record<string, any[]>
+      bySubject: {} as Record<string, any[]>
     };
     
-    competences.filter(c => c.type === 'matiere').forEach(c => {
-      const key = c.matiere_slug || c.matiere_id || 'unknown';
-      if (!grouped.byMatiere[key]) {
-        grouped.byMatiere[key] = [];
+    competences.filter(c => c.type === 'subject' || c.type === 'matiere').forEach(c => {
+      const key = c.subject_code || c.subject_id || 'unknown';
+      if (!grouped.bySubject[key]) {
+        grouped.bySubject[key] = [];
       }
-      grouped.byMatiere[key].push(c);
+      grouped.bySubject[key].push(c);
     });
     
     return json({ competences, grouped });

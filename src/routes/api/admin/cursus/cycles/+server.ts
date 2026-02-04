@@ -8,7 +8,7 @@ export const GET: RequestHandler = async () => {
     const db = await getSurrealDB();
     
     const [cycles] = await db.query<[any[]]>(`
-      SELECT * FROM cycle ORDER BY order ASC
+      SELECT * FROM cycle ORDER BY \`order\` ASC
     `);
 
     return json({ cycles: cycles || [] });

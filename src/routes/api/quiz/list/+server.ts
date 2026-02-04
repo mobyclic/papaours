@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ url }) => {
       params.level = level;
     }
 
-    query += ' ORDER BY theme ASC, level ASC, order ASC';
+    query += ' ORDER BY theme ASC, level ASC, `order` ASC';
 
     const result = await db.query<any[]>(query, params);
     const quizzes = (result[0] as any[]) || [];

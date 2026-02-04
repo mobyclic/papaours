@@ -484,8 +484,8 @@
                         {#if programItem.difficulty}
                           <span>Niveau {programItem.difficulty}/10</span>
                         {/if}
-                        {#if programItem.matiere}
-                          <span class="text-gray-600">• {programItem.matiere}</span>
+                        {#if programItem.subject}
+                          <span class="text-gray-600">• {programItem.subject}</span>
                         {/if}
                       </div>
                       

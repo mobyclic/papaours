@@ -35,7 +35,7 @@
     name: string;
     description?: string;
     color?: string;
-    matiere_slug?: string;
+    subject_code?: string;
     mastery_level: number;
     correct_answers: number;
     total_answers: number;
@@ -89,7 +89,7 @@
   let earnedBadges = $state<Badge[]>([]);
   let availableBadges = $state<Badge[]>([]);
   let competences = $state<Competence[]>([]);
-  let competencesByMatiere = $state<Record<string, Competence[]>>({});
+  let competencesBySubject = $state<Record<string, Competence[]>>({});
   
   // Activity
   let recentActivity = $state<ActivityItem[]>([]);
@@ -315,7 +315,7 @@
       if (res.ok) {
         const data = await res.json();
         competences = data.competences || [];
-        competencesByMatiere = data.byMatiere || {};
+        competencesBySubject = data.bySubject || data.byMatiere || {};
       }
     } catch (e) {
       console.error('Erreur chargement compétences:', e);
@@ -895,7 +895,7 @@
                   Radar des compétences
                 </h3>
                 
-                {#if Object.keys(competencesByMatiere).length === 0}
+                {#if Object.keys(competencesBySubject).length === 0}
                   <div class="text-center py-8">
                     <Target class="w-12 h-12 text-gray-700 mx-auto mb-3" />
                     <p class="text-gray-500">Pas encore de données</p>
@@ -904,9 +904,9 @@
                 {:else}
                   <!-- Competences by Subject -->
                   <div class="space-y-4">
-                    {#each Object.entries(competencesByMatiere) as [matiere, comps]}
+                    {#each Object.entries(competencesBySubject) as [subject, comps]}
                       <div class="bg-gray-800/50 rounded-xl p-4">
-                        <h4 class="font-medium mb-3 capitalize">{matiere.replace('-', ' ')}</h4>
+                        <h4 class="font-medium mb-3 capitalize">{subject.replace('-', ' ')}</h4>
                         <div class="space-y-2">
                           {#each comps as comp}
                             <div class="flex items-center gap-3">

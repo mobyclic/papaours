@@ -19,7 +19,7 @@ export const GET: RequestHandler = async ({ url }) => {
       FROM track 
       WHERE cycle = type::thing("cycle", $cycleId) 
         AND is_active = true 
-      ORDER BY order
+      ORDER BY \`order\`
     `, { cycleId: cleanId });
     
     return json(tracks || []);

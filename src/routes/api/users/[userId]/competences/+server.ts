@@ -17,12 +17,13 @@ export const GET: RequestHandler = async ({ params }) => {
         competence_id.description as competence_description,
         competence_id.type as competence_type,
         competence_id.color as competence_color,
+        competence_id.\`order\` as competence_order,
         competence_id.matiere_id as competence_matiere_id,
         competence_id.matiere_id.name as matiere_name,
         competence_id.matiere_id.slug as matiere_slug
       FROM user_competence 
       WHERE user_id = type::thing("user", $userId)
-      ORDER BY competence_id.type DESC, competence_id.order
+      ORDER BY competence_type DESC, competence_order ASC
     `, { userId });
     
     const userCompetences = ((result[0] as any[]) || []).map(uc => ({

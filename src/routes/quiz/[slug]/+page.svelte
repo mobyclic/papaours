@@ -24,7 +24,7 @@
   // Question state
   let currentQuestionIndex = $state(0);
   let currentQuestion = $state<any>(null);
-  let currentMetadata = $state<{ difficulty?: string; matiere?: string; themes?: string[]; classeId?: string } | null>(null);
+  let currentMetadata = $state<{ difficulty?: string; subject?: string; themes?: string[]; classeId?: string } | null>(null);
   let selectedAnswer = $state<number | null>(null);
   
   // Réponses multi-types
@@ -551,11 +551,11 @@
           <!-- Question Text -->
           <div class="p-6 sm:p-8">
             <!-- Métadonnées discrètes -->
-            {#if currentMetadata && (currentMetadata.matiere || currentMetadata.difficulty)}
+            {#if currentMetadata && (currentMetadata.subject || currentMetadata.difficulty)}
               <div class="flex flex-wrap gap-2 mb-4 text-xs">
-                {#if currentMetadata.matiere}
+                {#if currentMetadata.subject}
                   <span class="px-2 py-1 bg-gray-800 text-gray-400 rounded-full">
-                    {currentMetadata.matiere}
+                    {currentMetadata.subject}
                   </span>
                 {/if}
                 {#if currentMetadata.difficulty}

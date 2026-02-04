@@ -8,18 +8,18 @@
   let { data }: { data: PageData } = $props();
 
   let users = $derived(data.users || []);
-  let classes = $derived(data.classes || []);
-  let categories = $derived(data.categories || []);
+  let grades = $derived(data.grades || []);
+  let cycles = $derived(data.cycles || []);
   let search = $state('');
-  let selectedClasseId = $state('');
+  let selectedGradeId = $state('');
   // svelte-ignore state_referenced_locally
-  let selectedCategorySlug = $state(data.initialCategorySlug || '');
+  let selectedCycleCode = $state(data.initialCycleCode || '');
   
   // Synchroniser avec l'URL
   $effect(() => {
-    const urlCategory = $page.url.searchParams.get('category') || '';
-    if (urlCategory !== selectedCategorySlug) {
-      selectedCategorySlug = urlCategory;
+    const urlCycle = $page.url.searchParams.get('cycle') || '';
+    if (urlCycle !== selectedCycleCode) {
+      selectedCycleCode = urlCycle;
     }
   });
 
@@ -36,29 +36,29 @@
       );
     }
     
-    // Filtre par catégorie (maternelle, primaire, collège, etc.)
-    if (selectedCategorySlug) {
-      result = result.filter(user => user.category_slug === selectedCategorySlug);
+    // Filtre par cycle
+    if (selectedCycleCode) {
+      result = result.filter(user => user.cycle_code === selectedCycleCode);
     }
     
-    // Filtre par classe
-    if (selectedClasseId) {
-      result = result.filter(user => user.classe_id === selectedClasseId);
+    // Filtre par grade
+    if (selectedGradeId) {
+      result = result.filter(user => user.grade_id === selectedGradeId);
     }
     
     return result;
   });
   
-  // Classes filtrées par catégorie sélectionnée
-  let filteredClasses = $derived.by(() => {
-    if (!selectedCategorySlug) return classes;
-    // On filtre les classes dont les users correspondent à la catégorie
-    const classIdsInCategory = new Set(
+  // Grades filtrés par cycle sélectionné
+  let filteredGrades = $derived.by(() => {
+    if (!selectedCycleCode) return grades;
+    // On filtre les grades dont les users correspondent au cycle
+    const gradeIdsInCycle = new Set(
       users
-        .filter(u => u.category_slug === selectedCategorySlug)
-        .map(u => u.classe_id)
+        .filter(u => u.cycle_code === selectedCycleCode)
+        .map(u => u.grade_id)
     );
-    return classes.filter(c => classIdsInCategory.has(c.id));
+    return grades.filter((g: any) => gradeIdsInCycle.has(g.id));
   });
   
   function viewProfile(userId: string) {
@@ -67,17 +67,17 @@
   }
   
   function clearFilters() {
-    selectedClasseId = '';
-    selectedCategorySlug = '';
+    selectedGradeId = '';
+    selectedCycleCode = '';
     search = '';
     goto('/admin/users');
   }
   
-  function selectCategory(slug: string) {
-    selectedCategorySlug = slug;
-    selectedClasseId = ''; // Reset classe quand on change de catégorie
-    if (slug) {
-      goto(`/admin/users?category=${slug}`);
+  function selectCycle(code: string) {
+    selectedCycleCode = code;
+    selectedGradeId = ''; // Reset grade quand on change de cycle
+    if (code) {
+      goto(`/admin/users?cycle=${code}`);
     } else {
       goto('/admin/users');
     }
@@ -116,31 +116,31 @@
       />
     </div>
     
-    <!-- Filtre par catégorie -->
+    <!-- Filtre par cycle -->
     <select
-      value={selectedCategorySlug}
-      onchange={(e) => selectCategory(e.currentTarget.value)}
+      value={selectedCycleCode}
+      onchange={(e) => selectCycle(e.currentTarget.value)}
       class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
     >
-      <option value="">Tous les niveaux</option>
-      {#each categories as category}
-        <option value={category.slug}>{category.name}</option>
+      <option value="">Tous les cycles</option>
+      {#each cycles as cycle}
+        <option value={cycle.code}>{cycle.name}</option>
       {/each}
     </select>
     
-    <!-- Filtre par classe -->
+    <!-- Filtre par grade -->
     <div class="flex items-center gap-2">
       <select
-        bind:value={selectedClasseId}
+        bind:value={selectedGradeId}
         class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
       >
         <option value="">Toutes les classes</option>
-        {#each filteredClasses as classe}
-          <option value={classe.id}>{classe.name}</option>
+        {#each filteredGrades as grade}
+          <option value={grade.id}>{grade.name}</option>
         {/each}
       </select>
       
-      {#if selectedClasseId || search || selectedCategorySlug}
+      {#if selectedGradeId || search || selectedCycleCode}
         <button
           onclick={clearFilters}
           class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
@@ -155,7 +155,7 @@
   <!-- Stats -->
   <div class="mb-4 text-sm text-gray-500">
     {filteredUsers.length} utilisateur{filteredUsers.length > 1 ? 's' : ''}
-    {#if selectedClasseId || search || selectedCategorySlug}
+    {#if selectedGradeId || search || selectedCycleCode}
       <span class="text-gray-400">(filtré{filteredUsers.length > 1 ? 's' : ''})</span>
     {/if}
   </div>

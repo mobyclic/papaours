@@ -312,8 +312,8 @@ async function verifyAnswerMultiType(
         }
       }
       
-      const selectedSet = new Set(answer || []);
-      const correctSet = new Set(correctShuffledIndices);
+      const selectedSet = new Set<number>(answer || []);
+      const correctSet = new Set<number>(correctShuffledIndices);
       
       // Vérifier si les sets sont identiques
       const isExactMatch = selectedSet.size === correctSet.size && 
@@ -532,8 +532,7 @@ async function verifyAnswerMultiType(
           isCorrect,
           correctAnswer: sampleAnswers,
           explanation,
-          partialScore,
-          nearMatch: nearMatch ? { message: metadata.nearMatchMessage || 'Tu étais proche !' } : undefined
+          partialScore
         };
       }
       

@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ url }) => {
         WHERE cycle = type::thing("cycle", $cycleId) 
           AND track = type::thing("track", $trackId)
           AND is_active = true 
-        ORDER BY order
+        ORDER BY \`order\`
       `;
       params = { cycleId: cleanCycleId, trackId: cleanTrackId };
     } else {
@@ -38,7 +38,7 @@ export const GET: RequestHandler = async ({ url }) => {
         WHERE cycle = type::thing("cycle", $cycleId) 
           AND (track IS NONE OR track IS NULL)
           AND is_active = true 
-        ORDER BY order
+        ORDER BY \`order\`
       `;
       params = { cycleId: cleanCycleId };
     }

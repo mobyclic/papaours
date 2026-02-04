@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ url }) => {
       FROM cycle 
       WHERE system = type::thing("education_system", $systemId) 
         AND is_active = true 
-      ORDER BY order
+      ORDER BY \`order\`
     `, { systemId: cleanId });
     
     return json(cycles || []);

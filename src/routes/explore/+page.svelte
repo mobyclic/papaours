@@ -18,7 +18,7 @@
     difficulty_level: number;
     questionType: string;
     maxQuestions?: number;
-    matiere?: { id: string; name: string; color?: string } | null;
+    subject?: { id: string; code: string; name: string; color?: string; icon?: string } | null;
     themes: string[];
     classe?: { id: string; name: string } | null;
   }
@@ -28,7 +28,8 @@
     name: string;
     slug?: string;
     color?: string;
-    matiere_id?: string;
+    icon?: string;
+    subject_code?: string;
   }
 
   // State
@@ -37,11 +38,11 @@
   let total = $state(0);
   
   // Filters
-  let matieres = $state<FilterOption[]>([]);
+  let subjects = $state<FilterOption[]>([]);
   let themes = $state<FilterOption[]>([]);
   let classes = $state<FilterOption[]>([]);
   
-  let selectedMatiere = $state<string>('');
+  let selectedSubject = $state<string>('');
   let selectedTheme = $state<string>('');
   let selectedClasse = $state<string>('');
   let selectedDifficulty = $state<string>('');
@@ -49,10 +50,10 @@
   let showFilters = $state(false);
   let viewMode = $state<'grid' | 'list'>('grid');
 
-  // Filtered themes based on selected matière
+  // Filtered themes based on selected subject
   let filteredThemes = $derived(
-    selectedMatiere 
-      ? themes.filter(t => t.matiere_id === selectedMatiere)
+    selectedSubject 
+      ? themes.filter(t => t.subject_code === selectedSubject)
       : themes
   );
 
@@ -63,7 +64,7 @@
     { value: '3', label: '⭐⭐⭐ Difficile', short: 'Difficile' }
   ];
 
-  const matiereColors: Record<string, string> = {
+  const subjectColors: Record<string, string> = {
     'Mathématiques': 'from-blue-500 to-blue-600',
     'Français': 'from-red-500 to-red-600',
     'Histoire': 'from-amber-500 to-amber-600',
@@ -76,7 +77,7 @@
     'default': 'from-gray-600 to-gray-700'
   };
 
-  const matiereIcons: Record<string, string> = {
+  const subjectIcons: Record<string, string> = {
     'Mathématiques': '🔢',
     'Français': '📚',
     'Histoire': '🏰',
@@ -100,7 +101,7 @@
     loading = true;
     try {
       const params = new URLSearchParams();
-      if (selectedMatiere) params.set('matiere', selectedMatiere);
+      if (selectedSubject) params.set('subject', selectedSubject);
       if (selectedTheme) params.set('theme', selectedTheme);
       if (selectedClasse) params.set('classe', selectedClasse);
       if (selectedDifficulty) params.set('difficulty', selectedDifficulty);
@@ -112,8 +113,8 @@
         quizzes = data.quizzes;
         total = data.total;
         
-        if (matieres.length === 0) {
-          matieres = data.filters.matieres;
+        if (subjects.length === 0) {
+          subjects = data.filters.subjects;
           themes = data.filters.themes;
           classes = data.filters.classes;
         }
@@ -126,7 +127,7 @@
   }
 
   function clearFilters() {
-    selectedMatiere = '';
+    selectedSubject = '';
     selectedTheme = '';
     selectedClasse = '';
     selectedDifficulty = '';
@@ -134,14 +135,14 @@
     loadQuizzes();
   }
 
-  function getMatiereGradient(matiereName?: string): string {
-    if (!matiereName) return matiereColors['default'];
-    return matiereColors[matiereName] || matiereColors['default'];
+  function getSubjectGradient(subjectName?: string): string {
+    if (!subjectName) return subjectColors['default'];
+    return subjectColors[subjectName] || subjectColors['default'];
   }
 
-  function getMatiereIcon(matiereName?: string): string {
-    if (!matiereName) return matiereIcons['default'];
-    return matiereIcons[matiereName] || matiereIcons['default'];
+  function getSubjectIcon(subjectName?: string): string {
+    if (!subjectName) return subjectIcons['default'];
+    return subjectIcons[subjectName] || subjectIcons['default'];
   }
 
   function getDifficultyStars(level: number): string {
@@ -159,7 +160,7 @@
   }
 
   let hasActiveFilters = $derived(
-    selectedMatiere || selectedTheme || selectedClasse || selectedDifficulty || searchQuery.trim()
+    selectedSubject || selectedTheme || selectedClasse || selectedDifficulty || searchQuery.trim()
   );
 </script>
 
@@ -224,7 +225,7 @@
             <span>Filtres</span>
             {#if hasActiveFilters}
               <span class="w-5 h-5 bg-amber-500 rounded-full text-xs flex items-center justify-center text-gray-900 font-bold">
-                {[selectedMatiere, selectedTheme, selectedClasse, selectedDifficulty].filter(Boolean).length}
+                {[selectedSubject, selectedTheme, selectedClasse, selectedDifficulty].filter(Boolean).length}
               </span>
             {/if}
           </button>
@@ -247,13 +248,13 @@
             <div>
               <label class="block text-sm font-medium text-gray-400 mb-2">Matière</label>
               <select
-                bind:value={selectedMatiere}
+                bind:value={selectedSubject}
                 onchange={() => { selectedTheme = ''; }}
                 class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
               >
                 <option value="">Toutes les matières</option>
-                {#each matieres as m}
-                  <option value={m.id}>{getMatiereIcon(m.name)} {m.name}</option>
+                {#each subjects as s}
+                  <option value={s.id}>{s.icon || getSubjectIcon(s.name)} {s.name}</option>
                 {/each}
               </select>
             </div>
@@ -317,11 +318,11 @@
       <!-- Active Filters Tags -->
       {#if hasActiveFilters && !showFilters}
         <div class="flex flex-wrap gap-2 mt-4">
-          {#if selectedMatiere}
-            {@const m = matieres.find(x => x.id === selectedMatiere)}
+          {#if selectedSubject}
+            {@const s = subjects.find(x => x.id === selectedSubject)}
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-full text-sm border border-amber-500/30">
-              {getMatiereIcon(m?.name)} {m?.name}
-              <button onclick={() => { selectedMatiere = ''; selectedTheme = ''; loadQuizzes(); }} class="hover:text-amber-300">
+              {s?.icon || getSubjectIcon(s?.name)} {s?.name}
+              <button onclick={() => { selectedSubject = ''; selectedTheme = ''; loadQuizzes(); }} class="hover:text-amber-300">
                 <X class="w-4 h-4" />
               </button>
             </span>
@@ -364,17 +365,17 @@
       {/if}
     </div>
 
-    <!-- Quick Matière Filters -->
-    {#if !hasActiveFilters && matieres.length > 0}
+    <!-- Quick Subject Filters -->
+    {#if !hasActiveFilters && subjects.length > 0}
       <div class="mb-6 overflow-x-auto pb-2 -mx-4 px-4">
         <div class="flex gap-3 min-w-max">
-          {#each matieres.slice(0, 8) as m}
+          {#each subjects.slice(0, 8) as s}
             <button
-              onclick={() => { selectedMatiere = m.id; loadQuizzes(); }}
+              onclick={() => { selectedSubject = s.id; loadQuizzes(); }}
               class="flex items-center gap-2 px-4 py-2.5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-xl transition-all group"
             >
-              <span class="text-lg">{getMatiereIcon(m.name)}</span>
-              <span class="text-sm text-gray-300 group-hover:text-white">{m.name}</span>
+              <span class="text-lg">{s.icon || getSubjectIcon(s.name)}</span>
+              <span class="text-sm text-gray-300 group-hover:text-white">{s.name}</span>
             </button>
           {/each}
         </div>
@@ -420,7 +421,7 @@
 
             <a href="/quiz/{quiz.slug}" class="block">
               <!-- Cover -->
-              <div class="h-36 bg-gradient-to-br {getMatiereGradient(quiz.matiere?.name)} relative overflow-hidden">
+              <div class="h-36 bg-gradient-to-br {getSubjectGradient(quiz.subject?.name)} relative overflow-hidden">
                 {#if quiz.coverImage}
                   <img 
                     src={quiz.coverImage} 
@@ -429,7 +430,7 @@
                   />
                 {:else}
                   <div class="absolute inset-0 flex items-center justify-center">
-                    <span class="text-5xl opacity-30">{getMatiereIcon(quiz.matiere?.name)}</span>
+                    <span class="text-5xl opacity-30">{quiz.subject?.icon || getSubjectIcon(quiz.subject?.name)}</span>
                   </div>
                 {/if}
                 
@@ -441,11 +442,11 @@
                   {getDifficultyStars(quiz.difficulty_level)}
                 </div>
 
-                <!-- Matière Badge -->
-                {#if quiz.matiere}
+                <!-- Subject Badge -->
+                {#if quiz.subject}
                   <div class="absolute bottom-3 left-3 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5">
-                    <span>{getMatiereIcon(quiz.matiere.name)}</span>
-                    <span>{quiz.matiere.name}</span>
+                    <span>{quiz.subject.icon || getSubjectIcon(quiz.subject.name)}</span>
+                    <span>{quiz.subject.name}</span>
                   </div>
                 {/if}
 

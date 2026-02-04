@@ -26,9 +26,9 @@
     questions: number;
   }
 
-  interface MatiereStats {
-    matiere_name: string;
-    matiere_slug: string;
+  interface SubjectStats {
+    subject_name: string;
+    subject_code: string;
     quiz_count: number;
     total_score: number;
     total_questions: number;
@@ -49,7 +49,7 @@
   // State
   let general = $state<GeneralStats | null>(null);
   let progression = $state<ProgressionEntry[]>([]);
-  let byMatiere = $state<MatiereStats[]>([]);
+  let bySubject = $state<SubjectStats[]>([]);
   let recentSessions = $state<SessionEntry[]>([]);
   let scoreDistribution = $state<any[]>([]);
   let weekdayStats = $state<any[]>([]);
@@ -92,7 +92,7 @@
         const data = await res.json();
         general = data.general;
         progression = data.progression || [];
-        byMatiere = data.byMatiere || [];
+        bySubject = data.bySubject || data.byMatiere || [];
         recentSessions = data.recentSessions || [];
         scoreDistribution = data.scoreDistribution || [];
         weekdayStats = data.weekdayStats || [];
@@ -113,8 +113,8 @@
     Math.max(...progression.map(p => p.quizzes), 1)
   );
 
-  const maxMatiereCount = $derived(
-    Math.max(...byMatiere.map(m => m.quiz_count), 1)
+  const maxSubjectCount = $derived(
+    Math.max(...bySubject.map(s => s.quiz_count), 1)
   );
 
   function formatDate(dateStr: string): string {
@@ -282,33 +282,33 @@
           {/if}
         </div>
 
-        <!-- Performance by Matière -->
+        <!-- Performance by Subject -->
         <div class="bg-white rounded-xl p-5 shadow-sm">
           <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <BookOpen class="w-5 h-5 text-blue-600" />
             Par matière
           </h2>
           
-          {#if byMatiere.length === 0}
+          {#if bySubject.length === 0}
             <div class="text-center py-8 text-gray-500">
               <BookOpen class="w-12 h-12 mx-auto mb-2 opacity-30" />
               <p>Aucune donnée par matière</p>
             </div>
           {:else}
             <div class="space-y-3">
-              {#each byMatiere.slice(0, 5) as matiere}
+              {#each bySubject.slice(0, 5) as subject}
                 <div>
                   <div class="flex justify-between mb-1">
-                    <span class="text-sm font-medium text-gray-700">{matiere.matiere_name || 'Autre'}</span>
-                    <span class="text-sm {getScoreColor(matiere.success_rate)}">{matiere.success_rate}%</span>
+                    <span class="text-sm font-medium text-gray-700">{subject.subject_name || 'Autre'}</span>
+                    <span class="text-sm {getScoreColor(subject.success_rate)}">{subject.success_rate}%</span>
                   </div>
                   <div class="w-full bg-gray-100 rounded-full h-2.5">
                     <div 
-                      class="{getScoreBarColor(matiere.success_rate)} h-2.5 rounded-full transition-all"
-                      style="width: {matiere.success_rate}%"
+                      class="{getScoreBarColor(subject.success_rate)} h-2.5 rounded-full transition-all"
+                      style="width: {subject.success_rate}%"
                     ></div>
                   </div>
-                  <div class="text-xs text-gray-400 mt-0.5">{matiere.quiz_count} quiz</div>
+                  <div class="text-xs text-gray-400 mt-0.5">{subject.quiz_count} quiz</div>
                 </div>
               {/each}
             </div>

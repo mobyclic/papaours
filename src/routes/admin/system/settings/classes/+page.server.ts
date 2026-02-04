@@ -21,11 +21,11 @@ export const load: PageServerLoad = async () => {
   const db = await connectDB();
   
   // Récupérer les cycles (remplace les catégories)
-  const cyclesResult = await db.query<any[]>('SELECT * FROM cycle ORDER BY order ASC');
+  const cyclesResult = await db.query<any[]>('SELECT * FROM cycle ORDER BY `order` ASC');
   const cycles = (cyclesResult[0] || []);
   
   // Récupérer les grades avec leur cycle
-  const result = await db.query<any[]>('SELECT *, cycle.* as cycle_data FROM grade ORDER BY order ASC');
+  const result = await db.query<any[]>('SELECT *, cycle.* as cycle_data FROM grade ORDER BY `order` ASC');
   const grades = (result[0] || []);
   
   // Compter le nombre de questions par grade (via grade_difficulties)
