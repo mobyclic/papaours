@@ -9,7 +9,7 @@
     Moon, Sun, Volume2, VolumeX, Eye, Type, Globe, GraduationCap,
     ChevronRight, Star, Zap, Calendar, BarChart3, Clock, 
     CheckCircle2, AlertCircle, TrendingUp, Activity, Users, Baby,
-    Camera, Save, Loader2, Pencil, CreditCard, Crown
+    Camera, Save, Loader2, Pencil, CreditCard, Crown, Search, ChevronDown
   } from 'lucide-svelte';
   import { BadgesGrid } from '$lib/components/badges';
   import AvatarPicker from '$lib/components/AvatarPicker.svelte';
@@ -76,14 +76,90 @@
   // Education data
   let cycles = $state<any[]>([]);
   let grades = $state<any[]>([]);
+  let tracks = $state<any[]>([]);
+  let specialties = $state<any[]>([]);
+  let specialtyGroups = $state<any[]>([]);
   let educationSystems = $state<any[]>([]);
   let languages = $state<any[]>([]);
+  
+  // Specialty filter
+  let specialtySearch = $state('');
+  let expandedGroups = $state<Set<string>>(new Set());
+  
+  // Derived: filtered specialties
+  let filteredSpecialties = $derived(
+    !specialtySearch.trim() 
+      ? specialties 
+      : specialties.filter((s: any) => s.name?.toLowerCase().includes(specialtySearch.toLowerCase()))
+  );
+  
+  // Derived: specialties grouped - computed in template to avoid complex derived
+  function getGroupedSpecialties() {
+    const filtered = filteredSpecialties;
+    const groups: Record<string, { group: any; items: any[] }> = {};
+    const ungrouped: any[] = [];
+    
+    for (const spec of filtered) {
+      const groupId = spec.group_id?.toString()?.split(':')[1] || spec.group_id;
+      if (groupId) {
+        if (!groups[groupId]) {
+          const groupInfo = specialtyGroups.find((g: any) => 
+            g.id?.toString()?.includes(groupId) || g.code === groupId
+          );
+          groups[groupId] = {
+            group: groupInfo || { id: groupId, name: spec.group_name || 'Autres', icon: '📚', order: 999 },
+            items: []
+          };
+        }
+        groups[groupId].items.push(spec);
+      } else {
+        ungrouped.push(spec);
+      }
+    }
+    
+    // Sort groups by order
+    const sortedGroups = Object.values(groups).sort((a, b) => 
+      (a.group.order || 999) - (b.group.order || 999)
+    );
+    
+    // Add ungrouped if any
+    if (ungrouped.length > 0) {
+      sortedGroups.push({ group: { id: 'ungrouped', name: 'Autres', icon: '📚', order: 9999 }, items: ungrouped });
+    }
+    
+    return sortedGroups;
+  }
   
   // Form data
   let selectedSystem = $state('');
   let selectedCycle = $state('');
+  let selectedTrack = $state('');
   let selectedGrade = $state('');
+  let selectedSpecialties = $state<string[]>([]);
   let selectedLanguage = $state('');
+  
+  // Track changes for save button
+  let hasEducationChanges = $state(false);
+  let savingEducation = $state(false);
+  let educationSaved = $state(false);
+  
+  // Confirmation modal
+  let showConfirmModal = $state(false);
+  
+  // Notification messages
+  let notificationMessage = $state('');
+  let notificationType = $state<'error' | 'success' | 'warning'>('error');
+  let showNotification = $state(false);
+  
+  // Initial values for comparison
+  let initialEducation = $state({
+    system: '',
+    cycle: '',
+    track: '',
+    grade: '',
+    specialties: [] as string[],
+    language: ''
+  });
   
   // Badges & Competences
   let earnedBadges = $state<Badge[]>([]);
@@ -160,11 +236,25 @@
     return Math.round(((xp - current.minXp) / (next.minXp - current.minXp)) * 100);
   });
 
-  let filteredGrades = $derived(
-    selectedCycle 
-      ? grades.filter(g => g.cycle?.toString()?.includes(selectedCycle) || g.cycle_id?.toString()?.includes(selectedCycle))
-      : grades
-  );
+  // Check if cycle has tracks (ex: lycée avec filières)
+  let cycleHasTracks = $derived(tracks.length > 0);
+  
+  // Check if we need to show specialty selector
+  let showSpecialties = $derived(specialties.length > 0);
+
+  // Detect education changes
+  $effect(() => {
+    const currentSpecialtiesStr = [...selectedSpecialties].sort().join(',');
+    const initialSpecialtiesStr = [...initialEducation.specialties].sort().join(',');
+    
+    hasEducationChanges = 
+      selectedSystem !== initialEducation.system ||
+      selectedCycle !== initialEducation.cycle ||
+      selectedTrack !== initialEducation.track ||
+      selectedGrade !== initialEducation.grade ||
+      currentSpecialtiesStr !== initialSpecialtiesStr ||
+      selectedLanguage !== initialEducation.language;
+  });
 
   onMount(async () => {
     loadUser();
@@ -187,8 +277,25 @@
     // Set current values from user
     selectedSystem = $currentUser.education_system?.toString()?.split(':')[1] || '';
     selectedCycle = $currentUser.current_cycle?.toString()?.split(':')[1] || '';
+    selectedTrack = $currentUser.current_track?.toString()?.split(':')[1] || '';
     selectedGrade = $currentUser.current_grade?.toString()?.split(':')[1] || '';
     selectedLanguage = $currentUser.preferred_language?.toString()?.split(':')[1] || 'fr';
+    
+    // Parse specialties from user
+    const userSpecialties = $currentUser.specialties || [];
+    selectedSpecialties = userSpecialties.map((s: any) => 
+      s?.toString()?.split(':')[1] || s?.toString() || ''
+    ).filter(Boolean);
+    
+    // Store initial values for change detection
+    initialEducation = {
+      system: selectedSystem,
+      cycle: selectedCycle,
+      track: selectedTrack,
+      grade: selectedGrade,
+      specialties: [...selectedSpecialties],
+      language: selectedLanguage
+    };
     
     // Initialiser le formulaire de profil
     initProfileForm();
@@ -269,18 +376,56 @@
         }
       }
       
-      // 5. Charger les grades pour le cycle de l'utilisateur  
+      // 5. Charger les tracks pour le cycle de l'utilisateur
       const userCycleRaw = $currentUser?.current_cycle?.toString() || '';
       const userCycle = userCycleRaw.includes(':') ? userCycleRaw.split(':')[1] : userCycleRaw;
       console.log('Cycle utilisateur:', userCycle);
       
       if (userCycle) {
-        const gradesRes = await fetch(`/api/education/grades?cycle=${userCycle}`);
+        // Charger les filières (tracks) pour ce cycle
+        const tracksRes = await fetch(`/api/education/tracks?cycle=${userCycle}`);
+        if (tracksRes.ok) {
+          tracks = await tracksRes.json();
+          console.log('Tracks chargés:', tracks);
+        }
+        
+        // Charger les grades (classes) pour ce cycle
+        const userTrackRaw = $currentUser?.current_track?.toString() || '';
+        const userTrack = userTrackRaw.includes(':') ? userTrackRaw.split(':')[1] : userTrackRaw;
+        
+        let gradesUrl = `/api/education/grades?cycle=${userCycle}`;
+        if (userTrack) {
+          gradesUrl += `&track=${userTrack}`;
+        }
+        
+        const gradesRes = await fetch(gradesUrl);
         if (gradesRes.ok) {
           grades = await gradesRes.json();
           console.log('Grades chargés:', grades);
         } else {
           console.error('Erreur chargement grades:', await gradesRes.text());
+        }
+        
+        // 6. Charger les spécialités si une track est sélectionnée
+        if (userTrack) {
+          const specialtiesRes = await fetch(`/api/education/specialties?track=${userTrack}&includeGroups=true`);
+          if (specialtiesRes.ok) {
+            const data = await specialtiesRes.json();
+            specialties = data.specialties || [];
+            specialtyGroups = data.groups || [];
+            expandedGroups = new Set(specialtyGroups.map((g: any) => g.id?.toString()?.split(':')[1] || g.code));
+            console.log('Spécialités chargées:', specialties);
+            console.log('Groupes chargés:', specialtyGroups);
+          }
+        } else if (userCycle) {
+          // Charger les spécialités pour le cycle entier
+          const specialtiesRes = await fetch(`/api/education/specialties?cycle=${userCycle}&includeGroups=true`);
+          if (specialtiesRes.ok) {
+            const data = await specialtiesRes.json();
+            specialties = data.specialties || [];
+            specialtyGroups = data.groups || [];
+            expandedGroups = new Set(specialtyGroups.map((g: any) => g.id?.toString()?.split(':')[1] || g.code));
+          }
         }
       }
     } catch (e) {
@@ -339,11 +484,15 @@
   }
 
   async function handleSystemChange() {
-    // Réinitialiser cycle et grade
+    // Réinitialiser cycle, track, grade et spécialités
     selectedCycle = '';
+    selectedTrack = '';
     selectedGrade = '';
+    selectedSpecialties = [];
     cycles = [];
+    tracks = [];
     grades = [];
+    specialties = [];
     
     if (selectedSystem) {
       try {
@@ -355,30 +504,137 @@
         console.error('Erreur chargement cycles:', e);
       }
     }
-    
-    await saveEducationSettings();
   }
 
   async function handleCycleChange() {
-    // Réinitialiser grade
+    // Réinitialiser track, grade et spécialités
+    selectedTrack = '';
     selectedGrade = '';
+    selectedSpecialties = [];
+    tracks = [];
     grades = [];
+    specialties = [];
     
     if (selectedCycle) {
+      try {
+        // Charger les filières pour ce cycle
+        const tracksRes = await fetch(`/api/education/tracks?cycle=${selectedCycle}`);
+        if (tracksRes.ok) {
+          tracks = await tracksRes.json();
+        }
+        
+        // Si pas de filières, charger directement les grades
+        if (tracks.length === 0) {
+          const gradesRes = await fetch(`/api/education/grades?cycle=${selectedCycle}`);
+          if (gradesRes.ok) {
+            grades = await gradesRes.json();
+          }
+        }
+      } catch (e) {
+        console.error('Erreur chargement tracks/grades:', e);
+      }
+    }
+  }
+
+  async function handleTrackChange() {
+    // Réinitialiser grade et spécialités
+    selectedGrade = '';
+    selectedSpecialties = [];
+    grades = [];
+    specialties = [];
+    specialtyGroups = [];
+    expandedGroups = new Set();
+    
+    if (selectedTrack) {
+      try {
+        // Charger les grades pour cette filière
+        const gradesRes = await fetch(`/api/education/grades?cycle=${selectedCycle}&track=${selectedTrack}`);
+        if (gradesRes.ok) {
+          grades = await gradesRes.json();
+        }
+        
+        // Charger les spécialités pour cette filière avec les groupes
+        const specialtiesRes = await fetch(`/api/education/specialties?track=${selectedTrack}&includeGroups=true`);
+        if (specialtiesRes.ok) {
+          const data = await specialtiesRes.json();
+          specialties = data.specialties || [];
+          specialtyGroups = data.groups || [];
+          // Expand all groups by default
+          expandedGroups = new Set(specialtyGroups.map((g: any) => g.id?.toString()?.split(':')[1] || g.code));
+        }
+      } catch (e) {
+        console.error('Erreur chargement grades/specialties:', e);
+      }
+    } else if (selectedCycle) {
+      // Si pas de track, charger les grades sans track
       try {
         const gradesRes = await fetch(`/api/education/grades?cycle=${selectedCycle}`);
         if (gradesRes.ok) {
           grades = await gradesRes.json();
         }
+        
+        // Charger aussi les spécialités disponibles pour ce cycle (toutes les filières)
+        const specialtiesRes = await fetch(`/api/education/specialties?cycle=${selectedCycle}&includeGroups=true`);
+        if (specialtiesRes.ok) {
+          const data = await specialtiesRes.json();
+          specialties = data.specialties || [];
+          specialtyGroups = data.groups || [];
+          expandedGroups = new Set(specialtyGroups.map((g: any) => g.id?.toString()?.split(':')[1] || g.code));
+        }
       } catch (e) {
         console.error('Erreur chargement grades:', e);
       }
     }
-    
-    await saveEducationSettings();
   }
 
-  async function saveEducationSettings() {
+  function toggleSpecialty(specialtyId: string) {
+    if (selectedSpecialties.includes(specialtyId)) {
+      selectedSpecialties = selectedSpecialties.filter(s => s !== specialtyId);
+    } else {
+      selectedSpecialties = [...selectedSpecialties, specialtyId];
+    }
+  }
+
+  function toggleGroup(groupId: string) {
+    const newSet = new Set(expandedGroups);
+    if (newSet.has(groupId)) {
+      newSet.delete(groupId);
+    } else {
+      newSet.add(groupId);
+    }
+    expandedGroups = newSet;
+  }
+
+  function showNotificationMessage(message: string, type: 'error' | 'success' | 'warning' = 'error') {
+    notificationMessage = message;
+    notificationType = type;
+    showNotification = true;
+    setTimeout(() => showNotification = false, 4000);
+  }
+
+  function validateEducationFields(): string[] {
+    const errors: string[] = [];
+    if (!selectedSystem) errors.push('Zone éducative');
+    if (!selectedCycle) errors.push('Cycle');
+    if (!selectedGrade) errors.push('Niveau / Classe');
+    if (cycleHasTracks && !selectedTrack) errors.push('Filière');
+    return errors;
+  }
+
+  function requestSaveEducation() {
+    const missingFields = validateEducationFields();
+    if (missingFields.length > 0) {
+      showNotificationMessage(`Veuillez remplir les champs obligatoires : ${missingFields.join(', ')}`, 'warning');
+      return;
+    }
+    showConfirmModal = true;
+  }
+
+  async function confirmSaveEducation() {
+    showConfirmModal = false;
+    savingEducation = true;
+    educationSaved = false;
+    
     try {
       const res = await fetch('/api/user/update-education', {
         method: 'POST',
@@ -386,15 +642,34 @@
         body: JSON.stringify({
           educationSystem: selectedSystem,
           cycle: selectedCycle,
+          track: selectedTrack || null,
           grade: selectedGrade,
+          specialties: selectedSpecialties,
           language: selectedLanguage
         })
       });
       if (res.ok) {
+        // Update initial values after successful save
+        initialEducation = {
+          system: selectedSystem,
+          cycle: selectedCycle,
+          track: selectedTrack,
+          grade: selectedGrade,
+          specialties: [...selectedSpecialties],
+          language: selectedLanguage
+        };
+        educationSaved = true;
+        showNotificationMessage('Configuration scolaire enregistrée avec succès !', 'success');
+        setTimeout(() => educationSaved = false, 2000);
         loadUser();
+      } else {
+        showNotificationMessage('Erreur lors de la sauvegarde. Veuillez réessayer.', 'error');
       }
     } catch (e) {
       console.error('Erreur sauvegarde:', e);
+      showNotificationMessage('Erreur lors de la sauvegarde. Veuillez réessayer.', 'error');
+    } finally {
+      savingEducation = false;
     }
   }
 
@@ -762,10 +1037,35 @@
             <div class="space-y-6">
               <!-- Education Settings -->
               <div class="bg-gray-900/50 rounded-2xl border border-gray-800 p-6">
-                <h3 class="text-lg font-semibold mb-6 flex items-center gap-2">
-                  <GraduationCap class="w-5 h-5 text-amber-400" />
-                  Configuration scolaire
-                </h3>
+                <div class="flex items-center justify-between mb-6">
+                  <h3 class="text-lg font-semibold flex items-center gap-2">
+                    <GraduationCap class="w-5 h-5 text-amber-400" />
+                    Configuration scolaire
+                    {#if selectedGrade}
+                      <span class="text-sm font-normal text-gray-400 ml-2">— {grades.find(g => g.id?.toString()?.includes(selectedGrade))?.name || ''}</span>
+                    {/if}
+                  </h3>
+                  
+                  <!-- Save Button -->
+                  {#if hasEducationChanges}
+                    <button
+                      onclick={requestSaveEducation}
+                      disabled={savingEducation}
+                      class="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-500/50 text-gray-900 font-medium rounded-lg transition-colors"
+                    >
+                      {#if savingEducation}
+                        <Loader2 class="w-4 h-4 animate-spin" />
+                        Enregistrement...
+                      {:else if educationSaved}
+                        <CheckCircle2 class="w-4 h-4" />
+                        Enregistré !
+                      {:else}
+                        <Save class="w-4 h-4" />
+                        Enregistrer
+                      {/if}
+                    </button>
+                  {/if}
+                </div>
                 
                 <div class="grid sm:grid-cols-2 gap-4">
                   <!-- Education System -->
@@ -803,13 +1103,32 @@
                     </select>
                   </div>
 
+                  <!-- Track (Filière) - Only show if cycle has tracks -->
+                  {#if cycleHasTracks}
+                    <div>
+                      <label for="track-select" class="block text-sm font-medium text-gray-400 mb-2">
+                        Filière
+                      </label>
+                      <select
+                        id="track-select"
+                        bind:value={selectedTrack}
+                        onchange={handleTrackChange}
+                        class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+                      >
+                        <option value="">Sélectionner une filière</option>
+                        {#each tracks as track}
+                          <option value={track.id?.toString()?.split(':')[1] || track.code || track.id}>{track.name}</option>
+                        {/each}
+                      </select>
+                    </div>
+                  {/if}
+
                   <!-- Grade -->
                   <div>
                     <label for="grade-select" class="block text-sm font-medium text-gray-400 mb-2">Niveau / Classe</label>
                     <select
                       id="grade-select"
                       bind:value={selectedGrade}
-                      onchange={saveEducationSettings}
                       class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
                     >
                       <option value="">Sélectionner un niveau</option>
@@ -818,69 +1137,102 @@
                       {/each}
                     </select>
                   </div>
-
-                  <!-- Language -->
-                  <div>
-                    <label for="lang-select" class="block text-sm font-medium text-gray-400 mb-2">Langue de l'interface</label>
-                    <select
-                      id="lang-select"
-                      bind:value={selectedLanguage}
-                      onchange={saveEducationSettings}
-                      class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
-                    >
-                      {#each languages as lang}
-                        <option value={lang.code || lang.id?.toString()?.split(':')[1]}>{lang.name}</option>
-                      {/each}
-                    </select>
-                  </div>
                 </div>
 
-                <!-- Current Grade Display -->
-                {#if $currentUser?.current_grade}
-                  <div class="mt-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-                    <p class="text-sm text-amber-300">
-                      <strong>Niveau actuel:</strong> {grades.find(g => g.id?.toString()?.includes(selectedGrade))?.name || 'Non défini'}
-                    </p>
-                  </div>
-                {/if}
-              </div>
-
-              <!-- Recent Activity -->
-              <div class="bg-gray-900/50 rounded-2xl border border-gray-800 p-6">
-                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Activity class="w-5 h-5 text-amber-400" />
-                  Activité récente
-                </h3>
-                
-                {#if recentActivity.length === 0}
-                  <div class="text-center py-8">
-                    <Clock class="w-12 h-12 text-gray-700 mx-auto mb-3" />
-                    <p class="text-gray-500">Aucune activité récente</p>
-                    <p class="text-sm text-gray-600 mt-1">Commencez un quiz pour voir votre historique !</p>
-                  </div>
-                {:else}
-                  <div class="space-y-3">
-                    {#each recentActivity.slice(0, 5) as activity}
-                      <div class="flex items-center gap-4 p-3 bg-gray-800/50 rounded-xl">
-                        <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center text-xl">
-                          {activity.icon}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <p class="font-medium truncate">{activity.title}</p>
-                          {#if activity.subtitle}
-                            <p class="text-sm text-gray-500">{activity.subtitle}</p>
-                          {/if}
-                        </div>
-                        <div class="text-right">
-                          {#if activity.score !== undefined}
-                            <p class="font-medium text-amber-400">{activity.score}%</p>
-                          {/if}
-                          <p class="text-xs text-gray-500">{formatDate(activity.date)}</p>
-                        </div>
+                <!-- Specialties Section -->
+                <div class="mt-6 pt-6 border-t border-gray-800">
+                  <h4 class="text-md font-semibold mb-4 flex items-center gap-2 text-gray-300">
+                    <Star class="w-4 h-4 text-amber-400" />
+                    Spécialités / Options
+                    {#if selectedSpecialties.length > 0}
+                      <span class="ml-2 px-2 py-0.5 bg-amber-500/20 text-amber-300 text-xs rounded-full">
+                        {selectedSpecialties.length} sélectionnée(s)
+                      </span>
+                    {/if}
+                  </h4>
+                  <p class="text-sm text-gray-500 mb-4">Sélectionnez vos spécialités ou options (LV2, etc.)</p>
+                  
+                  {#if specialties.length > 0}
+                    <!-- Search Bar -->
+                    <div class="relative mb-4">
+                      <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                      <input
+                        type="text"
+                        bind:value={specialtySearch}
+                        placeholder="Rechercher une spécialité..."
+                        class="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+                      />
+                      {#if specialtySearch}
+                        <button
+                          type="button"
+                          onclick={() => specialtySearch = ''}
+                          class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                        >
+                          ✕
+                        </button>
+                      {/if}
+                    </div>
+                    
+                    <!-- Grouped Specialties -->
+                    {@const groupedSpecialties = getGroupedSpecialties()}
+                    {#if groupedSpecialties.length > 0}
+                      <div class="space-y-3">
+                        {#each groupedSpecialties as { group, items }}
+                          {@const groupId = group.id?.toString()?.split(':')[1] || group.code || group.id}
+                          {@const isExpanded = expandedGroups.has(groupId)}
+                          {@const selectedInGroup = items.filter((s: any) => selectedSpecialties.includes(s.id?.toString()?.split(':')[1] || s.code || s.id)).length}
+                          
+                          <div class="bg-gray-800/50 rounded-xl overflow-hidden">
+                            <!-- Group Header -->
+                            <button
+                              type="button"
+                              onclick={() => toggleGroup(groupId)}
+                              class="w-full flex items-center justify-between p-3 hover:bg-gray-800 transition-colors"
+                            >
+                              <div class="flex items-center gap-2">
+                                <span class="text-lg">{group.icon || '📚'}</span>
+                                <span class="font-medium text-gray-200">{group.name}</span>
+                                <span class="text-xs text-gray-500">({items.length})</span>
+                                {#if selectedInGroup > 0}
+                                  <span class="px-2 py-0.5 bg-amber-500/20 text-amber-300 text-xs rounded-full">
+                                    {selectedInGroup}
+                                  </span>
+                                {/if}
+                              </div>
+                              <ChevronDown class="w-4 h-4 text-gray-400 transition-transform {isExpanded ? 'rotate-180' : ''}" />
+                            </button>
+                            
+                            <!-- Group Items -->
+                            {#if isExpanded}
+                              <div class="p-3 pt-0 flex flex-wrap gap-2">
+                                {#each items as specialty}
+                                  {@const specId = specialty.id?.toString()?.split(':')[1] || specialty.code || specialty.id}
+                                  {@const isSelected = selectedSpecialties.includes(specId)}
+                                  <button
+                                    type="button"
+                                    onclick={() => toggleSpecialty(specId)}
+                                    class="px-3 py-1.5 rounded-lg border text-sm transition-all {isSelected 
+                                      ? 'bg-amber-500/20 border-amber-500 text-amber-300' 
+                                      : 'bg-gray-700/50 border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300'}"
+                                  >
+                                    {#if isSelected}
+                                      <CheckCircle2 class="w-3 h-3 inline mr-1" />
+                                    {/if}
+                                    {specialty.name}
+                                  </button>
+                                {/each}
+                              </div>
+                            {/if}
+                          </div>
+                        {/each}
                       </div>
-                    {/each}
-                  </div>
-                {/if}
+                    {:else if specialtySearch}
+                      <p class="text-gray-500 italic text-center py-4">Aucun résultat pour "{specialtySearch}"</p>
+                    {/if}
+                  {:else}
+                    <p class="text-gray-600 italic">Aucune spécialité disponible pour ce niveau</p>
+                  {/if}
+                </div>
               </div>
             </div>
           {/if}
@@ -1135,6 +1487,26 @@
                 </h3>
                 
                 <div class="space-y-4">
+                  <!-- Language -->
+                  <div class="flex items-center justify-between p-4 bg-gray-800/50 rounded-xl">
+                    <div class="flex items-center gap-3">
+                      <Globe class="w-5 h-5 text-amber-400" />
+                      <div>
+                        <p class="font-medium">Langue de l'interface</p>
+                        <p class="text-sm text-gray-500">Choisir la langue d'affichage</p>
+                      </div>
+                    </div>
+                    <select
+                      id="lang-select"
+                      bind:value={selectedLanguage}
+                      class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+                    >
+                      {#each languages as lang}
+                        <option value={lang.code || lang.id?.toString()?.split(':')[1]}>{lang.name}</option>
+                      {/each}
+                    </select>
+                  </div>
+
                   <!-- Dark Mode -->
                   <div class="flex items-center justify-between p-4 bg-gray-800/50 rounded-xl">
                     <div class="flex items-center gap-3">
@@ -1347,4 +1719,104 @@
     onSelect={handleAvatarSelect}
     currentAvatar={$currentUser?.avatar_url}
   />
+
+  <!-- Education Confirmation Modal -->
+  {#if showConfirmModal}
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div 
+        class="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onclick={() => showConfirmModal = false}
+        onkeydown={(e) => e.key === 'Escape' && (showConfirmModal = false)}
+        role="button"
+        tabindex="0"
+      ></div>
+      
+      <div class="relative bg-gray-900 rounded-2xl border border-gray-800 p-6 max-w-md w-full">
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4">
+            <GraduationCap class="w-8 h-8 text-amber-400" />
+          </div>
+          <h3 class="text-xl font-bold">Confirmer la configuration</h3>
+          <p class="text-gray-400 mt-2">
+            Vérifiez vos choix avant de valider
+          </p>
+        </div>
+        
+        <div class="mb-6 space-y-3 bg-gray-800/50 rounded-xl p-4">
+          <div class="flex justify-between">
+            <span class="text-gray-400">Zone éducative</span>
+            <span class="font-medium">{educationSystems.find(s => s.id?.toString()?.includes(selectedSystem) || s.code === selectedSystem)?.name || '-'}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Cycle</span>
+            <span class="font-medium">{cycles.find(c => c.id?.toString()?.includes(selectedCycle) || c.code === selectedCycle)?.name || '-'}</span>
+          </div>
+          {#if selectedTrack}
+            <div class="flex justify-between">
+              <span class="text-gray-400">Filière</span>
+              <span class="font-medium">{tracks.find(t => t.id?.toString()?.includes(selectedTrack) || t.code === selectedTrack)?.name || '-'}</span>
+            </div>
+          {/if}
+          <div class="flex justify-between">
+            <span class="text-gray-400">Niveau / Classe</span>
+            <span class="font-medium">{grades.find(g => g.id?.toString()?.includes(selectedGrade) || g.code === selectedGrade)?.name || '-'}</span>
+          </div>
+          {#if selectedSpecialties.length > 0}
+            <div class="border-t border-gray-700 pt-3 mt-3">
+              <span class="text-gray-400 block mb-2">Spécialités / Options</span>
+              <div class="flex flex-wrap gap-1">
+                {#each selectedSpecialties as specId}
+                  {@const spec = specialties.find(s => s.id?.toString()?.includes(specId) || s.code === specId)}
+                  {#if spec}
+                    <span class="px-2 py-1 bg-amber-500/20 text-amber-300 rounded text-sm">{spec.name}</span>
+                  {/if}
+                {/each}
+              </div>
+            </div>
+          {/if}
+        </div>
+        
+        <div class="flex gap-3">
+          <button
+            onclick={() => showConfirmModal = false}
+            class="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-medium transition-colors"
+          >
+            Modifier
+          </button>
+          <button
+            onclick={confirmSaveEducation}
+            class="flex-1 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-gray-900 rounded-xl font-medium transition-colors"
+          >
+            Confirmer
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Notification Toast -->
+  {#if showNotification}
+    <div 
+      class="fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg animate-in slide-in-from-right duration-300 {
+        notificationType === 'success' ? 'bg-green-600' : 
+        notificationType === 'warning' ? 'bg-amber-600' : 
+        'bg-red-600'
+      }"
+    >
+      {#if notificationType === 'success'}
+        <CheckCircle2 class="w-5 h-5" />
+      {:else if notificationType === 'warning'}
+        <AlertCircle class="w-5 h-5" />
+      {:else}
+        <AlertCircle class="w-5 h-5" />
+      {/if}
+      <span class="font-medium">{notificationMessage}</span>
+      <button 
+        onclick={() => showNotification = false}
+        class="ml-2 hover:opacity-70"
+      >
+        ✕
+      </button>
+    </div>
+  {/if}
 </div>

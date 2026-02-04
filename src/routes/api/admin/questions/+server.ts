@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ url }) => {
       // Filtrer par matière
       const cleanMatiereId = matiereId.includes(':') ? matiereId.split(':')[1] : matiereId;
       result = await db.query(
-        'SELECT * FROM question WHERE matiere_id = type::thing("matiere", $matiereId) ORDER BY pos ASC, createdAt DESC',
+        'SELECT * FROM question WHERE matiere_id = type::thing("subject", $matiereId) ORDER BY pos ASC, createdAt DESC',
         { matiereId: cleanMatiereId }
       );
     } else {

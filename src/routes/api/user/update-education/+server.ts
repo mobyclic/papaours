@@ -3,9 +3,9 @@ import type { RequestHandler } from './$types';
 import { getSurrealDB } from '$lib/server/db';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
-  const sessionId = cookies.get('session_id');
+  const sessionToken = cookies.get('session');
   
-  if (!sessionId) {
+  if (!sessionToken) {
     return json({ error: 'Non authentifié' }, { status: 401 });
   }
 
@@ -13,10 +13,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
   
   try {
     // Get user from session
-    const [session] = await db.query<[{ user: string }[]]>(
-      `SELECT user FROM session WHERE id = $sessionId AND expires_at > time::now()`,
-      { sessionId }
-    );
+    const [session] = await db.query(
+      `SELECT user FROM session WHERE session_token = $sessionToken AND expires_at > time::now()`,
+      { sessionToken }
+    ) as [{ user: string }[]];
     
     if (!session?.[0]?.user) {
       return json({ error: 'Session invalide' }, { status: 401 });
@@ -26,7 +26,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     
     // Get request data
     const body = await request.json();
-    const { educationSystem, cycle, grade, language } = body;
+    const { educationSystem, cycle, track, grade, specialties, language } = body;
     
     // Build update query dynamically
     const updates: string[] = ['updated_at = time::now()'];
@@ -42,9 +42,32 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       params.cycle = cycle;
     }
     
+    if (track) {
+      updates.push('current_track = type::thing("track", $track)');
+      params.track = track;
+    } else if (track === null) {
+      // Explicitly remove track if null is passed
+      updates.push('current_track = NONE');
+    }
+    
     if (grade) {
       updates.push('current_grade = type::thing("grade", $grade)');
       params.grade = grade;
+    }
+    
+    // Handle specialties array
+    if (specialties !== undefined) {
+      if (Array.isArray(specialties) && specialties.length > 0) {
+        // Build specialty references
+        const specialtyRefs = specialties.map((s: string) => {
+          const cleanId = s.includes(':') ? s.split(':')[1] : s;
+          return `type::thing("specialty", "${cleanId}")`;
+        });
+        updates.push(`specialties = [${specialtyRefs.join(', ')}]`);
+      } else {
+        // Empty array or null - clear specialties
+        updates.push('specialties = []');
+      }
     }
     
     if (language) {

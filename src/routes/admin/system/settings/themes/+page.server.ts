@@ -26,7 +26,7 @@ export const load: PageServerLoad = async () => {
   `);
   
   // Récupérer les matières pour le filtre
-  const matieresResult = await db.query<any[]>('SELECT id, name, slug, color, pos FROM matiere WHERE is_active = true ORDER BY pos ASC');
+  const matieresResult = await db.query<any[]>('SELECT id, name, code, color, pos FROM subject WHERE is_active = true ORDER BY pos ASC');
   
   // Compter le nombre de questions par thème
   const questionsResult = await db.query<any[]>(`

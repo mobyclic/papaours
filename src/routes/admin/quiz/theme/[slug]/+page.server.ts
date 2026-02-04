@@ -40,7 +40,7 @@ export const load: PageServerLoad = async ({ params }) => {
         // Fallback par matière
         const cleanMatiereId = quiz.matiere_id.toString().split(':')[1] || quiz.matiere_id.toString();
         const countResult = await db.query(
-          'SELECT count() FROM question WHERE matiere_id = type::thing("matiere", $matiereId) AND isActive = true GROUP ALL',
+          'SELECT count() FROM question WHERE matiere_id = type::thing("subject", $matiereId) AND isActive = true GROUP ALL',
           { matiereId: cleanMatiereId }
         );
         questionCount = (countResult[0] as any[])?.[0]?.count || 0;
@@ -61,7 +61,7 @@ export const load: PageServerLoad = async ({ params }) => {
     }));
 
     // Récupérer toutes les matières pour le filtre
-    const matieresResult = await db.query(`SELECT id, name FROM matiere ORDER BY name`);
+    const matieresResult = await db.query(`SELECT id, name FROM subject ORDER BY name`);
     const rawMatieres = (matieresResult[0] as any[]) || [];
     const themes = rawMatieres.map((m) => ({
       id: m.id?.toString() || m.id,

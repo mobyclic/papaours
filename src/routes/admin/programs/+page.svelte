@@ -141,12 +141,12 @@
   <title>Programmes Officiels - Admin Kweez</title>
 </svelte:head>
 
-<div class="p-8">
+<div class="flex-1 p-8 overflow-auto">
   <!-- Header -->
   <div class="flex items-center justify-between mb-8">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Programmes Officiels</h1>
-      <p class="text-gray-600 mt-1">Gérez les programmes scolaires par cycle, classe et matière</p>
+      <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Programmes Officiels</h1>
+      <p class="text-gray-400 mt-1">Gérez les programmes scolaires par cycle, classe et matière</p>
     </div>
     <Button onclick={() => openModal()} class="flex items-center gap-2">
       <Plus class="w-4 h-4" />
@@ -156,25 +156,25 @@
 
   <!-- Stats -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
       <div class="text-2xl mb-1">📚</div>
-      <div class="text-2xl font-bold text-gray-900">{data.programs.length}</div>
-      <div class="text-sm text-gray-500">Programmes</div>
+      <div class="text-2xl font-bold text-white">{data.programs.length}</div>
+      <div class="text-sm text-gray-400">Programmes</div>
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
       <div class="text-2xl mb-1">📖</div>
-      <div class="text-2xl font-bold text-blue-600">{data.programs.reduce((acc, p) => acc + (p.chapters_count || 0), 0)}</div>
-      <div class="text-sm text-gray-500">Chapitres</div>
+      <div class="text-2xl font-bold text-blue-400">{data.programs.reduce((acc, p) => acc + (p.chapters_count || 0), 0)}</div>
+      <div class="text-sm text-gray-400">Chapitres</div>
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
       <div class="text-2xl mb-1">🎓</div>
-      <div class="text-2xl font-bold text-purple-600">{data.cycles.length}</div>
-      <div class="text-sm text-gray-500">Cycles</div>
+      <div class="text-2xl font-bold text-purple-400">{data.cycles.length}</div>
+      <div class="text-sm text-gray-400">Cycles</div>
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
       <div class="text-2xl mb-1">📝</div>
-      <div class="text-2xl font-bold text-green-600">{data.subjects.length}</div>
-      <div class="text-sm text-gray-500">Matières</div>
+      <div class="text-2xl font-bold text-green-400">{data.subjects.length}</div>
+      <div class="text-sm text-gray-400">Matières</div>
     </div>
   </div>
 
@@ -182,14 +182,14 @@
   <div class="flex gap-2 mb-6 flex-wrap">
     <button
       onclick={() => filterCycle = 'all'}
-      class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {filterCycle === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+      class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {filterCycle === 'all' ? 'bg-gray-700 text-white' : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
     >
       Tous les cycles
     </button>
     {#each data.cycles as cycle}
       <button
         onclick={() => filterCycle = cycle.slug}
-        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {filterCycle === cycle.slug ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {filterCycle === cycle.slug ? 'bg-gray-700 text-white' : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
       >
         {cycle.name}
       </button>
@@ -199,35 +199,35 @@
   <!-- Liste par Cycle > Classe > Matière -->
   <div class="space-y-6">
     {#each Object.entries(programsByCycleGrade) as [cycleName, grades]}
-      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div class="px-4 py-3 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-gray-200">
-          <h2 class="font-bold text-gray-900 flex items-center gap-2">
-            <Library class="w-5 h-5 text-purple-600" />
+      <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 overflow-hidden">
+        <div class="px-4 py-3 bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border-b border-gray-700">
+          <h2 class="font-bold text-white flex items-center gap-2">
+            <Library class="w-5 h-5 text-purple-400" />
             {cycleName}
           </h2>
         </div>
 
         {#each Object.entries(grades) as [gradeName, programs]}
-          <div class="border-b border-gray-100 last:border-b-0">
-            <div class="px-4 py-2 bg-gray-50 flex items-center gap-2">
-              <ChevronRight class="w-4 h-4 text-gray-400" />
-              <span class="font-medium text-gray-700">{gradeName}</span>
+          <div class="border-b border-gray-800 last:border-b-0">
+            <div class="px-4 py-2 bg-gray-800/50 flex items-center gap-2">
+              <ChevronRight class="w-4 h-4 text-gray-500" />
+              <span class="font-medium text-gray-300">{gradeName}</span>
               <span class="text-xs text-gray-500">({programs.length} matières)</span>
             </div>
 
-            <div class="divide-y divide-gray-100">
+            <div class="divide-y divide-gray-800">
               {#each programs as program}
-                <div class="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
+                <div class="px-4 py-3 flex items-center justify-between hover:bg-gray-800/50">
                   <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-xl">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/20 flex items-center justify-center text-xl border border-blue-500/30">
                       {program.subject_icon || getSubjectIcon(program.subject_code)}
                     </div>
                     <div>
-                      <div class="font-medium text-gray-900">{program.subject_name}</div>
+                      <div class="font-medium text-white">{program.subject_name}</div>
                       <div class="flex items-center gap-2 text-xs text-gray-500">
                         <span class="font-mono">{program.subject_code}</span>
                         {#if program.chapters_count > 0}
-                          <span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                          <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
                             {program.chapters_count} chapitres
                           </span>
                         {/if}
@@ -237,35 +237,37 @@
 
                   <div class="flex items-center gap-2">
                     {#if program.is_active}
-                      <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                      <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
                         Actif
                       </span>
                     {:else}
-                      <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                      <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-500/20 text-gray-400 border border-gray-500/30">
                         Inactif
                       </span>
                     {/if}
 
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
+                    <button 
                       onclick={() => goto(`/admin/programs/${program.id.replace('official_program:', '')}`)}
+                      class="p-1.5 hover:bg-blue-500/20 rounded-lg transition-colors"
                       title="Gérer les chapitres"
                     >
-                      <FileText class="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onclick={() => openModal(program)}>
-                      <Pencil class="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                      <FileText class="w-4 h-4 text-blue-400" />
+                    </button>
+                    <button 
+                      onclick={() => openModal(program)}
+                      class="p-1.5 hover:bg-gray-700 rounded-lg transition-colors"
+                      title="Modifier"
+                    >
+                      <Pencil class="w-4 h-4 text-gray-400" />
+                    </button>
+                    <button 
                       onclick={() => deleteProgram(program)}
                       disabled={deleting === program.id}
-                      class="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      class="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
+                      title="Supprimer"
                     >
-                      <Trash2 class="w-4 h-4" />
-                    </Button>
+                      <Trash2 class="w-4 h-4 text-red-400" />
+                    </button>
                   </div>
                 </div>
               {/each}
@@ -274,9 +276,9 @@
         {/each}
       </div>
     {:else}
-      <div class="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-500">
-        <Library class="w-12 h-12 mx-auto mb-4 text-gray-300" />
-        <p class="text-lg font-medium text-gray-600 mb-2">Aucun programme défini</p>
+      <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-12 text-center text-gray-400">
+        <Library class="w-12 h-12 mx-auto mb-4 text-gray-600" />
+        <p class="text-lg font-medium text-gray-300 mb-2">Aucun programme défini</p>
         <p class="text-sm">Créez votre premier programme officiel pour commencer.</p>
       </div>
     {/each}

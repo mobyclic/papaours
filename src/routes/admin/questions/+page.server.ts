@@ -36,7 +36,7 @@ export const load: PageServerLoad = async ({ url }) => {
   }
   
   if (matiereId) {
-    conditions.push('matiere_id = type::thing("matiere", $matiereId)');
+    conditions.push('matiere_id = type::thing("subject", $matiereId)');
     params.matiereId = matiereId;
   }
   
@@ -114,11 +114,11 @@ export const load: PageServerLoad = async ({ url }) => {
   }
   
   // Charger les matières pour les filtres
-  const matieresResult = await db.query('SELECT id, name, slug FROM matiere ORDER BY name');
+  const matieresResult = await db.query('SELECT id, name, code FROM subject ORDER BY name');
   const matieres = ((matieresResult[0] as any[]) || []).map(m => ({
     id: m.id?.toString()?.split(':')[1] || m.id,
     name: m.name,
-    slug: m.slug
+    slug: m.code
   }));
   
   // Charger tous les thèmes pour les filtres

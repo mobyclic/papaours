@@ -11,8 +11,13 @@
   
   let { data }: { data: PageData } = $props();
   
-  let searchInput = $state(data.filters?.search || '');
-  let selectedTheme = $state(data.filters?.themeSlug || '');
+  let searchInput = $state('');
+  let selectedTheme = $state('');
+  
+  $effect(() => {
+    searchInput = data.filters?.search || '';
+    selectedTheme = data.filters?.themeSlug || '';
+  });
   
   const subjectCode = $derived(data.currentSubject?.code);
   
@@ -30,9 +35,9 @@
   }
   
   function getDifficultyColor(difficulty: number): string {
-    if (difficulty <= 2) return 'bg-green-100 text-green-800';
-    if (difficulty <= 3) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-red-100 text-red-800';
+    if (difficulty <= 2) return 'bg-green-500/20 text-green-400 border border-green-500/30';
+    if (difficulty <= 3) return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
+    return 'bg-red-500/20 text-red-400 border border-red-500/30';
   }
   
   function getTypeLabel(type: string): string {
@@ -52,8 +57,8 @@
   <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold">Questions</h1>
-      <p class="text-muted-foreground">
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Questions</h1>
+      <p class="text-gray-400">
         {data.pagination.total} question(s) pour {data.currentSubject?.name}
       </p>
     </div>
@@ -64,16 +69,16 @@
   </div>
 
   <!-- Filters -->
-  <Card.Root>
+  <Card.Root class="bg-gray-900/50 border-gray-800">
     <Card.Content class="pt-4">
       <div class="flex flex-wrap gap-4">
         <div class="flex-1 min-w-[200px]">
           <div class="relative">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
             <Input 
               type="search"
               placeholder="Rechercher..."
-              class="pl-9"
+              class="pl-9 bg-gray-800 border-gray-700 text-white placeholder-gray-500"
               bind:value={searchInput}
               onkeydown={(e) => e.key === 'Enter' && applyFilters()}
             />
@@ -100,19 +105,19 @@
   </Card.Root>
 
   <!-- Questions list -->
-  <Card.Root>
+  <Card.Root class="bg-gray-900/50 border-gray-800">
     <Card.Content class="p-0">
       {#if data.questions.length === 0}
-        <div class="p-8 text-center text-muted-foreground">
+        <div class="p-8 text-center text-gray-500">
           Aucune question trouvée
         </div>
       {:else}
-        <div class="divide-y">
+        <div class="divide-y divide-gray-800">
           {#each data.questions as question}
-            <div class="p-4 hover:bg-muted/50 transition-colors">
+            <div class="p-4 hover:bg-gray-800/50 transition-colors">
               <div class="flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
-                  <p class="font-medium line-clamp-2">{question.question}</p>
+                  <p class="font-medium text-white line-clamp-2">{question.question}</p>
                   <div class="flex flex-wrap items-center gap-2 mt-2">
                     <Badge variant="outline">{getTypeLabel(question.type)}</Badge>
                     <Badge class={getDifficultyColor(question.difficulty)}>
@@ -142,7 +147,7 @@
   <!-- Pagination -->
   {#if data.pagination.totalPages > 1}
     <div class="flex items-center justify-between">
-      <p class="text-sm text-muted-foreground">
+      <p class="text-sm text-gray-400">
         Page {data.pagination.page} sur {data.pagination.totalPages}
       </p>
       <div class="flex items-center gap-2">

@@ -57,7 +57,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     if (matiere_id !== undefined) {
       if (matiere_id && matiere_id !== 'null') {
         const cleanMatiereId = matiere_id.includes(':') ? matiere_id.split(':')[1] : matiere_id;
-        recordUpdates += `, matiere_id = type::thing("matiere", "${cleanMatiereId}")`;
+        recordUpdates += `, matiere_id = type::thing("subject", "${cleanMatiereId}")`;
       } else {
         recordUpdates += ', matiere_id = NONE';
       }

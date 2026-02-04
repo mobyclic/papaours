@@ -72,7 +72,7 @@ export const GET: RequestHandler = async ({ params }) => {
       // Fallback: sélectionner par matière
       const cleanMatiereId = quiz.matiere_id.toString().split(':')[1] || quiz.matiere_id.toString();
       questionsResult = await db.query(
-        'SELECT * FROM question WHERE matiere_id = type::thing("matiere", $matiereId) AND isActive = true ORDER BY rand()',
+        'SELECT * FROM question WHERE matiere_id = type::thing("subject", $matiereId) AND isActive = true ORDER BY rand()',
         { matiereId: cleanMatiereId }
       );
     } else {

@@ -1,6 +1,23 @@
 import { json } from '@sveltejs/kit';
 import { connectDB } from '$lib/db';
 import type { RequestHandler } from './$types';
+import { RecordId } from 'surrealdb';
+
+// Helper to serialize RecordId
+function serialize<T>(data: T): T {
+  if (data === null || data === undefined) return data;
+  if (data instanceof RecordId) return data.toString() as T;
+  if (data instanceof Date) return data.toISOString() as T;
+  if (Array.isArray(data)) return data.map(serialize) as T;
+  if (typeof data === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      result[key] = serialize(value);
+    }
+    return result as T;
+  }
+  return data;
+}
 
 // GET - Obtenir une matière par ID
 export const GET: RequestHandler = async ({ params }) => {
@@ -8,11 +25,11 @@ export const GET: RequestHandler = async ({ params }) => {
     const db = await connectDB();
     
     const result = await db.query(
-      'SELECT * FROM matiere WHERE id = $id',
-      { id: `matiere:${params.id}` }
+      'SELECT * FROM subject WHERE id = $id',
+      { id: `subject:${params.id}` }
     );
     
-    const subject = (result[0] as any[])?.[0];
+    const subject = serialize((result[0] as any[])?.[0]);
     
     if (!subject) {
       return json({ message: 'Matière non trouvée' }, { status: 404 });
@@ -45,10 +62,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
     
-    // Vérifier si le slug existe déjà pour une autre matière
+    // Vérifier si le code existe déjà pour une autre matière
     const existing = await db.query(
-      'SELECT id FROM matiere WHERE slug = $slug AND id != $id',
-      { slug, id: `matiere:${params.id}` }
+      'SELECT id FROM subject WHERE code = $code AND id != $id',
+      { code: slug, id: `subject:${params.id}` }
     );
     
     if ((existing[0] as any[])?.length > 0) {
@@ -57,9 +74,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     
     // Mettre à jour
     const updated = await db.query(`
-      UPDATE matiere:${params.id} SET
+      UPDATE subject:${params.id} SET
         name = $name,
-        slug = $slug,
+        code = $code,
+        slug = $code,
         description = $description,
         icon = $icon,
         color = $color,
@@ -69,7 +87,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
       RETURN AFTER
     `, {
       name: name.trim(),
-      slug,
+      code: slug,
       description: description || null,
       icon: icon || null,
       color: color || '#6366F1',
@@ -77,7 +95,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
       pos: pos || 0
     });
     
-    const subject = (updated[0] as any[])?.[0];
+    const subject = serialize((updated[0] as any[])?.[0]);
     
     if (!subject) {
       return json({ message: 'Matière non trouvée' }, { status: 404 });
@@ -98,7 +116,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
     // Vérifier si des thèmes utilisent cette matière
     const themesCount = await db.query(
       'SELECT count() as count FROM theme WHERE matiere_id = $id GROUP ALL',
-      { id: `matiere:${params.id}` }
+      { id: `subject:${params.id}` }
     );
     
     const count = (themesCount[0] as any[])?.[0]?.count || 0;
@@ -110,7 +128,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
     }
     
     // Supprimer
-    await db.query(`DELETE matiere:${params.id}`);
+    await db.query(`DELETE subject:${params.id}`);
     
     return json({ message: 'Matière supprimée avec succès' });
   } catch (error) {

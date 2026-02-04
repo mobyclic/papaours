@@ -22,7 +22,7 @@ export const GET: RequestHandler = async ({ url }) => {
       // Filter by matiere - check both old matiere_id and new matiere_ids
       // Use type::thing for both comparisons since matiere_ids contains RecordIds
       const cleanMatiereId = matiereId.includes(':') ? matiereId.split(':')[1] : matiereId;
-      query += ` AND (matiere_id = type::thing("matiere", "${cleanMatiereId}") OR type::thing("matiere", "${cleanMatiereId}") INSIDE matiere_ids)`;
+      query += ` AND (matiere_id = type::thing("subject", "${cleanMatiereId}") OR type::thing("subject", "${cleanMatiereId}") INSIDE matiere_ids)`;
     }
     
     const result = await db.query<any[]>(query, params);
@@ -72,12 +72,12 @@ export const POST: RequestHandler = async ({ request }) => {
     // Convert matiere_ids to RecordIds
     const matiereIdRecords = (matiere_ids || []).map((id: string) => {
       const cleanId = id?.includes(':') ? id.split(':')[1] : id;
-      return `type::thing("matiere", "${cleanId}")`;
+      return `type::thing("subject", "${cleanId}")`;
     });
     
     // Also set matiere_id for backward compatibility (first one or null)
     const firstMatiereId = matiere_ids?.[0] 
-      ? `type::thing("matiere", "${matiere_ids[0].includes(':') ? matiere_ids[0].split(':')[1] : matiere_ids[0]}")`
+      ? `type::thing("subject", "${matiere_ids[0].includes(':') ? matiere_ids[0].split(':')[1] : matiere_ids[0]}")`
       : 'NONE';
     
     const query = `

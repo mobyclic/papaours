@@ -44,7 +44,7 @@ export const load: LayoutServerLoad = async ({ params, parent }) => {
         name: subject.name,
         icon: subject.icon,
         color: subject.color,
-        domain: subject.domain,
+        domain: subject.domain?.toString() || subject.domain || null,
         questionCount: (questionsCount[0] as any[])?.[0]?.count || 0,
         themeCount: (themesCount[0] as any[])?.[0]?.count || 0,
         quizCount: (quizCount[0] as any[])?.[0]?.count || 0

@@ -14,8 +14,8 @@
   <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold">Thèmes</h1>
-      <p class="text-muted-foreground">
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Thèmes</h1>
+      <p class="text-gray-400">
         {data.themes.length} thème(s) pour {data.currentSubject?.name}
       </p>
     </div>
@@ -27,21 +27,21 @@
 
   <!-- Themes list -->
   {#if data.themes.length === 0}
-    <Card.Root>
-      <Card.Content class="p-8 text-center text-muted-foreground">
+    <Card.Root class="bg-gray-900/50 border-gray-800">
+      <Card.Content class="p-8 text-center text-gray-500">
         Aucun thème pour cette matière
       </Card.Content>
     </Card.Root>
   {:else}
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {#each data.themes as theme}
-        <Card.Root class={!theme.is_active ? 'opacity-60' : ''}>
+        <Card.Root class="bg-gray-900/50 border-gray-800 {!theme.is_active ? 'opacity-60' : ''}">
           <Card.Header>
             <div class="flex items-start justify-between">
               <div>
-                <Card.Title>{theme.name}</Card.Title>
+                <Card.Title class="text-white">{theme.name}</Card.Title>
                 {#if theme.description}
-                  <Card.Description class="line-clamp-2 mt-1">
+                  <Card.Description class="line-clamp-2 mt-1 text-gray-400">
                     {theme.description}
                   </Card.Description>
                 {/if}
@@ -52,7 +52,7 @@
             </div>
           </Card.Header>
           <Card.Content>
-            <div class="flex items-center gap-4 text-sm text-muted-foreground">
+            <div class="flex items-center gap-4 text-sm text-gray-400">
               <div class="flex items-center gap-1">
                 <HelpCircle class="h-4 w-4" />
                 <span>{theme.question_count} question(s)</span>

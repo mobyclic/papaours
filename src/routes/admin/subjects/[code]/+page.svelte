@@ -39,8 +39,8 @@
         <span class="text-4xl">{data.currentSubject.icon}</span>
       {/if}
       <div>
-        <h1 class="text-2xl font-bold">{data.currentSubject?.name}</h1>
-        <p class="text-muted-foreground">
+        <h1 class="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">{data.currentSubject?.name}</h1>
+        <p class="text-gray-400">
           Domaine : {data.currentSubject?.domain || 'Non défini'}
         </p>
       </div>
@@ -50,14 +50,14 @@
   <!-- Stats cards -->
   <div class="grid gap-4 md:grid-cols-3">
     {#each stats as stat}
-      <Card.Root>
+      <Card.Root class="bg-gray-900/50 border-gray-800">
         <Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <Card.Title class="text-sm font-medium">{stat.title}</Card.Title>
+          <Card.Title class="text-sm font-medium text-gray-300">{stat.title}</Card.Title>
           <stat.icon class="h-4 w-4 {stat.color}" />
         </Card.Header>
         <Card.Content>
-          <div class="text-2xl font-bold">{stat.value}</div>
-          <a href={stat.href} class="text-xs text-muted-foreground hover:underline">
+          <div class="text-2xl font-bold text-white">{stat.value}</div>
+          <a href={stat.href} class="text-xs text-gray-400 hover:text-gray-300 hover:underline">
             Voir tout →
           </a>
         </Card.Content>
@@ -66,10 +66,10 @@
   </div>
 
   <!-- Quick actions -->
-  <Card.Root>
+  <Card.Root class="bg-gray-900/50 border-gray-800">
     <Card.Header>
-      <Card.Title>Actions rapides</Card.Title>
-      <Card.Description>Gérez le contenu de cette matière</Card.Description>
+      <Card.Title class="text-white">Actions rapides</Card.Title>
+      <Card.Description class="text-gray-400">Gérez le contenu de cette matière</Card.Description>
     </Card.Header>
     <Card.Content class="flex flex-wrap gap-2">
       <Button href="/admin/subjects/{data.currentSubject?.code}/questions/new">
@@ -89,21 +89,21 @@
 
   <!-- Themes list -->
   {#if data.subjectThemes && data.subjectThemes.length > 0}
-    <Card.Root>
+    <Card.Root class="bg-gray-900/50 border-gray-800">
       <Card.Header>
-        <Card.Title>Thèmes</Card.Title>
-        <Card.Description>{data.subjectThemes.length} thème(s) actif(s)</Card.Description>
+        <Card.Title class="text-white">Thèmes</Card.Title>
+        <Card.Description class="text-gray-400">{data.subjectThemes.length} thème(s) actif(s)</Card.Description>
       </Card.Header>
       <Card.Content>
         <div class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
           {#each data.subjectThemes as theme}
             <a 
               href="/admin/subjects/{data.currentSubject?.code}/themes/{theme.slug}"
-              class="p-3 rounded-lg border hover:bg-muted transition-colors"
+              class="p-3 rounded-lg border border-gray-800 hover:bg-gray-800/50 transition-colors"
             >
-              <p class="font-medium">{theme.name}</p>
+              <p class="font-medium text-white">{theme.name}</p>
               {#if theme.description}
-                <p class="text-sm text-muted-foreground line-clamp-2">{theme.description}</p>
+                <p class="text-sm text-gray-500 line-clamp-2">{theme.description}</p>
               {/if}
             </a>
           {/each}

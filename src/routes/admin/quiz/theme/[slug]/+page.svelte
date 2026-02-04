@@ -63,7 +63,7 @@
   <div class="mb-8">
     <button 
       onclick={goBack}
-      class="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+      class="flex items-center gap-2 text-gray-400 hover:text-gray-200 mb-4 transition-colors"
     >
       <ArrowLeft class="w-4 h-4" />
       Retour à tous les quiz
@@ -71,8 +71,8 @@
     
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Quiz - {currentTheme?.name}</h1>
-        <p class="text-gray-600 mt-1">{quizzes.length} quiz dans cette catégorie</p>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Quiz - {currentTheme?.name}</h1>
+        <p class="text-gray-400 mt-1">{quizzes.length} quiz dans cette catégorie</p>
       </div>
       <Button onclick={newQuiz} class="bg-purple-600 hover:bg-purple-700">
         <Plus class="w-4 h-4 mr-2" />
@@ -89,41 +89,41 @@
         type="text"
         placeholder="Rechercher un quiz..."
         bind:value={search}
-        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+        class="w-full pl-10 pr-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
       />
     </div>
   </div>
 
   <!-- Table -->
-  <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+  <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-800 overflow-hidden">
     <table class="w-full">
-      <thead class="bg-gray-50 border-b border-gray-200">
+      <thead class="bg-gray-800/50 border-b border-gray-700">
         <tr>
-          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Titre</th>
-          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Matière</th>
-          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Niveau</th>
-          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Questions</th>
-          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Statut</th>
-          <th class="px-6 py-3 text-right text-sm font-semibold text-gray-700">Actions</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Titre</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Matière</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Niveau</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Questions</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Statut</th>
+          <th class="px-6 py-3 text-right text-sm font-semibold text-gray-300">Actions</th>
         </tr>
       </thead>
       <tbody>
         {#each filteredQuizzes as quiz (quiz.id)}
           <tr 
-            class="border-b border-gray-200 hover:bg-purple-50 transition-colors cursor-pointer"
+            class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors cursor-pointer"
             onclick={() => editQuiz(quiz)}
           >
-            <td class="px-6 py-4 text-sm font-medium text-gray-900">{quiz.title}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">{quiz.subject}</td>
+            <td class="px-6 py-4 text-sm font-medium text-white">{quiz.title}</td>
+            <td class="px-6 py-4 text-sm text-gray-400">{quiz.subject}</td>
             <td class="px-6 py-4 text-sm">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
                 {quiz.difficulty_level || 'N/A'}
               </span>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-600">{quiz.question_count || 0}</td>
+            <td class="px-6 py-4 text-sm text-gray-400">{quiz.question_count || 0}</td>
             <td class="px-6 py-4 text-sm">
               <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                quiz.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                quiz.is_active ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
               }`}>
                 {quiz.is_active ? 'Actif' : 'Inactif'}
               </span>
@@ -131,18 +131,18 @@
             <td class="px-6 py-4 text-right">
               <div class="flex items-center justify-end gap-2">
                 <button 
-                  class="p-1.5 hover:bg-purple-100 rounded-lg transition-colors" 
+                  class="p-1.5 hover:bg-purple-500/20 rounded-lg transition-colors" 
                   title="Éditer"
                   onclick={(e) => { e.stopPropagation(); editQuiz(quiz); }}
                 >
-                  <Edit2 class="w-4 h-4 text-purple-600" />
+                  <Edit2 class="w-4 h-4 text-purple-400" />
                 </button>
                 <button 
-                  class="p-1.5 hover:bg-red-100 rounded-lg transition-colors" 
+                  class="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors" 
                   title="Supprimer"
                   onclick={(e) => deleteQuiz(quiz, e)}
                 >
-                  <Trash2 class="w-4 h-4 text-red-600" />
+                  <Trash2 class="w-4 h-4 text-red-400" />
                 </button>
               </div>
             </td>
@@ -153,7 +153,7 @@
 
     {#if filteredQuizzes.length === 0}
       <div class="px-6 py-12 text-center">
-        <p class="text-gray-500 text-sm">Aucun quiz trouvé dans la catégorie {currentTheme?.name}</p>
+        <p class="text-gray-400 text-sm">Aucun quiz trouvé dans la catégorie {currentTheme?.name}</p>
       </div>
     {/if}
   </div>

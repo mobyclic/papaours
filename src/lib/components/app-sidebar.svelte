@@ -30,7 +30,13 @@
     Languages,
     GitBranch,
     Star,
-    Settings
+    Settings,
+    FolderOpen,
+    Building2,
+    Network,
+    MapPin,
+    UserCheck,
+    School
   } from "lucide-svelte";
 
   interface Subject {
@@ -80,30 +86,70 @@
   // Données pour les menus
   let cycles = $derived(data?.cycles || []);
   
-  // Items du menu système (Kweez) - Tout au même niveau, ordre logique
-  const systemMenuItems = [
-    // --- Principal ---
-    { title: "Tableau de bord", url: "/admin", icon: Home },
-    { title: "Utilisateurs", url: "/admin/users", icon: Users },
-    // --- Contenu pédagogique ---
-    { title: "Programmes", url: "/admin/programs", icon: Library },
-    { title: "Cursus", url: "/admin/cursus", icon: GraduationCap },
-    { title: "Badges", url: "/admin/badges", icon: Award },
-    { title: "Médias", url: "/admin/media", icon: ImageIcon },
-    // --- Structure éducative ---
-    { title: "Systèmes éducatifs", url: "/admin/system/settings/education-systems", icon: Globe },
-    { title: "Cycles", url: "/admin/system/settings/cycles", icon: GraduationCap },
-    { title: "Filières", url: "/admin/system/settings/tracks", icon: GitBranch },
-    { title: "Classes", url: "/admin/system/settings/grades", icon: Users },
-    { title: "Spécialités", url: "/admin/system/settings/specialties", icon: Star },
-    // --- Contenu ---
-    { title: "Domaines", url: "/admin/system/settings/domains", icon: Palette },
-    { title: "Matières", url: "/admin/system/settings/subjects", icon: BookOpen },
-    // --- Localisation ---
-    { title: "Langues", url: "/admin/system/settings/languages", icon: Languages },
-    { title: "Traductions", url: "/admin/translations", icon: FileText },
-    // --- Système ---
-    { title: "Journal", url: "/admin/system/journal", icon: FileText },
+  // Structure du menu système (Kweez) - Organisé par groupes
+  const menuGroups = [
+    {
+      label: "Principal",
+      items: [
+        { title: "Tableau de bord", url: "/admin", icon: Home, exact: true },
+        { title: "Statistiques", url: "/admin/stats", icon: BarChart3 },
+      ]
+    },
+    {
+      label: "Personnes",
+      items: [
+        { title: "Apprenants", url: "/admin/users?role=student", icon: Users },
+        { title: "Tuteurs", url: "/admin/users?role=tutor", icon: UserCheck },
+        { title: "Professeurs", url: "/admin/users?role=teacher", icon: School },
+      ]
+    },
+    {
+      label: "Organisations",
+      items: [
+        { title: "Groupes", url: "/admin/organizations?type=group", icon: Building2 },
+        { title: "Réseaux", url: "/admin/organizations?type=network", icon: Network },
+        { title: "Campus", url: "/admin/organizations?type=campus", icon: MapPin },
+      ]
+    },
+    {
+      label: "Pédagogie",
+      items: [
+        { title: "Programmes", url: "/admin/programs", icon: Library },
+        { title: "Badges", url: "/admin/badges", icon: Award },
+        { title: "Médias", url: "/admin/media", icon: ImageIcon },
+      ]
+    },
+    {
+      label: "Structure éducative",
+      items: [
+        { title: "Systèmes éducatifs", url: "/admin/system/settings/education-systems", icon: Globe },
+        { title: "Cycles", url: "/admin/system/settings/cycles", icon: GraduationCap },
+        { title: "Filières", url: "/admin/system/settings/tracks", icon: GitBranch },
+        { title: "Classes", url: "/admin/system/settings/grades", icon: Users },
+      ]
+    },
+    {
+      label: "Organisation contenu",
+      items: [
+        { title: "Pôles", url: "/admin/system/settings/specialty-groups", icon: FolderOpen },
+        { title: "Spécialités", url: "/admin/system/settings/specialties", icon: Star },
+        { title: "Domaines", url: "/admin/system/settings/domains", icon: Palette },
+        { title: "Matières", url: "/admin/system/settings/subjects", icon: BookOpen },
+      ]
+    },
+    {
+      label: "Localisation",
+      items: [
+        { title: "Langues", url: "/admin/system/settings/languages", icon: Languages },
+        { title: "Traductions", url: "/admin/translations", icon: FileText },
+      ]
+    },
+    {
+      label: "Système",
+      items: [
+        { title: "Journal", url: "/admin/system/journal", icon: FileText },
+      ]
+    },
   ];
 
   function isActive(path: string): boolean {
@@ -164,32 +210,32 @@
             {/snippet}
           </DropdownMenu.Trigger>
           <DropdownMenu.Content
-            class="w-[--bits-dropdown-menu-anchor-width] min-w-56 rounded-lg"
+            class="w-[--bits-dropdown-menu-anchor-width] min-w-56 rounded-lg !bg-gray-900 !border-gray-800"
             side="bottom"
             align="start"
             sideOffset={4}
           >
-            <DropdownMenu.Label class="text-xs text-muted-foreground">
+            <DropdownMenu.Label class="text-xs text-gray-500">
               Contexte
             </DropdownMenu.Label>
             
             {#if isSuperadmin}
-              <DropdownMenu.Item onclick={() => selectContext("kweez")} class="gap-2 p-2">
-                <div class="flex size-6 items-center justify-center rounded-sm border bg-gradient-to-br from-amber-400 to-orange-500">
+              <DropdownMenu.Item onclick={() => selectContext("kweez")} class="gap-2 p-2 !bg-transparent hover:!bg-gray-800 focus:!bg-gray-800 data-[highlighted]:!bg-gray-800">
+                <div class="flex size-6 items-center justify-center rounded-sm border border-orange-500/40 bg-gradient-to-br from-amber-400 to-orange-500">
                   <Zap class="size-4 text-white" />
                 </div>
-                <span class="font-medium">Kweez</span>
-                <span class="ml-auto text-xs text-muted-foreground">Système</span>
+                <span class="font-medium text-gray-200">Kweez</span>
+                <span class="ml-auto text-xs text-gray-500">Système</span>
               </DropdownMenu.Item>
-              <DropdownMenu.Separator />
+              <DropdownMenu.Separator class="!bg-gray-800" />
             {/if}
             
-            <DropdownMenu.Label class="text-xs text-muted-foreground">
+            <DropdownMenu.Label class="text-xs text-gray-500">
               Matières
             </DropdownMenu.Label>
             
             {#each subjects as subject}
-              <DropdownMenu.Item onclick={() => selectContext(subject.code)} class="gap-2 p-2">
+              <DropdownMenu.Item onclick={() => selectContext(subject.code)} class="gap-2 p-2 !bg-transparent hover:!bg-gray-800 focus:!bg-gray-800 data-[highlighted]:!bg-gray-800">
                 <div class="flex size-6 items-center justify-center rounded-sm border" style="background-color: {subject.color || '#6366f1'}20; border-color: {subject.color || '#6366f1'}40">
                   {#if subject.icon}
                     <span class="text-sm">{subject.icon}</span>
@@ -197,17 +243,17 @@
                     <BookOpen class="size-3.5" style="color: {subject.color || '#6366f1'}" />
                   {/if}
                 </div>
-                <span>{subject.name}</span>
+                <span class="text-gray-200">{subject.name}</span>
               </DropdownMenu.Item>
             {/each}
             
             {#if isSuperadmin}
-              <DropdownMenu.Separator />
-              <DropdownMenu.Item onclick={() => goto("/admin/system/settings/subjects")} class="gap-2 p-2">
-                <div class="flex size-6 items-center justify-center rounded-md border bg-background">
-                  <Plus class="size-4" />
+              <DropdownMenu.Separator class="!bg-gray-800" />
+              <DropdownMenu.Item onclick={() => goto("/admin/system/settings/subjects")} class="gap-2 p-2 !bg-transparent hover:!bg-gray-800 focus:!bg-gray-800 data-[highlighted]:!bg-gray-800">
+                <div class="flex size-6 items-center justify-center rounded-md border border-gray-700 bg-gray-800">
+                  <Plus class="size-4 text-gray-400" />
                 </div>
-                <span class="font-medium text-muted-foreground">Gérer les matières</span>
+                <span class="font-medium text-gray-500">Gérer les matières</span>
               </DropdownMenu.Item>
             {/if}
           </DropdownMenu.Content>
@@ -218,26 +264,28 @@
 
   <Sidebar.Content>
     {#if currentContext === "kweez"}
-      <!-- Menu Système (Kweez) - Tout au même niveau -->
-      <Sidebar.Group>
-        <Sidebar.GroupLabel>Navigation</Sidebar.GroupLabel>
-        <Sidebar.GroupContent>
-          <Sidebar.Menu>
-            {#each systemMenuItems as item}
-              <Sidebar.MenuItem>
-                <Sidebar.MenuButton isActive={item.url === "/admin" ? isExactPath(item.url) : isActive(item.url)}>
-                  {#snippet child({ props })}
-                    <a href={item.url} {...props}>
-                      <item.icon class="size-4" />
-                      <span>{item.title}</span>
-                    </a>
-                  {/snippet}
-                </Sidebar.MenuButton>
-              </Sidebar.MenuItem>
-            {/each}
-          </Sidebar.Menu>
-        </Sidebar.GroupContent>
-      </Sidebar.Group>
+      <!-- Menu Système (Kweez) - Organisé par groupes -->
+      {#each menuGroups as group}
+        <Sidebar.Group>
+          <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
+          <Sidebar.GroupContent>
+            <Sidebar.Menu>
+              {#each group.items as item}
+                <Sidebar.MenuItem>
+                  <Sidebar.MenuButton isActive={item.exact ? isExactPath(item.url) : isActive(item.url.split('?')[0])}>
+                    {#snippet child({ props })}
+                      <a href={item.url} {...props}>
+                        <item.icon class="size-4" />
+                        <span>{item.title}</span>
+                      </a>
+                    {/snippet}
+                  </Sidebar.MenuButton>
+                </Sidebar.MenuItem>
+              {/each}
+            </Sidebar.Menu>
+          </Sidebar.GroupContent>
+        </Sidebar.Group>
+      {/each}
       
     {:else}
       <!-- Menu Subject (Matière) -->
@@ -248,21 +296,21 @@
         <Sidebar.GroupContent>
           <Sidebar.Menu>
             <Sidebar.MenuItem>
-              <Sidebar.MenuButton isActive={isActive(`/admin/questions`) && $page.url.searchParams.get('subject') === currentContext}>
+              <Sidebar.MenuButton isActive={isActive(`/admin/subjects/${currentContext}/quiz`)}>
                 {#snippet child({ props })}
-                  <a href={`/admin/questions?subject=${currentContext}`} {...props}>
-                    <HelpCircle class="size-4" />
-                    <span>Questions</span>
+                  <a href={`/admin/subjects/${currentContext}/quiz`} {...props}>
+                    <BookOpen class="size-4" />
+                    <span>Quiz</span>
                   </a>
                 {/snippet}
               </Sidebar.MenuButton>
-              <Sidebar.MenuBadge>{currentSubject?.questionCount || 0}</Sidebar.MenuBadge>
+              <Sidebar.MenuBadge>{currentSubject?.quizCount || 0}</Sidebar.MenuBadge>
             </Sidebar.MenuItem>
             
             <Sidebar.MenuItem>
-              <Sidebar.MenuButton isActive={isActive(`/admin/system/settings/themes`) && $page.url.searchParams.get('subject') === currentContext}>
+              <Sidebar.MenuButton isActive={isActive(`/admin/subjects/${currentContext}/themes`)}>
                 {#snippet child({ props })}
-                  <a href={`/admin/system/settings/themes?subject=${currentContext}`} {...props}>
+                  <a href={`/admin/subjects/${currentContext}/themes`} {...props}>
                     <Tags class="size-4" />
                     <span>Thèmes</span>
                   </a>
@@ -272,50 +320,18 @@
             </Sidebar.MenuItem>
             
             <Sidebar.MenuItem>
-              <Sidebar.MenuButton isActive={isActive(`/admin/quiz/subject/${currentContext}`)}>
+              <Sidebar.MenuButton isActive={isActive(`/admin/subjects/${currentContext}/questions`)}>
                 {#snippet child({ props })}
-                  <a href={`/admin/quiz/subject/${currentContext}`} {...props}>
-                    <BookOpen class="size-4" />
-                    <span>Quiz</span>
+                  <a href={`/admin/subjects/${currentContext}/questions`} {...props}>
+                    <HelpCircle class="size-4" />
+                    <span>Questions</span>
                   </a>
                 {/snippet}
               </Sidebar.MenuButton>
-              <Sidebar.MenuBadge>{currentSubject?.quizCount || 0}</Sidebar.MenuBadge>
+              <Sidebar.MenuBadge>{currentSubject?.questionCount || 0}</Sidebar.MenuBadge>
             </Sidebar.MenuItem>
           </Sidebar.Menu>
         </Sidebar.GroupContent>
-      </Sidebar.Group>
-      
-      <!-- Thèmes du subject -->
-      <Sidebar.Group>
-        <Collapsible.Root open class="group/collapsible">
-          <Sidebar.GroupLabel>
-            {#snippet child({ props })}
-              <Collapsible.Trigger {...props}>
-                <Tags class="size-4" />
-                Thèmes
-                <ChevronDown class="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
-              </Collapsible.Trigger>
-            {/snippet}
-          </Sidebar.GroupLabel>
-          <Collapsible.Content>
-            <Sidebar.GroupContent>
-              <Sidebar.Menu>
-                <!-- Les thèmes seront chargés dynamiquement -->
-                <Sidebar.MenuItem>
-                  <Sidebar.MenuButton>
-                    {#snippet child({ props })}
-                      <a href={`/admin/system/settings/themes?subject=${currentContext}`} {...props}>
-                        <Plus class="size-4" />
-                        <span class="text-muted-foreground">Voir tous les thèmes</span>
-                      </a>
-                    {/snippet}
-                  </Sidebar.MenuButton>
-                </Sidebar.MenuItem>
-              </Sidebar.Menu>
-            </Sidebar.GroupContent>
-          </Collapsible.Content>
-        </Collapsible.Root>
       </Sidebar.Group>
     {/if}
   </Sidebar.Content>

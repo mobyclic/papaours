@@ -21,9 +21,9 @@
   }
   
   function getDifficultyColor(level: number): string {
-    if (level <= 2) return 'bg-green-100 text-green-800';
-    if (level <= 3) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-red-100 text-red-800';
+    if (level <= 2) return 'bg-green-500/20 text-green-400 border border-green-500/30';
+    if (level <= 3) return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
+    return 'bg-red-500/20 text-red-400 border border-red-500/30';
   }
 </script>
 
@@ -31,8 +31,8 @@
   <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold">Quiz</h1>
-      <p class="text-muted-foreground">
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Quiz</h1>
+      <p class="text-gray-400">
         {data.quizzes.length} quiz pour {data.currentSubject?.name}
       </p>
     </div>
@@ -44,24 +44,24 @@
 
   <!-- Quiz grid -->
   {#if data.quizzes.length === 0}
-    <Card.Root>
-      <Card.Content class="p-8 text-center text-muted-foreground">
+    <Card.Root class="bg-gray-900/50 border-gray-800">
+      <Card.Content class="p-8 text-center text-gray-500">
         Aucun quiz pour cette matière
       </Card.Content>
     </Card.Root>
   {:else}
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {#each data.quizzes as quiz}
-        <Card.Root class="relative overflow-hidden {!quiz.isActive ? 'opacity-60' : ''}">
+        <Card.Root class="relative overflow-hidden bg-gray-900/50 border-gray-800 {!quiz.isActive ? 'opacity-60' : ''}">
           {#if quiz.isFeatured}
             <div class="absolute top-2 right-2">
               <Star class="h-5 w-5 text-yellow-500 fill-yellow-500" />
             </div>
           {/if}
           <Card.Header>
-            <Card.Title class="line-clamp-2">{quiz.title}</Card.Title>
+            <Card.Title class="line-clamp-2 text-white">{quiz.title}</Card.Title>
             {#if quiz.description}
-              <Card.Description class="line-clamp-2">{quiz.description}</Card.Description>
+              <Card.Description class="line-clamp-2 text-gray-400">{quiz.description}</Card.Description>
             {/if}
           </Card.Header>
           <Card.Content>
@@ -77,7 +77,7 @@
               {/if}
             </div>
             
-            <div class="flex items-center gap-4 text-sm text-muted-foreground">
+            <div class="flex items-center gap-4 text-sm text-gray-400">
               <div class="flex items-center gap-1">
                 <HelpCircle class="h-4 w-4" />
                 <span>{quiz.questionCount || 0} questions</span>

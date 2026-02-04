@@ -88,15 +88,15 @@
   <title>Traductions - Admin Kweez</title>
 </svelte:head>
 
-<div class="p-6 max-w-6xl mx-auto">
+<div class="flex-1 p-6 overflow-auto max-w-6xl mx-auto">
   <!-- Header -->
   <div class="flex items-center justify-between mb-6">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
-        <Globe class="w-6 h-6" />
+      <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent flex items-center gap-2">
+        <Globe class="w-8 h-8 text-amber-400" />
         Traductions du contenu
       </h1>
-      <p class="text-gray-500 mt-1">
+      <p class="text-gray-400 mt-1">
         Gérez les traductions des domaines, matières, classes, etc.
       </p>
     </div>
@@ -113,14 +113,14 @@
   
   <!-- Success/Error messages -->
   {#if saveSuccess}
-    <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center gap-2">
+    <div class="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 flex items-center gap-2">
       <Check class="w-4 h-4" />
       {saveSuccess}
     </div>
   {/if}
   
   {#if saveError}
-    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">
+    <div class="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 flex items-center gap-2">
       <X class="w-4 h-4" />
       {saveError}
     </div>
@@ -130,15 +130,15 @@
   <div class="flex gap-4 mb-6">
     <!-- Entity Type Selector -->
     <div class="flex-1">
-      <div class="block text-sm font-medium text-gray-700 mb-1">Type d'entité</div>
+      <div class="block text-sm font-medium text-gray-300 mb-1">Type d'entité</div>
       <div class="flex gap-2 flex-wrap">
         {#each data.entityTypes as type}
           <button
             onclick={() => changeEntityType(type.code)}
             class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
               {data.entityType === type.code 
-                ? 'bg-gray-800 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+                ? 'bg-gray-700 text-white' 
+                : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
           >
             {type.icon} {type.name}
           </button>
@@ -148,9 +148,9 @@
     
     <!-- Language Selector -->
     <div class="w-48">
-      <div class="block text-sm font-medium text-gray-700 mb-1">Langue cible</div>
+      <div class="block text-sm font-medium text-gray-300 mb-1">Langue cible</div>
       <select 
-        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-800"
+        class="w-full px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
         value={data.selectedLang}
         onchange={(e) => changeLanguage(e.currentTarget.value)}
       >
@@ -164,16 +164,16 @@
   </div>
   
   <!-- Progress -->
-  <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+  <div class="mb-6 p-4 bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-800">
     <div class="flex items-center justify-between mb-2">
-      <span class="text-sm font-medium text-gray-700">
+      <span class="text-sm font-medium text-gray-300">
         Progression : {completedCount} / {data.entities.length} traduits
       </span>
-      <span class="text-sm text-gray-500">
+      <span class="text-sm text-gray-400">
         {missingCount > 0 ? `${missingCount} manquant(s)` : '✅ Complet'}
       </span>
     </div>
-    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+    <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
       <div 
         class="h-full bg-green-500 transition-all"
         style="width: {data.entities.length > 0 ? (completedCount / data.entities.length) * 100 : 0}%"
@@ -182,35 +182,35 @@
   </div>
   
   <!-- Translation Table -->
-  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+  <div class="bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-800 overflow-hidden">
     <table class="w-full">
-      <thead class="bg-gray-50 border-b border-gray-200">
+      <thead class="bg-gray-800/50 border-b border-gray-700">
         <tr>
-          <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">Code</th>
-          <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">
+          <th class="px-4 py-3 text-left text-sm font-medium text-gray-300">Code</th>
+          <th class="px-4 py-3 text-left text-sm font-medium text-gray-300">
             🇫🇷 Français (original)
           </th>
-          <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">
+          <th class="px-4 py-3 text-left text-sm font-medium text-gray-300">
             {data.languages.find((l: any) => l.code === data.selectedLang)?.native_name || data.selectedLang} (traduction)
           </th>
-          <th class="px-4 py-3 text-center text-sm font-medium text-gray-700 w-16">État</th>
+          <th class="px-4 py-3 text-center text-sm font-medium text-gray-300 w-16">État</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-200">
+      <tbody class="divide-y divide-gray-800">
         {#each data.entities as entity}
           {@const cleanId = entity.id.includes(':') ? entity.id.split(':')[1] : entity.id}
           {@const translation = getTranslation(cleanId, 'name')}
-          <tr class="hover:bg-gray-50">
+          <tr class="hover:bg-gray-800/50">
             <td class="px-4 py-3 text-sm text-gray-500 font-mono">
               {entity.code}
               {#if entity.domain_name}
-                <span class="block text-xs text-gray-400">{entity.domain_name}</span>
+                <span class="block text-xs text-gray-600">{entity.domain_name}</span>
               {:else if entity.cycle_name}
-                <span class="block text-xs text-gray-400">{entity.cycle_name}</span>
+                <span class="block text-xs text-gray-600">{entity.cycle_name}</span>
               {:else if entity.system_name}
-                <span class="block text-xs text-gray-400">{entity.system_name}</span>
+                <span class="block text-xs text-gray-600">{entity.system_name}</span>
               {:else if entity.track_name}
-                <span class="block text-xs text-gray-400">{entity.track_name}</span>
+                <span class="block text-xs text-gray-600">{entity.track_name}</span>
               {/if}
             </td>
             <td class="px-4 py-3">
@@ -218,7 +218,7 @@
                 {#if entity.icon}
                   <span class="text-lg">{entity.icon}</span>
                 {/if}
-                <span class="text-sm text-gray-900">{entity.name}</span>
+                <span class="text-sm text-white">{entity.name}</span>
               </div>
             </td>
             <td class="px-4 py-3">
@@ -242,7 +242,7 @@
         
         {#if data.entities.length === 0}
           <tr>
-            <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+            <td colspan="4" class="px-4 py-8 text-center text-gray-400">
               Aucune entité trouvée pour ce type.
             </td>
           </tr>

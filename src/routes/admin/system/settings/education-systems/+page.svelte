@@ -201,8 +201,8 @@
     </a>
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">Systèmes éducatifs</h1>
-        <p class="text-muted-foreground mt-1">Gérez les systèmes éducatifs par pays (France, Belgique, Suisse...)</p>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Systèmes éducatifs</h1>
+        <p class="text-gray-400 mt-2">Gérez les systèmes éducatifs par pays (France, Belgique, Suisse...)</p>
       </div>
       <Button onclick={openAddModal}>
         <Plus class="w-4 h-4 mr-2" />
@@ -227,65 +227,74 @@
     <!-- Cards grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {#each educationSystems as system (getSystemId(system))}
-        <div class="bg-card rounded-xl shadow border p-5 hover:shadow-md transition-shadow">
+        <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-800 p-5 hover:shadow-xl transition-shadow">
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-3">
               <div class="text-4xl">{system.flag || '🌍'}</div>
               <div>
-                <h3 class="font-semibold text-lg">{system.name}</h3>
-                <p class="text-sm text-muted-foreground font-mono">{system.code}</p>
+                <h3 class="font-semibold text-lg text-white">{system.name}</h3>
+                <p class="text-sm text-gray-400 font-mono">{system.code}</p>
               </div>
             </div>
             {#if !system.is_active}
-              <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Inactif</span>
+              <span class="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-1 rounded">Inactif</span>
             {/if}
           </div>
 
           <div class="space-y-2 mb-4">
             <div class="flex items-center gap-2 text-sm">
-              <Globe class="w-4 h-4 text-muted-foreground" />
-              <span class="text-muted-foreground">Langue :</span>
-              <span>{system.language_details?.native_name || system.default_language}</span>
+              <Globe class="w-4 h-4 text-gray-400" />
+              <span class="text-gray-400">Langue :</span>
+              <span class="text-white">{system.language_details?.native_name || system.default_language}</span>
             </div>
             <div class="flex items-center gap-2 text-sm">
-              <BookOpen class="w-4 h-4 text-muted-foreground" />
-              <span class="text-muted-foreground">Cycles :</span>
-              <span>{system.cycle_count || 0}</span>
+              <BookOpen class="w-4 h-4 text-gray-400" />
+              <span class="text-gray-400">Cycles :</span>
+              <span class="text-white">{system.cycle_count || 0}</span>
             </div>
           </div>
 
           <!-- Actions -->
           {#if deleteConfirm === getSystemId(system)}
-            <div class="flex items-center justify-between pt-3 border-t">
-              <span class="text-sm text-destructive">Supprimer ?</span>
+            <div class="flex items-center justify-between pt-3 border-t border-gray-800">
+              <span class="text-sm text-red-400">Supprimer ?</span>
               <div class="flex gap-2">
-                <Button size="sm" variant="destructive" onclick={() => deleteSystem(getSystemId(system))} disabled={deleting}>
+                <button 
+                  onclick={() => deleteSystem(getSystemId(system))} 
+                  disabled={deleting}
+                  class="p-1.5 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors disabled:opacity-50"
+                >
                   {#if deleting}
-                    <Loader2 class="w-4 h-4 animate-spin" />
+                    <Loader2 class="w-4 h-4 text-red-400 animate-spin" />
                   {:else}
-                    <Check class="w-4 h-4" />
+                    <Check class="w-4 h-4 text-red-400" />
                   {/if}
-                </Button>
-                <Button size="sm" variant="outline" onclick={cancelDelete}>
-                  <X class="w-4 h-4" />
-                </Button>
+                </button>
+                <button 
+                  onclick={cancelDelete}
+                  class="p-1.5 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X class="w-4 h-4 text-gray-400" />
+                </button>
               </div>
             </div>
           {:else}
-            <div class="flex items-center justify-end gap-2 pt-3 border-t">
-              <Button size="sm" variant="ghost" onclick={() => openEditModal(system)}>
-                <Edit2 class="w-4 h-4 mr-1" />
+            <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-800">
+              <button 
+                onclick={() => openEditModal(system)}
+                class="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <Edit2 class="w-4 h-4" />
                 Modifier
-              </Button>
-              <Button 
-                size="sm" 
-                variant="ghost" 
+              </button>
+              <button 
                 onclick={() => confirmDelete(getSystemId(system))}
                 disabled={(system.cycle_count || 0) > 0}
-                class="text-destructive hover:text-destructive"
+                class="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                title={((system.cycle_count || 0) > 0) ? 'Supprimez d\'abord les cycles' : 'Supprimer'}
               >
-                <Trash2 class="w-4 h-4" />
-              </Button>
+                <Trash2 class="w-4 h-4 text-red-400" />
+              </button>
             </div>
           {/if}
         </div>

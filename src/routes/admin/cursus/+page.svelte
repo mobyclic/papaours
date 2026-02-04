@@ -203,28 +203,28 @@
   <title>Gestion des Cursus - Admin Kweez</title>
 </svelte:head>
 
-<div class="p-8">
+<div class="flex-1 p-8 overflow-auto">
   <!-- Header -->
   <div class="flex items-center justify-between mb-8">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Gestion des Cursus</h1>
-      <p class="text-gray-600 mt-1">Gérez les cycles d'enseignement et les classes</p>
+      <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Gestion des Cursus</h1>
+      <p class="text-gray-400 mt-1">Gérez les cycles d'enseignement et les classes</p>
     </div>
   </div>
 
   <!-- Tabs -->
   <div class="w-full">
-    <div class="flex gap-2 mb-6 border-b border-gray-200">
+    <div class="flex gap-2 mb-6 border-b border-gray-700">
       <button
         onclick={() => activeTab = 'cycles'}
-        class="flex items-center gap-2 px-4 py-2 border-b-2 transition-colors {activeTab === 'cycles' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-600 hover:text-gray-900'}"
+        class="flex items-center gap-2 px-4 py-2 border-b-2 transition-colors {activeTab === 'cycles' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200'}"
       >
         <GraduationCap class="w-4 h-4" />
         Cycles ({data.cycles.length})
       </button>
       <button
         onclick={() => activeTab = 'grades'}
-        class="flex items-center gap-2 px-4 py-2 border-b-2 transition-colors {activeTab === 'grades' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-600 hover:text-gray-900'}"
+        class="flex items-center gap-2 px-4 py-2 border-b-2 transition-colors {activeTab === 'grades' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200'}"
       >
         <BookOpen class="w-4 h-4" />
         Classes ({data.grades.length})
@@ -240,65 +240,68 @@
         </Button>
       </div>
 
-      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 overflow-hidden">
         <table class="w-full">
-          <thead class="bg-gray-50 border-b border-gray-200">
+          <thead class="bg-gray-800/50 border-b border-gray-700">
             <tr>
-              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Ordre</th>
-              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Nom</th>
-              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Slug</th>
-              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Classes</th>
-              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Statut</th>
-              <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">Actions</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Ordre</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Nom</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Slug</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Classes</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Statut</th>
+              <th class="px-4 py-3 text-right text-sm font-semibold text-gray-300">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-200">
+          <tbody class="divide-y divide-gray-800">
             {#each data.cycles as cycle}
-              <tr class="hover:bg-gray-50">
-                <td class="px-4 py-3 text-sm text-gray-600">{cycle.cycle_order}</td>
+              <tr class="hover:bg-gray-800/50">
+                <td class="px-4 py-3 text-sm text-gray-400">{cycle.cycle_order}</td>
                 <td class="px-4 py-3">
-                  <span class="font-medium text-gray-900">{cycle.name}</span>
+                  <span class="font-medium text-white">{cycle.name}</span>
                   {#if cycle.description}
                     <p class="text-xs text-gray-500 mt-0.5">{cycle.description}</p>
                   {/if}
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-600 font-mono">{cycle.slug}</td>
+                <td class="px-4 py-3 text-sm text-gray-400 font-mono">{cycle.slug}</td>
                 <td class="px-4 py-3">
-                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
                     {cycle.grades_count} classes
                   </span>
                 </td>
                 <td class="px-4 py-3">
                   {#if cycle.is_active}
-                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
                       Actif
                     </span>
                   {:else}
-                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-500/20 text-gray-400 border border-gray-500/30">
                       Inactif
                     </span>
                   {/if}
                 </td>
                 <td class="px-4 py-3 text-right">
                   <div class="flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="sm" onclick={() => openCycleModal(cycle)}>
-                      <Pencil class="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <button 
+                      onclick={() => openCycleModal(cycle)}
+                      class="p-1.5 hover:bg-gray-700 rounded-lg transition-colors"
+                      title="Modifier"
+                    >
+                      <Pencil class="w-4 h-4 text-gray-400" />
+                    </button>
+                    <button 
                       onclick={() => deleteCycle(cycle)}
                       disabled={deleting === cycle.id}
-                      class="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      class="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
+                      title="Supprimer"
                     >
-                      <Trash2 class="w-4 h-4" />
-                    </Button>
+                      <Trash2 class="w-4 h-4 text-red-400" />
+                    </button>
                   </div>
                 </td>
               </tr>
             {:else}
               <tr>
-                <td colspan="6" class="px-4 py-12 text-center text-gray-500">
+                <td colspan="6" class="px-4 py-12 text-center text-gray-400">
                   Aucun cycle défini. Ajoutez-en un pour commencer.
                 </td>
               </tr>
@@ -320,57 +323,60 @@
       <div class="space-y-6">
         {#each data.cycles as cycle}
           {@const cycleGrades = gradesByCycle[cycle.slug] || []}
-          <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-              <GraduationCap class="w-5 h-5 text-gray-600" />
-              <h3 class="font-semibold text-gray-900">{cycle.name}</h3>
+          <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 overflow-hidden">
+            <div class="px-4 py-3 bg-gray-800/50 border-b border-gray-700 flex items-center gap-2">
+              <GraduationCap class="w-5 h-5 text-gray-400" />
+              <h3 class="font-semibold text-white">{cycle.name}</h3>
               <span class="text-sm text-gray-500">({cycleGrades.length} classes)</span>
             </div>
             
             {#if cycleGrades.length > 0}
               <table class="w-full">
-                <thead class="bg-gray-50/50">
+                <thead class="bg-gray-800/30">
                   <tr>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600">Ordre</th>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600">Nom</th>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600">Slug</th>
-                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600">Statut</th>
-                    <th class="px-4 py-2 text-right text-xs font-semibold text-gray-600">Actions</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-400">Ordre</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-400">Nom</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-400">Slug</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-400">Statut</th>
+                    <th class="px-4 py-2 text-right text-xs font-semibold text-gray-400">Actions</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody class="divide-y divide-gray-800">
                   {#each cycleGrades as grade}
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-4 py-2 text-sm text-gray-600">{grade.order}</td>
+                    <tr class="hover:bg-gray-800/50">
+                      <td class="px-4 py-2 text-sm text-gray-400">{grade.order}</td>
                       <td class="px-4 py-2">
-                        <span class="font-medium text-gray-900">{grade.name}</span>
+                        <span class="font-medium text-white">{grade.name}</span>
                       </td>
-                      <td class="px-4 py-2 text-sm text-gray-600 font-mono">{grade.slug}</td>
+                      <td class="px-4 py-2 text-sm text-gray-400 font-mono">{grade.slug}</td>
                       <td class="px-4 py-2">
                         {#if grade.is_active}
-                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
                             Actif
                           </span>
                         {:else}
-                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/20 text-gray-400 border border-gray-500/30">
                             Inactif
                           </span>
                         {/if}
                       </td>
                       <td class="px-4 py-2 text-right">
                         <div class="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="sm" onclick={() => openGradeModal(grade)}>
-                            <Pencil class="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <button 
+                            onclick={() => openGradeModal(grade)}
+                            class="p-1.5 hover:bg-gray-700 rounded-lg transition-colors"
+                            title="Modifier"
+                          >
+                            <Pencil class="w-4 h-4 text-gray-400" />
+                          </button>
+                          <button 
                             onclick={() => deleteGrade(grade)}
                             disabled={deleting === grade.id}
-                            class="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            class="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
+                            title="Supprimer"
                           >
-                            <Trash2 class="w-4 h-4" />
-                          </Button>
+                            <Trash2 class="w-4 h-4 text-red-400" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -378,13 +384,13 @@
                 </tbody>
               </table>
             {:else}
-              <div class="px-4 py-8 text-center text-gray-500 text-sm">
+              <div class="px-4 py-8 text-center text-gray-400 text-sm">
                 Aucune classe dans ce cycle
               </div>
             {/if}
           </div>
         {:else}
-          <div class="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-500">
+          <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-12 text-center text-gray-400">
             Créez d'abord des cycles pour pouvoir ajouter des classes.
           </div>
         {/each}

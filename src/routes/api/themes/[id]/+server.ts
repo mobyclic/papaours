@@ -90,7 +90,7 @@ async function updateTheme(params: { id: string }, request: Request) {
       // Convert matiere_ids to RecordIds array
       const matiereIdRecords = (matiere_ids || []).map((id: string) => {
         const mid = id?.includes(':') ? id.split(':')[1] : id;
-        return `type::thing("matiere", "${mid}")`;
+        return `type::thing("subject", "${mid}")`;
       });
       
       // Build the array literal
@@ -99,7 +99,7 @@ async function updateTheme(params: { id: string }, request: Request) {
       // Update matiere_id for backward compatibility
       if (matiere_ids.length > 0) {
         const firstId = matiere_ids[0].includes(':') ? matiere_ids[0].split(':')[1] : matiere_ids[0];
-        updates.push(`matiere_id = type::thing("matiere", "${firstId}")`);
+        updates.push(`matiere_id = type::thing("subject", "${firstId}")`);
       } else {
         updates.push('matiere_id = NONE');
       }

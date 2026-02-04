@@ -170,12 +170,12 @@
   <title>Gestion des Badges - Admin Kweez</title>
 </svelte:head>
 
-<div class="p-8">
+<div class="flex-1 p-8 overflow-auto">
   <!-- Header -->
   <div class="flex items-center justify-between mb-8">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Gestion des Badges</h1>
-      <p class="text-gray-600 mt-1">Gérez les badges et récompenses de gamification</p>
+      <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Gestion des Badges</h1>
+      <p class="text-gray-400 mt-1">Gérez les badges et récompenses de gamification</p>
     </div>
     <Button onclick={() => openModal()} class="flex items-center gap-2">
       <Plus class="w-4 h-4" />
@@ -185,25 +185,25 @@
 
   <!-- Stats -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
       <div class="text-2xl mb-1">🏆</div>
-      <div class="text-2xl font-bold text-gray-900">{data.badges.length}</div>
-      <div class="text-sm text-gray-500">Badges total</div>
+      <div class="text-2xl font-bold text-white">{data.badges.length}</div>
+      <div class="text-sm text-gray-400">Badges total</div>
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
       <div class="text-2xl mb-1">✅</div>
-      <div class="text-2xl font-bold text-green-600">{data.badges.filter(b => b.is_active).length}</div>
-      <div class="text-sm text-gray-500">Actifs</div>
+      <div class="text-2xl font-bold text-green-400">{data.badges.filter(b => b.is_active).length}</div>
+      <div class="text-sm text-gray-400">Actifs</div>
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
       <div class="text-2xl mb-1">👥</div>
-      <div class="text-2xl font-bold text-blue-600">{data.badges.reduce((acc, b) => acc + (b.users_count || 0), 0)}</div>
-      <div class="text-sm text-gray-500">Badges débloqués</div>
+      <div class="text-2xl font-bold text-blue-400">{data.badges.reduce((acc, b) => acc + (b.users_count || 0), 0)}</div>
+      <div class="text-sm text-gray-400">Badges débloqués</div>
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
       <div class="text-2xl mb-1">📊</div>
-      <div class="text-2xl font-bold text-purple-600">{data.categories.length}</div>
-      <div class="text-sm text-gray-500">Catégories</div>
+      <div class="text-2xl font-bold text-purple-400">{data.categories.length}</div>
+      <div class="text-sm text-gray-400">Catégories</div>
     </div>
   </div>
 
@@ -211,7 +211,7 @@
   <div class="flex gap-2 mb-6 flex-wrap">
     <button
       onclick={() => filterCategory = 'all'}
-      class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {filterCategory === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+      class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {filterCategory === 'all' ? 'bg-gray-700 text-white' : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
     >
       Tous ({data.badges.length})
     </button>
@@ -219,7 +219,7 @@
       {@const count = data.badges.filter(b => b.category === cat.id).length}
       <button
         onclick={() => filterCategory = cat.id}
-        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 {filterCategory === cat.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 {filterCategory === cat.id ? 'bg-gray-700 text-white' : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
       >
         <span>{cat.icon}</span>
         {cat.name} ({count})
@@ -228,86 +228,89 @@
   </div>
 
   <!-- Liste des badges -->
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 overflow-hidden">
     <table class="w-full">
-      <thead class="bg-gray-50 border-b border-gray-200">
+      <thead class="bg-gray-800/50 border-b border-gray-700">
         <tr>
-          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Badge</th>
-          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Catégorie</th>
-          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Condition</th>
-          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Points</th>
-          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Utilisateurs</th>
-          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Statut</th>
-          <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">Actions</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Badge</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Catégorie</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Condition</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Points</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Utilisateurs</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Statut</th>
+          <th class="px-4 py-3 text-right text-sm font-semibold text-gray-300">Actions</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-200">
+      <tbody class="divide-y divide-gray-800">
         {#each filteredBadges as badge}
-          <tr class="hover:bg-gray-50">
+          <tr class="hover:bg-gray-800/50">
             <td class="px-4 py-3">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center text-xl">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/20 flex items-center justify-center text-xl border border-amber-500/30">
                   {badge.icon || '🏆'}
                 </div>
                 <div>
-                  <div class="font-medium text-gray-900">{badge.name}</div>
+                  <div class="font-medium text-white">{badge.name}</div>
                   <div class="text-xs text-gray-500 font-mono">{badge.slug}</div>
                 </div>
               </div>
             </td>
             <td class="px-4 py-3">
-              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-800/50 text-gray-300 border border-gray-700">
                 {getCategoryIcon(badge.category)} {getCategoryName(badge.category)}
               </span>
             </td>
             <td class="px-4 py-3">
-              <div class="text-sm text-gray-600">
+              <div class="text-sm text-gray-300">
                 {conditionTypes.find(c => c.id === badge.condition_type)?.name || badge.condition_type}
               </div>
               <div class="text-xs text-gray-500">Valeur: {badge.condition_value}</div>
             </td>
             <td class="px-4 py-3">
-              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30">
                 +{badge.points} pts
               </span>
             </td>
             <td class="px-4 py-3">
-              <span class="inline-flex items-center gap-1 text-sm text-gray-600">
+              <span class="inline-flex items-center gap-1 text-sm text-gray-400">
                 <Users class="w-4 h-4" />
                 {badge.users_count}
               </span>
             </td>
             <td class="px-4 py-3">
               {#if badge.is_active}
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
                   Actif
                 </span>
               {:else}
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-500/20 text-gray-400 border border-gray-500/30">
                   Inactif
                 </span>
               {/if}
             </td>
             <td class="px-4 py-3 text-right">
               <div class="flex items-center justify-end gap-2">
-                <Button variant="ghost" size="sm" onclick={() => openModal(badge)}>
-                  <Pencil class="w-4 h-4" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <button 
+                  onclick={() => openModal(badge)}
+                  class="p-1.5 hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Modifier"
+                >
+                  <Pencil class="w-4 h-4 text-gray-400" />
+                </button>
+                <button 
                   onclick={() => deleteBadge(badge)}
                   disabled={deleting === badge.id}
-                  class="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  class="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
+                  title="Supprimer"
                 >
-                  <Trash2 class="w-4 h-4" />
-                </Button>
+                  <Trash2 class="w-4 h-4 text-red-400" />
+                </button>
               </div>
             </td>
           </tr>
         {:else}
           <tr>
-            <td colspan="7" class="px-4 py-12 text-center text-gray-500">
+            <td colspan="7" class="px-4 py-12 text-center text-gray-400">
               {#if filterCategory !== 'all'}
                 Aucun badge dans cette catégorie.
               {:else}

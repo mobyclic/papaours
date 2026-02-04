@@ -22,7 +22,7 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
 
     // Charger les subjects (matières unifiées) avec leurs stats
     const subjectsResult = await db.query(`
-      SELECT id, code, name, icon, color, domain FROM subject WHERE is_active = true ORDER BY name
+      SELECT id, code, name, icon, color, domain, pos FROM subject WHERE is_active = true ORDER BY pos ASC, name ASC
     `);
     const allSubjects = (subjectsResult[0] as any[]) || [];
     

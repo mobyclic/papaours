@@ -74,9 +74,9 @@
   ];
   
   const difficulties = [
-    { value: 'easy', label: 'Facile', color: 'bg-green-100 text-green-700' },
-    { value: 'medium', label: 'Moyen', color: 'bg-yellow-100 text-yellow-700' },
-    { value: 'hard', label: 'Difficile', color: 'bg-red-100 text-red-700' },
+    { value: 'easy', label: 'Facile', color: 'bg-green-500/20 text-green-400 border border-green-500/30' },
+    { value: 'medium', label: 'Moyen', color: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' },
+    { value: 'hard', label: 'Difficile', color: 'bg-red-500/20 text-red-400 border border-red-500/30' },
   ];
   
   // Pagination
@@ -296,12 +296,12 @@
   <title>Gestion des Questions - Admin</title>
 </svelte:head>
 
-<div class="p-6">
+<div class="flex-1 p-6 overflow-auto">
   <!-- Header -->
   <div class="flex items-center justify-between mb-6">
     <div>
-      <h1 class="text-2xl font-bold text-gray-800">Gestion des Questions</h1>
-      <p class="text-gray-600">{data.total} question{data.total > 1 ? 's' : ''} au total</p>
+      <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Gestion des Questions</h1>
+      <p class="text-gray-400">{data.total} question{data.total > 1 ? 's' : ''} au total</p>
     </div>
     <div class="flex items-center gap-3">
       <!-- Générateur IA -->
@@ -324,7 +324,7 @@
   </div>
   
   <!-- Filtres -->
-  <div class="bg-white rounded-xl shadow-sm border p-4 mb-6">
+  <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-800 p-4 mb-6">
     <div class="flex flex-wrap items-center gap-4">
       <!-- Recherche -->
       <div class="flex-1 min-w-[200px]">
@@ -335,7 +335,7 @@
             bind:value={searchInput}
             onkeydown={(e) => e.key === 'Enter' && applyFilters()}
             placeholder="Rechercher une question..."
-            class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-300 focus:border-purple-500"
+            class="w-full pl-10 pr-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-purple-500"
           />
         </div>
       </div>
@@ -343,7 +343,7 @@
       <!-- Toggle filtres avancés -->
       <button
         onclick={() => showFilters = !showFilters}
-        class="flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-gray-50"
+        class="flex items-center gap-2 px-3 py-2 border border-gray-700 rounded-lg text-gray-300 hover:bg-gray-800/50"
       >
         <Filter class="w-4 h-4" />
         Filtres
@@ -362,10 +362,10 @@
     
     <!-- Filtres avancés -->
     {#if showFilters}
-      <div class="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div class="mt-4 pt-4 border-t border-gray-700 grid grid-cols-2 md:grid-cols-5 gap-4">
         <div>
-          <label for="filter-type" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-          <select id="filter-type" bind:value={selectedType} class="w-full border rounded-lg px-3 py-2">
+          <label for="filter-type" class="block text-sm font-medium text-gray-300 mb-1">Type</label>
+          <select id="filter-type" bind:value={selectedType} class="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-white">
             <option value="">Tous les types</option>
             {#each questionTypes as type}
               <option value={type.value}>{type.label}</option>
@@ -374,8 +374,8 @@
         </div>
         
         <div>
-          <label for="filter-difficulty" class="block text-sm font-medium text-gray-700 mb-1">Difficulté</label>
-          <select id="filter-difficulty" bind:value={selectedDifficulty} class="w-full border rounded-lg px-3 py-2">
+          <label for="filter-difficulty" class="block text-sm font-medium text-gray-300 mb-1">Difficulté</label>
+          <select id="filter-difficulty" bind:value={selectedDifficulty} class="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-white">
             <option value="">Toutes</option>
             {#each difficulties as diff}
               <option value={diff.value}>{diff.label}</option>
@@ -384,8 +384,8 @@
         </div>
         
         <div>
-          <label for="filter-matiere" class="block text-sm font-medium text-gray-700 mb-1">Matière</label>
-          <select id="filter-matiere" bind:value={selectedMatiere} onchange={() => selectedTheme = ''} class="w-full border rounded-lg px-3 py-2">
+          <label for="filter-matiere" class="block text-sm font-medium text-gray-300 mb-1">Matière</label>
+          <select id="filter-matiere" bind:value={selectedMatiere} onchange={() => selectedTheme = ''} class="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-white">
             <option value="">Toutes</option>
             {#each data.matieres as matiere}
               <option value={matiere.id.split(':')[1] || matiere.id}>{matiere.name}</option>
@@ -394,8 +394,8 @@
         </div>
         
         <div>
-          <label for="filter-theme" class="block text-sm font-medium text-gray-700 mb-1">Thème</label>
-          <select id="filter-theme" bind:value={selectedTheme} class="w-full border rounded-lg px-3 py-2">
+          <label for="filter-theme" class="block text-sm font-medium text-gray-300 mb-1">Thème</label>
+          <select id="filter-theme" bind:value={selectedTheme} class="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-white">
             <option value="">Tous</option>
             {#each filteredThemes as theme}
               <option value={theme.id.split(':')[1] || theme.id}>{theme.name}</option>
@@ -404,8 +404,8 @@
         </div>
         
         <div>
-          <label for="filter-status" class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-          <select id="filter-status" bind:value={selectedActive} class="w-full border rounded-lg px-3 py-2">
+          <label for="filter-status" class="block text-sm font-medium text-gray-300 mb-1">Statut</label>
+          <select id="filter-status" bind:value={selectedActive} class="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-white">
             <option value="">Tous</option>
             <option value="true">Actives</option>
             <option value="false">Inactives</option>
@@ -414,7 +414,7 @@
       </div>
       
       <div class="mt-4 flex justify-end">
-        <button onclick={clearFilters} class="text-sm text-gray-500 hover:text-gray-700">
+        <button onclick={clearFilters} class="text-sm text-gray-400 hover:text-gray-200">
           Réinitialiser les filtres
         </button>
       </div>
@@ -422,30 +422,30 @@
   </div>
   
   <!-- Liste des questions -->
-  <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-800 overflow-hidden">
     <table class="w-full">
-      <thead class="bg-gray-50 border-b">
+      <thead class="bg-gray-800/50 border-b border-gray-700">
         <tr>
-          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Question</th>
-          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-32">Type</th>
-          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-24">Difficulté</th>
-          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-32">Matière</th>
-          <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700 w-20">Statut</th>
-          <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700 w-24">Actions</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Question</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-32">Type</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-24">Difficulté</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300 w-32">Matière</th>
+          <th class="px-4 py-3 text-center text-sm font-semibold text-gray-300 w-20">Statut</th>
+          <th class="px-4 py-3 text-right text-sm font-semibold text-gray-300 w-24">Actions</th>
         </tr>
       </thead>
-      <tbody class="divide-y">
+      <tbody class="divide-y divide-gray-800">
         {#each data.questions as question}
           {@const typeInfo = getTypeInfo(question.questionType)}
           {@const diffInfo = getDifficultyInfo(question.difficulty)}
-          <tr class="hover:bg-gray-50">
+          <tr class="hover:bg-gray-800/50">
             <td class="px-4 py-3">
               <div class="flex items-start gap-3">
                 {#if question.imageUrl}
                   <img src={question.imageUrl} alt="" class="w-12 h-12 object-cover rounded" />
                 {/if}
                 <div class="min-w-0">
-                  <p class="font-medium text-gray-800 line-clamp-2">{question.question}</p>
+                  <p class="font-medium text-white line-clamp-2">{question.question}</p>
                   {#if question.explanation}
                     <p class="text-xs text-gray-500 mt-1 line-clamp-1">{question.explanation}</p>
                   {/if}
@@ -456,11 +456,11 @@
               {#if typeInfo.icon}
                 {@const Icon = typeInfo.icon}
                 <div class="flex items-center gap-2">
-                  <Icon class="w-4 h-4 text-gray-500" />
-                  <span class="text-sm">{typeInfo.label}</span>
+                  <Icon class="w-4 h-4 text-gray-400" />
+                  <span class="text-sm text-gray-300">{typeInfo.label}</span>
                 </div>
               {:else}
-                <span class="text-sm">{typeInfo.label}</span>
+                <span class="text-sm text-gray-300">{typeInfo.label}</span>
               {/if}
             </td>
             <td class="px-4 py-3">
@@ -469,11 +469,11 @@
               </span>
             </td>
             <td class="px-4 py-3">
-              <span class="text-sm text-gray-600">{question.matiere_name || '-'}</span>
+              <span class="text-sm text-gray-400">{question.matiere_name || '-'}</span>
             </td>
             <td class="px-4 py-3 text-center">
               {#if question.isActive}
-                <Check class="w-5 h-5 text-green-500 mx-auto" />
+                <Check class="w-5 h-5 text-green-400 mx-auto" />
               {:else}
                 <X class="w-5 h-5 text-red-400 mx-auto" />
               {/if}
@@ -482,14 +482,14 @@
               <div class="flex items-center justify-end gap-2">
                 <button
                   onclick={() => openEditModal(question)}
-                  class="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded"
+                  class="p-1.5 text-gray-400 hover:text-purple-400 hover:bg-purple-500/20 rounded"
                   title="Modifier"
                 >
                   <Pencil class="w-4 h-4" />
                 </button>
                 <button
                   onclick={() => openDeleteModal(question)}
-                  class="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                  class="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded"
                   title="Supprimer"
                 >
                   <Trash2 class="w-4 h-4" />
@@ -499,7 +499,7 @@
           </tr>
         {:else}
           <tr>
-            <td colspan="6" class="px-4 py-12 text-center text-gray-500">
+            <td colspan="6" class="px-4 py-12 text-center text-gray-400">
               Aucune question trouvée
             </td>
           </tr>
@@ -511,14 +511,14 @@
   <!-- Pagination -->
   {#if totalPages > 1}
     <div class="flex items-center justify-between mt-4">
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-gray-400">
         Page {data.page} sur {totalPages}
       </p>
       <div class="flex items-center gap-2">
         <button
           onclick={() => goToPage(data.page - 1)}
           disabled={data.page <= 1}
-          class="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="p-2 border border-gray-700 rounded-lg text-gray-300 hover:bg-gray-800/50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronLeft class="w-5 h-5" />
         </button>
@@ -528,7 +528,7 @@
           {#if pageNum <= totalPages}
             <button
               onclick={() => goToPage(pageNum)}
-              class="w-10 h-10 rounded-lg {pageNum === data.page ? 'bg-purple-600 text-white' : 'border hover:bg-gray-50'}"
+              class="w-10 h-10 rounded-lg {pageNum === data.page ? 'bg-purple-600 text-white' : 'border border-gray-700 text-gray-300 hover:bg-gray-800/50'}"
             >
               {pageNum}
             </button>
@@ -538,7 +538,7 @@
         <button
           onclick={() => goToPage(data.page + 1)}
           disabled={data.page >= totalPages}
-          class="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="p-2 border border-gray-700 rounded-lg text-gray-300 hover:bg-gray-800/50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronRight class="w-5 h-5" />
         </button>

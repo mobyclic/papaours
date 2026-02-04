@@ -290,23 +290,19 @@
     </a>
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">Spécialités</h1>
-        <p class="text-muted-foreground mt-1">Mathématiques, Physique-Chimie, SVT, SES, LLCE...</p>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Spécialités</h1>
+        <p class="text-gray-400 mt-2">Mathématiques, Physique-Chimie, SVT, SES, LLCE...</p>
       </div>
       <div class="flex items-center gap-3">
-        <Select.Root type="single" bind:value={filterTrack}>
-          <Select.Trigger class="w-56">
-            {#snippet children()}
-              {filterTrack === 'all' ? 'Toutes les filières' : tracks.find(t => t.code === filterTrack)?.name || filterTrack}
-            {/snippet}
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value="all">Toutes les filières</Select.Item>
-            {#each tracks as trk}
-              <Select.Item value={trk.code}>{trk.system_flag} {trk.name} ({trk.cycle_name})</Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
+        <select
+          bind:value={filterTrack}
+          class="w-56 px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">Toutes les filières</option>
+          {#each tracks as trk}
+            <option value={trk.code}>{trk.system_flag} {trk.name} ({trk.cycle_name})</option>
+          {/each}
+        </select>
 
         <Button onclick={openAddModal}>
           <Plus class="w-4 h-4 mr-2" />
@@ -339,12 +335,12 @@
   {:else}
     {#each Object.entries(specialtiesByTrack()) as [trackKey, trackSpecialties]}
       <div class="mb-8">
-        <h2 class="text-lg font-semibold mb-3">{trackKey}</h2>
-        <div class="bg-card rounded-xl shadow border overflow-hidden">
-          <div class="divide-y">
+        <h2 class="text-lg font-semibold mb-3 text-white">{trackKey}</h2>
+        <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-800 overflow-hidden">
+          <div class="divide-y divide-gray-800">
             {#each trackSpecialties as spec (getSpecId(spec))}
               <div
-                class="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors {draggingId === spec.id ? 'opacity-50 bg-muted' : ''}"
+                class="flex items-center gap-4 p-4 hover:bg-gray-800/50 transition-colors {draggingId === spec.id ? 'opacity-50 bg-gray-800' : ''}"
                 draggable="true"
                 ondragstart={(e) => handleDragStart(e, spec.id)}
                 ondragover={handleDragOver}
@@ -359,20 +355,20 @@
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
                     <Star class="w-4 h-4 text-amber-500" />
-                    <span class="font-semibold">{spec.name}</span>
-                    <span class="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
+                    <span class="font-semibold text-white">{spec.name}</span>
+                    <span class="text-xs text-gray-300 font-mono bg-gray-800 px-1.5 py-0.5 rounded">
                       {spec.code}
                     </span>
                     {#if !spec.is_active}
-                      <span class="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">Inactif</span>
+                      <span class="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded">Inactif</span>
                     {/if}
                   </div>
                   {#if spec.description}
-                    <p class="text-sm text-muted-foreground truncate max-w-lg">{spec.description}</p>
+                    <p class="text-sm text-gray-400 truncate max-w-lg">{spec.description}</p>
                   {/if}
                 </div>
 
-                <div class="flex items-center gap-4 text-sm text-muted-foreground">
+                <div class="flex items-center gap-4 text-sm text-gray-400">
                   <div class="flex items-center gap-1" title="Programmes">
                     <BookOpen class="w-4 h-4" />
                     <span>{spec.program_count || 0}</span>
@@ -386,14 +382,14 @@
                       class="p-1.5 bg-destructive/10 hover:bg-destructive/20 rounded-lg">
                       {#if deleting}<Loader2 class="w-4 h-4 animate-spin text-destructive" />{:else}<Check class="w-4 h-4 text-destructive" />{/if}
                     </button>
-                    <button onclick={cancelDelete} class="p-1.5 bg-muted rounded-lg">
+                    <button onclick={cancelDelete} class="p-1.5 bg-gray-800 rounded-lg">
                       <X class="w-4 h-4" />
                     </button>
                   </div>
                 {:else}
                   <div class="flex items-center gap-1">
-                    <button onclick={() => openEditModal(spec)} class="p-2 hover:bg-muted rounded-lg" title="Modifier">
-                      <Edit2 class="w-4 h-4 text-muted-foreground" />
+                    <button onclick={() => openEditModal(spec)} class="p-2 hover:bg-gray-800 rounded-lg" title="Modifier">
+                      <Edit2 class="w-4 h-4 text-gray-400" />
                     </button>
                     <button 
                       onclick={() => confirmDelete(getSpecId(spec))} 

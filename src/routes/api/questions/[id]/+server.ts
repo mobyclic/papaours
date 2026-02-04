@@ -129,7 +129,7 @@ export const PUT = async ({ params, request }: RequestEvent) => {
         questionType = $questionType,
         correctAnswer = $correctAnswer,
         isActive = $isActive,
-        matiere_id = type::thing("matiere", $matiereId),
+        matiere_id = type::thing("subject", $matiereId),
         theme_ids = ${themeIdsArray},
         grade_difficulties = ${gradeDiffArray},
         competence_ids = ${competenceIdsArray},
@@ -206,7 +206,7 @@ export const PATCH = async ({ params, request }: RequestEvent) => {
         ? data.matiere_id.split(':')[1] 
         : data.matiere_id;
       if (matiereIdClean) {
-        updates.push(`matiere_id = type::thing("matiere", "${matiereIdClean}")`);
+        updates.push(`matiere_id = type::thing("subject", "${matiereIdClean}")`);
       }
     }
 

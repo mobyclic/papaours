@@ -1,6 +1,23 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSurrealDB } from '$lib/server/db';
+import { RecordId } from 'surrealdb';
+
+// Helper to serialize SurrealDB data
+function serializeData<T>(data: T): T {
+  if (data === null || data === undefined) return data;
+  if (data instanceof RecordId) return data.toString() as unknown as T;
+  if (data instanceof Date) return data.toISOString() as unknown as T;
+  if (Array.isArray(data)) return data.map(item => serializeData(item)) as unknown as T;
+  if (typeof data === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      result[key] = serializeData(value);
+    }
+    return result as T;
+  }
+  return data;
+}
 
 export const GET: RequestHandler = async ({ url }) => {
   const db = await getSurrealDB();
@@ -18,8 +35,8 @@ export const GET: RequestHandler = async ({ url }) => {
         cycle.system.flag as system_flag,
         cycle.system.code as system_code,
         cycle.\`order\` as cycle_order,
-        (SELECT count() FROM specialty WHERE track = $parent.id) as specialty_count,
-        (SELECT count() FROM grade WHERE track = $parent.id) as grade_count
+        count(SELECT * FROM specialty WHERE track = $parent.id) as specialty_count,
+        count(SELECT * FROM grade WHERE track = $parent.id) as grade_count
       FROM track
     `;
     
@@ -60,9 +77,9 @@ export const GET: RequestHandler = async ({ url }) => {
     `);
     
     return json({
-      tracks: tracks[0] || [],
-      cycles: cycles[0] || [],
-      educationSystems: systems[0] || []
+      tracks: serializeData(tracks[0] || []),
+      cycles: serializeData(cycles[0] || []),
+      educationSystems: serializeData(systems[0] || [])
     });
   } catch (error) {
     console.error('Error fetching tracks:', error);

@@ -248,8 +248,8 @@
     </a>
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">Domaines</h1>
-        <p class="text-muted-foreground mt-1">Regroupez les matières par domaine (Humanités, Sciences, Langues...)</p>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Domaines</h1>
+        <p class="text-gray-400 mt-2">Regroupez les matières par domaine (Humanités, Sciences, Langues...)</p>
       </div>
       <Button onclick={openAddModal}>
         <Plus class="w-4 h-4 mr-2" />
@@ -268,13 +268,13 @@
   {#if loading}
     <div class="flex items-center justify-center py-12">
       <Loader2 class="w-8 h-8 animate-spin text-primary" />
-      <span class="ml-2 text-muted-foreground">Chargement...</span>
+      <span class="ml-2 text-gray-400">Chargement...</span>
     </div>
   {:else}
     <!-- Liste avec drag & drop -->
-    <div class="bg-card rounded-xl shadow border overflow-hidden">
-      <div class="p-4 bg-muted/50 border-b">
-        <p class="text-sm text-muted-foreground flex items-center gap-2">
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-800 overflow-hidden">
+      <div class="p-4 bg-gray-800/50 border-b border-gray-700">
+        <p class="text-sm text-gray-400 flex items-center gap-2">
           <GripVertical class="w-4 h-4" />
           Glissez-déposez pour réorganiser l'ordre d'affichage
         </p>
@@ -288,10 +288,10 @@
           </button>
         </div>
       {:else}
-        <div class="divide-y">
+        <div class="divide-y divide-gray-800">
           {#each domains as domain (getDomainId(domain))}
             <div
-              class="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors {draggingId === domain.id ? 'opacity-50 bg-muted' : ''}"
+              class="flex items-center gap-4 p-4 hover:bg-gray-800/50 transition-colors {draggingId === domain.id ? 'opacity-50 bg-gray-800' : ''}"
               draggable="true"
               ondragstart={(e) => handleDragStart(e, domain.id)}
               ondragover={handleDragOver}
@@ -316,23 +316,23 @@
               <!-- Info -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                  <span class="font-semibold">{domain.name}</span>
-                  <span class="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
+                  <span class="font-semibold text-white">{domain.name}</span>
+                  <span class="text-xs text-gray-300 font-mono bg-gray-800 px-1.5 py-0.5 rounded">
                     {domain.code}
                   </span>
                   {#if !domain.is_active}
-                    <span class="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">
+                    <span class="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded">
                       Inactif
                     </span>
                   {/if}
                 </div>
                 {#if domain.description}
-                  <p class="text-sm text-muted-foreground truncate">{domain.description}</p>
+                  <p class="text-sm text-gray-400 truncate">{domain.description}</p>
                 {/if}
               </div>
 
               <!-- Stats -->
-              <div class="flex items-center gap-2 text-sm text-muted-foreground">
+              <div class="flex items-center gap-2 text-sm text-gray-400">
                 <BookOpen class="w-4 h-4" />
                 <span>{domain.subject_count || 0} matière(s)</span>
               </div>
@@ -354,7 +354,7 @@
                   </button>
                   <button 
                     onclick={cancelDelete}
-                    class="p-1.5 bg-muted hover:bg-muted/80 rounded-lg transition-colors"
+                    class="p-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
                   >
                     <X class="w-4 h-4" />
                   </button>
@@ -363,10 +363,10 @@
                 <div class="flex items-center gap-1">
                   <button 
                     onclick={() => openEditModal(domain)}
-                    class="p-2 hover:bg-muted rounded-lg transition-colors"
+                    class="p-2 hover:bg-gray-800 rounded-lg transition-colors"
                     title="Modifier"
                   >
-                    <Edit2 class="w-4 h-4 text-muted-foreground" />
+                    <Edit2 class="w-4 h-4 text-gray-400" />
                   </button>
                   <button 
                     onclick={() => confirmDelete(getDomainId(domain))}

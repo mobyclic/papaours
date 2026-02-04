@@ -87,7 +87,7 @@ export const POST: RequestHandler = async ({ request }) => {
       const params: Record<string, any> = {};
       
       if (matiereId) {
-        whereClause += ' AND matiere_id = type::thing("matiere", $matiereId)';
+        whereClause += ' AND matiere_id = type::thing("subject", $matiereId)';
         params.matiereId = matiereId.includes(':') ? matiereId.split(':')[1] : matiereId;
       }
       

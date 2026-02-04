@@ -278,7 +278,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
     if (quiz.matiere_id) {
       const cleanMatiereId = quiz.matiere_id.toString().split(':')[1] || quiz.matiere_id.toString();
       countResult = await db.query<any[]>(
-        'SELECT count() FROM question WHERE matiere_id = type::thing("matiere", $matiereId) AND isActive = true GROUP ALL',
+        'SELECT count() FROM question WHERE matiere_id = type::thing("subject", $matiereId) AND isActive = true GROUP ALL',
         { matiereId: cleanMatiereId }
       );
     } else {

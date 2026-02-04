@@ -312,37 +312,30 @@
     </a>
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">Filières</h1>
-        <p class="text-muted-foreground mt-1">Générale, Technologique, Professionnelle...</p>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Filières</h1>
+        <p class="text-gray-400 mt-2">Générale, Technologique, Professionnelle...</p>
       </div>
       <div class="flex items-center gap-3">
-        <Select.Root type="single" bind:value={filterSystem} onValueChange={() => { filterCycle = 'all'; }}>
-          <Select.Trigger class="w-48">
-            {#snippet children()}
-              {filterSystem === 'all' ? 'Tous les systèmes' : educationSystems.find(s => s.code === filterSystem)?.name || filterSystem}
-            {/snippet}
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value="all">Tous les systèmes</Select.Item>
-            {#each educationSystems as sys}
-              <Select.Item value={sys.code}>{sys.flag} {sys.name}</Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
+        <select
+          bind:value={filterSystem}
+          onchange={() => { filterCycle = 'all'; }}
+          class="w-48 px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">Tous les systèmes</option>
+          {#each educationSystems as sys}
+            <option value={sys.code}>{sys.flag} {sys.name}</option>
+          {/each}
+        </select>
 
-        <Select.Root type="single" bind:value={filterCycle}>
-          <Select.Trigger class="w-48">
-            {#snippet children()}
-              {filterCycle === 'all' ? 'Tous les cycles' : cycles.find(c => c.code === filterCycle)?.name || filterCycle}
-            {/snippet}
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value="all">Tous les cycles</Select.Item>
-            {#each filteredCycles as cyc}
-              <Select.Item value={cyc.code}>{cyc.system_flag} {cyc.name}</Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
+        <select
+          bind:value={filterCycle}
+          class="w-48 px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">Tous les cycles</option>
+          {#each filteredCycles as cyc}
+            <option value={cyc.code}>{cyc.system_flag} {cyc.name}</option>
+          {/each}
+        </select>
 
         <Button onclick={openAddModal}>
           <Plus class="w-4 h-4 mr-2" />
@@ -366,14 +359,14 @@
   {:else}
     {#each Object.entries(tracksByCycle()) as [cycleName, cycleTracks]}
       <div class="mb-8">
-        <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
+        <h2 class="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
           {cycleTracks[0]?.system_flag || '🌍'} {cycleName}
         </h2>
-        <div class="bg-card rounded-xl shadow border overflow-hidden">
-          <div class="divide-y">
+        <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-800 overflow-hidden">
+          <div class="divide-y divide-gray-800">
             {#each cycleTracks as track (getTrackId(track))}
               <div
-                class="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors {draggingId === track.id ? 'opacity-50 bg-muted' : ''}"
+                class="flex items-center gap-4 p-4 hover:bg-gray-800/50 transition-colors {draggingId === track.id ? 'opacity-50 bg-gray-800' : ''}"
                 draggable="true"
                 ondragstart={(e) => handleDragStart(e, track.id)}
                 ondragover={handleDragOver}
@@ -387,20 +380,20 @@
 
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
-                    <span class="font-semibold">{track.name}</span>
-                    <span class="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
+                    <span class="font-semibold text-white">{track.name}</span>
+                    <span class="text-xs text-gray-300 font-mono bg-gray-800 px-1.5 py-0.5 rounded">
                       {track.code}
                     </span>
                     {#if !track.is_active}
-                      <span class="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">Inactif</span>
+                      <span class="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded">Inactif</span>
                     {/if}
                   </div>
                   {#if track.description}
-                    <p class="text-sm text-muted-foreground truncate max-w-md">{track.description}</p>
+                    <p class="text-sm text-gray-400 truncate max-w-md">{track.description}</p>
                   {/if}
                 </div>
 
-                <div class="flex items-center gap-4 text-sm text-muted-foreground">
+                <div class="flex items-center gap-4 text-sm text-gray-400">
                   <div class="flex items-center gap-1" title="Spécialités">
                     <Star class="w-4 h-4" />
                     <span>{track.specialty_count || 0}</span>
@@ -418,14 +411,14 @@
                       class="p-1.5 bg-destructive/10 hover:bg-destructive/20 rounded-lg">
                       {#if deleting}<Loader2 class="w-4 h-4 animate-spin text-destructive" />{:else}<Check class="w-4 h-4 text-destructive" />{/if}
                     </button>
-                    <button onclick={cancelDelete} class="p-1.5 bg-muted rounded-lg">
+                    <button onclick={cancelDelete} class="p-1.5 bg-gray-800 rounded-lg">
                       <X class="w-4 h-4" />
                     </button>
                   </div>
                 {:else}
                   <div class="flex items-center gap-1">
-                    <button onclick={() => openEditModal(track)} class="p-2 hover:bg-muted rounded-lg" title="Modifier">
-                      <Edit2 class="w-4 h-4 text-muted-foreground" />
+                    <button onclick={() => openEditModal(track)} class="p-2 hover:bg-gray-800 rounded-lg" title="Modifier">
+                      <Edit2 class="w-4 h-4 text-gray-400" />
                     </button>
                     <button 
                       onclick={() => confirmDelete(getTrackId(track))} 

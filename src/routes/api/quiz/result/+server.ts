@@ -60,7 +60,7 @@ export const POST: RequestHandler = async ({ request }) => {
       } else if (quiz?.matiere_id) {
         const cleanMatiereId = quiz.matiere_id.toString().split(':')[1] || quiz.matiere_id.toString();
         questionsResult = await db.query<any[]>(
-          'SELECT matiere_id, theme_ids FROM question WHERE matiere_id = type::thing("matiere", $matiereId)',
+          'SELECT matiere_id, theme_ids FROM question WHERE matiere_id = type::thing("subject", $matiereId)',
           { matiereId: cleanMatiereId }
         );
       } else {
