@@ -13,17 +13,17 @@ export const GET: RequestHandler = async ({ url }) => {
     
     let query = `
       SELECT 
-        id, code, name, short_name, \`order\` as grade_order, is_active,
+        id, code, name, slug, short_name, \`order\` as grade_order, is_active,
         cycle.id as cycle_id,
         cycle.code as cycle_code,
         cycle.name as cycle_name,
+        cycle.slug as cycle_slug,
         cycle.\`order\` as cycle_order,
         cycle.system.name as system_name,
         cycle.system.code as system_code,
         cycle.system.flag as system_flag,
         track.id as track_id,
-        track.name as track_name,
-        (SELECT count() FROM official_program WHERE grade = $parent.id) as program_count
+        track.name as track_name
       FROM grade
     `;
     
@@ -51,11 +51,34 @@ export const GET: RequestHandler = async ({ url }) => {
     
     query += ' ORDER BY system_code ASC, cycle_order ASC, grade_order ASC';
     
-    const grades = await db.query<any[]>(query, params);
+    const gradesResult = await db.query<any[]>(query, params);
+    const rawGrades = gradesResult[0] || [];
+    
+    // Compter les programmes par grade_slug
+    const programCounts = await db.query<any[]>(`
+      SELECT grade_slug, count() as cnt
+      FROM official_program
+      GROUP BY grade_slug
+    `);
+    const countMap: Record<string, number> = {};
+    for (const row of (programCounts[0] || [])) {
+      if (row.grade_slug) {
+        countMap[row.grade_slug] = row.cnt || 0;
+      }
+    }
+    
+    // Ajouter le program_count à chaque grade
+    const grades = rawGrades.map((g: any) => ({
+      ...g,
+      id: g.id?.toString() || g.id,
+      cycle_id: g.cycle_id?.toString() || g.cycle_id,
+      track_id: g.track_id?.toString() || g.track_id,
+      program_count: countMap[g.slug] || 0
+    }));
     
     // Récupérer les cycles pour le select
     const cycles = await db.query<any[]>(`
-      SELECT id, code, name, system.name as system_name, system.flag as system_flag, system.code as system_code, \`order\` as cycle_order
+      SELECT id, code, name, slug, system.name as system_name, system.flag as system_flag, system.code as system_code, \`order\` as cycle_order
       FROM cycle
       WHERE is_active = true
       ORDER BY system_code ASC, cycle_order ASC
@@ -76,10 +99,21 @@ export const GET: RequestHandler = async ({ url }) => {
       ORDER BY name ASC
     `);
     
+    // Sérialiser les IDs
+    const serializeCycles = (cycles[0] || []).map((c: any) => ({
+      ...c,
+      id: c.id?.toString() || c.id
+    }));
+    
+    const serializeTracks = (tracks[0] || []).map((t: any) => ({
+      ...t,
+      id: t.id?.toString() || t.id
+    }));
+    
     return json({
-      grades: grades[0] || [],
-      cycles: cycles[0] || [],
-      tracks: tracks[0] || [],
+      grades,
+      cycles: serializeCycles,
+      tracks: serializeTracks,
       educationSystems: systems[0] || []
     });
   } catch (error) {

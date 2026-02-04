@@ -3,19 +3,44 @@
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import * as Dialog from '$lib/components/ui/dialog';
-  import { Plus, Pencil, Trash2, BookOpen, ChevronRight, Library, FileText } from 'lucide-svelte';
+  import { 
+    Plus, Pencil, Trash2, BookOpen, ChevronRight, Library, FileText,
+    Sparkles, AlertTriangle, CheckCircle, ChevronDown, GraduationCap,
+    Wand2, Loader2, ExternalLink
+  } from 'lucide-svelte';
   import { invalidateAll, goto } from '$app/navigation';
+  import { page } from '$app/stores';
 
   let { data }: { data: PageData } = $props();
 
-  // États
+  // États de navigation - gérés localement, pas dépendants des props
+  let selectedCycleSlug = $state('all');
+  let selectedGradeSlug = $state('');
+  let initialized = $state(false);
+  
+  // Initialisation une seule fois au montage du composant
+  $effect(() => {
+    if (!initialized) {
+      // Lire les paramètres de l'URL directement
+      const url = new URL(window.location.href);
+      const cycleParam = url.searchParams.get('cycle');
+      const gradeParam = url.searchParams.get('grade');
+      if (cycleParam) selectedCycleSlug = cycleParam;
+      if (gradeParam) selectedGradeSlug = gradeParam;
+      initialized = true;
+    }
+  });
+  
+  // États modaux
   let showModal = $state(false);
+  let showAIModal = $state(false);
   let editingProgram = $state<any>(null);
   let saving = $state(false);
   let deleting = $state<string | null>(null);
-  let filterCycle = $state('all');
+  let generating = $state(false);
+  let aiResult = $state<any>(null);
 
-  // Formulaire
+  // Formulaire programme
   let form = $state({
     name: '',
     cycle_slug: '',
@@ -25,32 +50,112 @@
     is_active: true
   });
 
-  // Grades filtrés par cycle sélectionné
+  // Formulaire génération IA
+  let aiForm = $state({
+    grade_slug: '',
+    subject_code: '',
+    chapters_count: 6,
+    include_descriptions: true,
+    model: 'gpt-4o-mini'
+  });
+
+  // Modèles IA disponibles
+  let availableModels = $state<Array<{id: string, name: string, provider: string}>>([
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (rapide)', provider: 'openai' },
+    { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
+    { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'openai' },
+    { id: 'DeepSeek-R1', name: 'DeepSeek R1', provider: 'deepseek' },
+    { id: 'Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B', provider: 'meta' },
+  ]);
+
+  // Grades filtrés par cycle sélectionné dans le nav
+  let gradesForSelectedCycle = $derived.by(() => {
+    if (selectedCycleSlug === 'all') return data.grades;
+    return data.grades.filter(g => g.cycle_slug === selectedCycleSlug);
+  });
+
+  // Grades filtrés par cycle du formulaire
   let filteredGrades = $derived.by(() => {
     if (!form.cycle_slug) return [];
     return data.grades.filter(g => g.cycle_slug === form.cycle_slug);
   });
 
-  // Programmes filtrés
+  // Programmes filtrés par cycle et classe
   let filteredPrograms = $derived.by(() => {
-    if (filterCycle === 'all') return data.programs;
-    return data.programs.filter(p => p.cycle_slug === filterCycle);
-  });
-
-  // Grouper par cycle > classe
-  let programsByCycleGrade = $derived.by(() => {
-    const grouped: Record<string, Record<string, any[]>> = {};
-    for (const prog of filteredPrograms) {
-      const cycleKey = prog.cycle_name || 'Autre';
-      const gradeKey = prog.grade_name || 'Autre';
-      if (!grouped[cycleKey]) grouped[cycleKey] = {};
-      if (!grouped[cycleKey][gradeKey]) grouped[cycleKey][gradeKey] = [];
-      grouped[cycleKey][gradeKey].push(prog);
+    let result = data.programs;
+    
+    if (selectedCycleSlug !== 'all') {
+      result = result.filter(p => p.cycle_slug === selectedCycleSlug);
     }
-    return grouped;
+    
+    if (selectedGradeSlug) {
+      result = result.filter(p => p.grade_slug === selectedGradeSlug);
+    }
+    
+    return result;
   });
 
-  // Ouvrir modal
+  // Grade sélectionné avec ses détails
+  let selectedGrade = $derived.by(() => {
+    if (!selectedGradeSlug) return null;
+    return data.grades.find(g => g.slug === selectedGradeSlug);
+  });
+
+  // Matières manquantes pour la classe sélectionnée
+  let missingSubjects = $derived.by(() => {
+    if (!selectedGradeSlug) return [];
+    const existingSubjectCodes = filteredPrograms.map(p => p.subject_code);
+    return data.subjects.filter(s => !existingSubjectCodes.includes(s.code));
+  });
+
+  // Stats de couverture par cycle
+  let coverageByClycle = $derived.by(() => {
+    return data.cycles.map(cycle => {
+      const cycleGrades = data.grades.filter(g => g.cycle_slug === cycle.slug);
+      const gradesWithPrograms = cycleGrades.filter(g => g.programs_count > 0);
+      const totalPrograms = cycleGrades.reduce((acc, g) => acc + g.programs_count, 0);
+      
+      return {
+        ...cycle,
+        gradesCount: cycleGrades.length,
+        gradesWithPrograms: gradesWithPrograms.length,
+        gradesWithoutPrograms: cycleGrades.length - gradesWithPrograms.length,
+        totalPrograms,
+        coverage: cycleGrades.length > 0 
+          ? Math.round((gradesWithPrograms.length / cycleGrades.length) * 100) 
+          : 0
+      };
+    });
+  });
+
+  // Changer de cycle
+  function selectCycle(slug: string) {
+    selectedCycleSlug = slug;
+    selectedGradeSlug = '';
+    // Mettre à jour l'URL sans recharger
+    const url = new URL(window.location.href);
+    if (slug === 'all') {
+      url.searchParams.delete('cycle');
+    } else {
+      url.searchParams.set('cycle', slug);
+    }
+    url.searchParams.delete('grade');
+    history.pushState({}, '', url);
+  }
+
+  // Changer de classe
+  function selectGrade(slug: string) {
+    selectedGradeSlug = slug;
+    const url = new URL(window.location.href);
+    if (slug) {
+      url.searchParams.set('grade', slug);
+    } else {
+      url.searchParams.delete('grade');
+    }
+    history.pushState({}, '', url);
+  }
+
+  // Ouvrir modal création/édition
   function openModal(program?: any) {
     if (program) {
       editingProgram = program;
@@ -64,11 +169,12 @@
       };
     } else {
       editingProgram = null;
+      const defaultCycle = selectedCycleSlug !== 'all' ? selectedCycleSlug : (data.cycles[0]?.slug || '');
       form = {
         name: '',
-        cycle_slug: data.cycles[0]?.slug || '',
-        grade_slug: '',
-        subject_code: data.subjects[0]?.code || '',
+        cycle_slug: defaultCycle,
+        grade_slug: selectedGradeSlug || '',
+        subject_code: '',
         description: '',
         is_active: true
       };
@@ -76,7 +182,37 @@
     showModal = true;
   }
 
-  // Sauvegarder
+  // Créer rapidement un programme pour une matière manquante
+  async function quickCreateProgram(subjectCode: string) {
+    if (!selectedGrade) return;
+    saving = true;
+
+    try {
+      const response = await fetch('/api/admin/programs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cycle_slug: selectedGrade.cycle_slug,
+          grade_slug: selectedGrade.slug,
+          subject_code: subjectCode,
+          is_active: true
+        })
+      });
+
+      if (response.ok) {
+        await invalidateAll();
+      } else {
+        const err = await response.json();
+        alert(err.error || 'Erreur');
+      }
+    } catch (error) {
+      console.error('Erreur création rapide:', error);
+    } finally {
+      saving = false;
+    }
+  }
+
+  // Sauvegarder programme
   async function save() {
     if (!form.cycle_slug || !form.grade_slug || !form.subject_code) {
       alert('Veuillez remplir tous les champs obligatoires');
@@ -108,9 +244,9 @@
     }
   }
 
-  // Supprimer
+  // Supprimer programme
   async function deleteProgram(program: any) {
-    if (!confirm(`Supprimer le programme "${program.subject_name} - ${program.grade_name}" et tous ses chapitres ? Cette action est irréversible.`)) return;
+    if (!confirm(`Supprimer le programme "${program.subject_name} - ${program.grade_name}" et tous ses chapitres ?`)) return;
     deleting = program.id;
 
     try {
@@ -125,15 +261,95 @@
         alert(err.error || 'Erreur');
       }
     } catch (error) {
-      console.error('Erreur suppression programme:', error);
+      console.error('Erreur suppression:', error);
     } finally {
       deleting = null;
+    }
+  }
+
+  // Ouvrir modal génération IA
+  function openAIModal() {
+    aiForm = {
+      grade_slug: selectedGradeSlug || '',
+      subject_code: '',
+      chapters_count: 6,
+      include_descriptions: true,
+      model: 'gpt-4o-mini'
+    };
+    aiResult = null;
+    showAIModal = true;
+  }
+
+  // Générer programme via IA
+  async function generateWithAI() {
+    if (!aiForm.grade_slug || !aiForm.subject_code) {
+      alert('Veuillez sélectionner une classe et une matière');
+      return;
+    }
+    generating = true;
+    aiResult = null;
+
+    try {
+      const response = await fetch('/api/admin/programs/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(aiForm)
+      });
+
+      if (response.ok) {
+        aiResult = await response.json();
+      } else {
+        const err = await response.json();
+        alert(err.error || 'Erreur lors de la génération');
+      }
+    } catch (error) {
+      console.error('Erreur génération IA:', error);
+      alert('Erreur lors de la génération');
+    } finally {
+      generating = false;
+    }
+  }
+
+  // Appliquer le résultat IA
+  async function applyAIResult() {
+    if (!aiResult?.chapters) return;
+    saving = true;
+
+    try {
+      const response = await fetch('/api/admin/programs/apply-generated', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grade_slug: aiForm.grade_slug,
+          subject_code: aiForm.subject_code,
+          chapters: aiResult.chapters
+        })
+      });
+
+      if (response.ok) {
+        showAIModal = false;
+        aiResult = null;
+        await invalidateAll();
+      } else {
+        const err = await response.json();
+        alert(err.error || 'Erreur');
+      }
+    } catch (error) {
+      console.error('Erreur application:', error);
+    } finally {
+      saving = false;
     }
   }
 
   function getSubjectIcon(code: string): string {
     const subject = data.subjects.find(s => s.code === code);
     return subject?.icon || '📖';
+  }
+
+  function getCoverageColor(percent: number): string {
+    if (percent >= 80) return 'text-green-400';
+    if (percent >= 50) return 'text-yellow-400';
+    return 'text-red-400';
   }
 </script>
 
@@ -143,145 +359,314 @@
 
 <div class="flex-1 p-8 overflow-auto">
   <!-- Header -->
-  <div class="flex items-center justify-between mb-8">
+  <div class="flex items-center justify-between mb-6">
     <div>
-      <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Programmes Officiels</h1>
-      <p class="text-gray-400 mt-1">Gérez les programmes scolaires par cycle, classe et matière</p>
+      <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+        Programmes Officiels
+      </h1>
+      <p class="text-gray-400 mt-1">
+        Gérez les programmes scolaires par cycle, classe et matière
+      </p>
     </div>
-    <Button onclick={() => openModal()} class="flex items-center gap-2">
-      <Plus class="w-4 h-4" />
-      Nouveau programme
-    </Button>
+    <div class="flex items-center gap-3">
+      <Button variant="outline" onclick={openAIModal} class="flex items-center gap-2">
+        <Wand2 class="w-4 h-4" />
+        Générer avec IA
+      </Button>
+      <Button onclick={() => openModal()} class="flex items-center gap-2">
+        <Plus class="w-4 h-4" />
+        Nouveau programme
+      </Button>
+    </div>
   </div>
 
-  <!-- Stats -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+  <!-- Stats globales -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
+      <div class="text-2xl mb-1">🎓</div>
+      <div class="text-2xl font-bold text-white">{data.stats.totalGrades}</div>
+      <div class="text-sm text-gray-400">Classes</div>
+    </div>
     <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
       <div class="text-2xl mb-1">📚</div>
-      <div class="text-2xl font-bold text-white">{data.programs.length}</div>
+      <div class="text-2xl font-bold text-blue-400">{data.stats.totalPrograms}</div>
       <div class="text-sm text-gray-400">Programmes</div>
     </div>
     <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
       <div class="text-2xl mb-1">📖</div>
-      <div class="text-2xl font-bold text-blue-400">{data.programs.reduce((acc, p) => acc + (p.chapters_count || 0), 0)}</div>
+      <div class="text-2xl font-bold text-purple-400">{data.stats.totalChapters}</div>
       <div class="text-sm text-gray-400">Chapitres</div>
     </div>
     <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
-      <div class="text-2xl mb-1">🎓</div>
-      <div class="text-2xl font-bold text-purple-400">{data.cycles.length}</div>
-      <div class="text-sm text-gray-400">Cycles</div>
+      <div class="text-2xl mb-1">✅</div>
+      <div class="text-2xl font-bold text-green-400">{data.stats.gradesWithPrograms}</div>
+      <div class="text-sm text-gray-400">Classes couvertes</div>
     </div>
-    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4">
-      <div class="text-2xl mb-1">📝</div>
-      <div class="text-2xl font-bold text-green-400">{data.subjects.length}</div>
-      <div class="text-sm text-gray-400">Matières</div>
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4 {data.stats.gradesWithoutPrograms > 0 ? 'border-amber-500/50' : ''}">
+      <div class="text-2xl mb-1">⚠️</div>
+      <div class="text-2xl font-bold {data.stats.gradesWithoutPrograms > 0 ? 'text-amber-400' : 'text-gray-500'}">
+        {data.stats.gradesWithoutPrograms}
+      </div>
+      <div class="text-sm text-gray-400">Classes sans programme</div>
     </div>
   </div>
 
-  <!-- Filtre par cycle -->
-  <div class="flex gap-2 mb-6 flex-wrap">
+  <!-- Navigation par cycles -->
+  <div class="flex gap-2 mb-4 flex-wrap">
     <button
-      onclick={() => filterCycle = 'all'}
-      class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {filterCycle === 'all' ? 'bg-gray-700 text-white' : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
+      onclick={() => selectCycle('all')}
+      class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {selectedCycleSlug === 'all' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white' : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
     >
       Tous les cycles
     </button>
-    {#each data.cycles as cycle}
+    {#each coverageByClycle as cycle}
       <button
-        onclick={() => filterCycle = cycle.slug}
-        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {filterCycle === cycle.slug ? 'bg-gray-700 text-white' : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
+        onclick={() => selectCycle(cycle.slug)}
+        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 {selectedCycleSlug === cycle.slug ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white' : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
       >
         {cycle.name}
+        <span class="text-xs opacity-75">
+          ({cycle.gradesWithPrograms}/{cycle.gradesCount})
+        </span>
+        {#if cycle.gradesWithoutPrograms > 0}
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        {/if}
       </button>
     {/each}
   </div>
 
-  <!-- Liste par Cycle > Classe > Matière -->
-  <div class="space-y-6">
-    {#each Object.entries(programsByCycleGrade) as [cycleName, grades]}
+  <!-- Sélecteur de classe -->
+  {#if selectedCycleSlug !== 'all'}
+    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-medium text-gray-400">Sélectionner une classe</h3>
+        {#if selectedGrade}
+          <button 
+            onclick={() => selectGrade('')}
+            class="text-xs text-gray-500 hover:text-white"
+          >
+            Voir toutes les classes
+          </button>
+        {/if}
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {#each gradesForSelectedCycle as grade}
+          {@const hasPrograms = grade.programs_count > 0}
+          {@const hasChapters = grade.programs_with_chapters > 0}
+          <button
+            onclick={() => selectGrade(grade.slug)}
+            class="px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-2
+              {selectedGradeSlug === grade.slug 
+                ? 'bg-white text-gray-900 font-medium shadow-lg' 
+                : hasPrograms 
+                  ? 'bg-gray-800 text-white hover:bg-gray-700' 
+                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50 border border-dashed border-gray-600'}"
+          >
+            {grade.name}
+            {#if hasPrograms}
+              <span class="text-xs px-1.5 py-0.5 rounded {hasChapters ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}">
+                {grade.programs_count}
+              </span>
+            {:else}
+              <AlertTriangle class="w-3 h-3 text-amber-400" />
+            {/if}
+          </button>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  <!-- Contenu principal -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Liste des programmes -->
+    <div class="lg:col-span-2">
       <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 overflow-hidden">
-        <div class="px-4 py-3 bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border-b border-gray-700">
-          <h2 class="font-bold text-white flex items-center gap-2">
+        <div class="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+          <h2 class="font-semibold text-white flex items-center gap-2">
             <Library class="w-5 h-5 text-purple-400" />
-            {cycleName}
+            {#if selectedGrade}
+              Programmes - {selectedGrade.name}
+            {:else if selectedCycleSlug !== 'all'}
+              Programmes - {data.cycles.find(c => c.slug === selectedCycleSlug)?.name}
+            {:else}
+              Tous les programmes
+            {/if}
+            <span class="text-sm font-normal text-gray-500">({filteredPrograms.length})</span>
           </h2>
         </div>
 
-        {#each Object.entries(grades) as [gradeName, programs]}
-          <div class="border-b border-gray-800 last:border-b-0">
-            <div class="px-4 py-2 bg-gray-800/50 flex items-center gap-2">
-              <ChevronRight class="w-4 h-4 text-gray-500" />
-              <span class="font-medium text-gray-300">{gradeName}</span>
-              <span class="text-xs text-gray-500">({programs.length} matières)</span>
-            </div>
-
-            <div class="divide-y divide-gray-800">
-              {#each programs as program}
-                <div class="px-4 py-3 flex items-center justify-between hover:bg-gray-800/50">
-                  <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/20 flex items-center justify-center text-xl border border-blue-500/30">
-                      {program.subject_icon || getSubjectIcon(program.subject_code)}
-                    </div>
-                    <div>
-                      <div class="font-medium text-white">{program.subject_name}</div>
-                      <div class="flex items-center gap-2 text-xs text-gray-500">
-                        <span class="font-mono">{program.subject_code}</span>
-                        {#if program.chapters_count > 0}
-                          <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                            {program.chapters_count} chapitres
-                          </span>
-                        {/if}
-                      </div>
-                    </div>
+        {#if filteredPrograms.length > 0}
+          <div class="divide-y divide-gray-800 max-h-[600px] overflow-y-auto">
+            {#each filteredPrograms as program}
+              <div class="px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition-colors">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/20 flex items-center justify-center text-xl border border-blue-500/30">
+                    {program.subject_icon || getSubjectIcon(program.subject_code)}
                   </div>
-
-                  <div class="flex items-center gap-2">
-                    {#if program.is_active}
-                      <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
-                        Actif
-                      </span>
-                    {:else}
-                      <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-500/20 text-gray-400 border border-gray-500/30">
-                        Inactif
-                      </span>
-                    {/if}
-
-                    <button 
-                      onclick={() => goto(`/admin/programs/${program.id.replace('official_program:', '')}`)}
-                      class="p-1.5 hover:bg-blue-500/20 rounded-lg transition-colors"
-                      title="Gérer les chapitres"
-                    >
-                      <FileText class="w-4 h-4 text-blue-400" />
-                    </button>
-                    <button 
-                      onclick={() => openModal(program)}
-                      class="p-1.5 hover:bg-gray-700 rounded-lg transition-colors"
-                      title="Modifier"
-                    >
-                      <Pencil class="w-4 h-4 text-gray-400" />
-                    </button>
-                    <button 
-                      onclick={() => deleteProgram(program)}
-                      disabled={deleting === program.id}
-                      class="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
-                      title="Supprimer"
-                    >
-                      <Trash2 class="w-4 h-4 text-red-400" />
-                    </button>
+                  <div>
+                    <div class="font-medium text-white flex items-center gap-2">
+                      {program.subject_name}
+                      {#if !selectedGrade}
+                        <span class="text-xs text-gray-500 font-normal">
+                          {program.grade_name}
+                        </span>
+                      {/if}
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                      {#if program.chapters_count > 0}
+                        <span class="px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30">
+                          {program.chapters_count} chapitres
+                        </span>
+                      {:else}
+                        <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          Pas de chapitres
+                        </span>
+                      {/if}
+                    </div>
                   </div>
                 </div>
-              {/each}
-            </div>
+
+                <div class="flex items-center gap-1">
+                  <button 
+                    onclick={() => goto(`/admin/programs/${program.id.replace('official_program:', '')}`)}
+                    class="p-1.5 hover:bg-blue-500/20 rounded-lg transition-colors"
+                    title="Gérer les chapitres"
+                  >
+                    <FileText class="w-4 h-4 text-blue-400" />
+                  </button>
+                  <button 
+                    onclick={() => openModal(program)}
+                    class="p-1.5 hover:bg-gray-700 rounded-lg transition-colors"
+                    title="Modifier"
+                  >
+                    <Pencil class="w-4 h-4 text-gray-400" />
+                  </button>
+                  <button 
+                    onclick={() => deleteProgram(program)}
+                    disabled={deleting === program.id}
+                    class="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
+                    title="Supprimer"
+                  >
+                    <Trash2 class="w-4 h-4 text-red-400" />
+                  </button>
+                </div>
+              </div>
+            {/each}
           </div>
-        {/each}
+        {:else}
+          <div class="p-12 text-center text-gray-400">
+            <Library class="w-12 h-12 mx-auto mb-4 text-gray-600" />
+            <p class="text-lg font-medium text-gray-300 mb-2">Aucun programme</p>
+            <p class="text-sm mb-4">
+              {#if selectedGrade}
+                Aucun programme pour {selectedGrade.name}
+              {:else}
+                Sélectionnez une classe ou créez un programme
+              {/if}
+            </p>
+            <Button onclick={() => openModal()} size="sm" class="gap-2">
+              <Plus class="w-4 h-4" />
+              Créer un programme
+            </Button>
+          </div>
+        {/if}
       </div>
-    {:else}
-      <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-12 text-center text-gray-400">
-        <Library class="w-12 h-12 mx-auto mb-4 text-gray-600" />
-        <p class="text-lg font-medium text-gray-300 mb-2">Aucun programme défini</p>
-        <p class="text-sm">Créez votre premier programme officiel pour commencer.</p>
+    </div>
+
+    <!-- Panel latéral -->
+    <div class="space-y-6">
+      <!-- Matières manquantes (si classe sélectionnée) -->
+      {#if selectedGrade && missingSubjects.length > 0}
+        <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-amber-500/30 overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-800 bg-amber-500/10">
+            <h3 class="font-semibold text-white flex items-center gap-2">
+              <AlertTriangle class="w-4 h-4 text-amber-400" />
+              Matières manquantes
+              <span class="text-sm font-normal text-amber-400/80">({missingSubjects.length})</span>
+            </h3>
+          </div>
+          <div class="p-4 space-y-2 max-h-[300px] overflow-y-auto">
+            {#each missingSubjects as subject}
+              <div class="flex items-center justify-between p-2 rounded-lg bg-gray-800/50 hover:bg-gray-800 transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">{subject.icon || '📖'}</span>
+                  <span class="text-sm text-gray-300">{subject.name}</span>
+                </div>
+                <button
+                  onclick={() => quickCreateProgram(subject.code)}
+                  disabled={saving}
+                  class="p-1.5 hover:bg-green-500/20 rounded-lg transition-colors disabled:opacity-50"
+                  title="Créer le programme"
+                >
+                  <Plus class="w-4 h-4 text-green-400" />
+                </button>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Couverture par cycle -->
+      <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-800">
+          <h3 class="font-semibold text-white flex items-center gap-2">
+            <GraduationCap class="w-4 h-4 text-purple-400" />
+            Couverture par cycle
+          </h3>
+        </div>
+        <div class="p-4 space-y-3">
+          {#each coverageByClycle as cycle}
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-300">{cycle.name}</span>
+                <span class={getCoverageColor(cycle.coverage)}>
+                  {cycle.coverage}%
+                </span>
+              </div>
+              <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div 
+                  class="h-full rounded-full transition-all duration-500
+                    {cycle.coverage >= 80 ? 'bg-green-500' : cycle.coverage >= 50 ? 'bg-yellow-500' : 'bg-red-500'}"
+                  style="width: {cycle.coverage}%"
+                ></div>
+              </div>
+              <div class="flex items-center justify-between text-xs text-gray-500">
+                <span>{cycle.gradesWithPrograms}/{cycle.gradesCount} classes</span>
+                <span>{cycle.totalPrograms} programmes</span>
+              </div>
+            </div>
+          {/each}
+        </div>
       </div>
-    {/each}
+
+      <!-- Actions rapides -->
+      <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-800">
+          <h3 class="font-semibold text-white flex items-center gap-2">
+            <Sparkles class="w-4 h-4 text-amber-400" />
+            Actions rapides
+          </h3>
+        </div>
+        <div class="p-4 space-y-2">
+          <Button 
+            variant="outline" 
+            class="w-full justify-start gap-2"
+            onclick={openAIModal}
+          >
+            <Wand2 class="w-4 h-4" />
+            Générer programme avec IA
+          </Button>
+          <Button 
+            variant="outline" 
+            class="w-full justify-start gap-2"
+            onclick={() => openModal()}
+          >
+            <Plus class="w-4 h-4" />
+            Créer un programme
+          </Button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -344,17 +729,16 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="prog-name">Nom du programme (optionnel)</label>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="prog-name">Nom (optionnel)</label>
         <Input 
           id="prog-name" 
           bind:value={form.name} 
-          placeholder="Ex: Histoire-Géographie 1ère" 
+          placeholder="Généré automatiquement si vide" 
         />
-        <p class="text-xs text-gray-500 mt-1">Si vide, sera généré automatiquement</p>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="prog-description">Description (optionnel)</label>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="prog-description">Description</label>
         <textarea 
           id="prog-description" 
           bind:value={form.description} 
@@ -377,5 +761,166 @@
         </Button>
       </Dialog.Footer>
     </form>
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Modal Génération IA -->
+<Dialog.Root bind:open={showAIModal}>
+  <Dialog.Content class="sm:max-w-2xl">
+    <Dialog.Header>
+      <Dialog.Title class="flex items-center gap-2">
+        <Wand2 class="w-5 h-5 text-purple-400" />
+        Générer un programme avec IA
+      </Dialog.Title>
+      <Dialog.Description>
+        L'IA va rechercher les informations officielles et générer une structure de chapitres.
+      </Dialog.Description>
+    </Dialog.Header>
+
+    <div class="space-y-4">
+      {#if !aiResult}
+        <!-- Formulaire de génération -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="ai-grade">Classe</label>
+            <select 
+              id="ai-grade" 
+              bind:value={aiForm.grade_slug}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              required
+            >
+              <option value="">Sélectionner une classe</option>
+              {#each data.grades as grade}
+                <option value={grade.slug}>{grade.cycle_name} - {grade.name}</option>
+              {/each}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="ai-subject">Matière</label>
+            <select 
+              id="ai-subject" 
+              bind:value={aiForm.subject_code}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              required
+            >
+              <option value="">Sélectionner une matière</option>
+              {#each data.subjects as subject}
+                <option value={subject.code}>{subject.icon || '📖'} {subject.name}</option>
+              {/each}
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="ai-chapters">Nombre de chapitres</label>
+            <Input 
+              id="ai-chapters" 
+              type="number" 
+              bind:value={aiForm.chapters_count}
+              min="1"
+              max="20"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="ai-model">Modèle IA</label>
+            <select 
+              id="ai-model" 
+              bind:value={aiForm.model}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              {#each availableModels as model}
+                <option value={model.id}>{model.name}</option>
+              {/each}
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <div class="flex items-center">
+            <input 
+              type="checkbox" 
+              id="ai-descriptions" 
+              bind:checked={aiForm.include_descriptions} 
+              class="w-4 h-4 rounded"
+            />
+            <label class="cursor-pointer text-sm font-medium text-gray-700 ml-2" for="ai-descriptions">
+              Inclure les descriptions
+            </label>
+          </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+          <p class="font-medium mb-1">💡 GitHub Models (gratuit)</p>
+          <p>Utilise ton GITHUB_TOKEN pour accéder gratuitement à plusieurs modèles IA.</p>
+        </div>
+      {:else}
+        <!-- Résultat de la génération -->
+        <div class="space-y-4">
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p class="text-sm text-green-800 font-medium flex items-center gap-2">
+              <CheckCircle class="w-4 h-4" />
+              Programme généré avec succès !
+            </p>
+            {#if aiResult.model}
+              <p class="text-xs text-green-600 mt-1">
+                Modèle utilisé : {availableModels.find(m => m.id === aiResult.model)?.name || aiResult.model}
+              </p>
+            {/if}
+          </div>
+
+          <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 font-medium text-sm flex items-center justify-between">
+              <span>{aiResult.chapters?.length || 0} chapitres générés</span>
+              {#if aiResult.grade && aiResult.subject}
+                <span class="text-xs text-gray-500">{aiResult.subject.name} - {aiResult.grade.name}</span>
+              {/if}
+            </div>
+            <div class="max-h-[300px] overflow-y-auto">
+              {#each aiResult.chapters || [] as chapter, i}
+                <div class="px-4 py-3 border-b border-gray-100 last:border-b-0">
+                  <div class="flex items-start gap-3">
+                    <span class="w-6 h-6 rounded bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold">
+                      {i + 1}
+                    </span>
+                    <div>
+                      <p class="font-medium text-gray-900">{chapter.name}</p>
+                      {#if chapter.description}
+                        <p class="text-sm text-gray-500 mt-1">{chapter.description}</p>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    <Dialog.Footer>
+      <Button type="button" variant="outline" onclick={() => { showAIModal = false; aiResult = null; }}>
+        {aiResult ? 'Fermer' : 'Annuler'}
+      </Button>
+      {#if aiResult}
+        <Button onclick={applyAIResult} disabled={saving} class="gap-2">
+          {#if saving}
+            <Loader2 class="w-4 h-4 animate-spin" />
+          {/if}
+          Appliquer ce programme
+        </Button>
+      {:else}
+        <Button onclick={generateWithAI} disabled={generating || !aiForm.grade_slug || !aiForm.subject_code} class="gap-2">
+          {#if generating}
+            <Loader2 class="w-4 h-4 animate-spin" />
+            Génération en cours...
+          {:else}
+            <Wand2 class="w-4 h-4" />
+            Générer
+          {/if}
+        </Button>
+      {/if}
+    </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

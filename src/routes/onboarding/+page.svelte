@@ -564,7 +564,7 @@
             type="button"
             onclick={async () => {
               await fetch('/api/auth/logout', { method: 'POST' });
-              goto('/');
+              window.location.href = '/';
             }}
             class="text-sm text-gray-500 hover:text-gray-300 underline transition-colors"
           >

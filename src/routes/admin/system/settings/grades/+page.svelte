@@ -35,10 +35,12 @@
     id: string;
     code: string;
     name: string;
+    slug?: string;
     short_name?: string;
     cycle_id?: string;
     cycle_code?: string;
     cycle_name?: string;
+    cycle_slug?: string;
     track_id?: string;
     track_name?: string;
     system_name?: string;
@@ -423,13 +425,6 @@
                   {/if}
                 </div>
 
-                <div class="flex items-center gap-4 text-sm text-gray-400">
-                  <div class="flex items-center gap-1" title="Programmes">
-                    <BookOpen class="w-4 h-4" />
-                    <span>{grade.program_count || 0}</span>
-                  </div>
-                </div>
-
                 {#if deleteConfirm === getGradeId(grade)}
                   <div class="flex items-center gap-2">
                     <span class="text-sm text-destructive">Supprimer ?</span>
@@ -443,13 +438,22 @@
                   </div>
                 {:else}
                   <div class="flex items-center gap-1">
-                    <button onclick={() => openEditModal(grade)} class="p-2 hover:bg-gray-800 rounded-lg" title="Modifier">
+                    <a 
+                      href="/admin/programs?cycle={grade.cycle_slug}&grade={grade.slug}"
+                      class="p-2 hover:bg-blue-500/20 rounded-lg flex items-center gap-1.5 text-sm"
+                      title="Gérer les programmes ({grade.program_count || 0})"
+                    >
+                      <BookOpen class="w-4 h-4 text-blue-400" />
+                      <span class="text-blue-400 font-medium">{grade.program_count || 0}</span>
+                    </a>
+                    <a href="/admin/system/settings/grades/{grade.slug}" class="p-2 hover:bg-gray-800 rounded-lg" title="Gérer cette classe">
                       <Edit2 class="w-4 h-4 text-gray-400" />
-                    </button>
+                    </a>
                     <button 
                       onclick={() => confirmDelete(getGradeId(grade))} 
                       class="p-2 hover:bg-destructive/10 rounded-lg"
                       disabled={(grade.program_count || 0) > 0}
+                      title={(grade.program_count || 0) > 0 ? 'Supprimer d\'abord les programmes' : 'Supprimer'}
                     >
                       <Trash2 class="w-4 h-4 text-destructive {(grade.program_count || 0) > 0 ? 'opacity-30' : ''}" />
                     </button>

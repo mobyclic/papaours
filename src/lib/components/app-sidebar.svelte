@@ -36,7 +36,8 @@
     Network,
     MapPin,
     UserCheck,
-    School
+    School,
+    Target
   } from "lucide-svelte";
 
   interface Subject {
@@ -115,6 +116,7 @@
       label: "Pédagogie",
       items: [
         { title: "Programmes", url: "/admin/programs", icon: Library },
+        { title: "Compétences", url: "/admin/competences", icon: Target },
         { title: "Badges", url: "/admin/badges", icon: Award },
         { title: "Médias", url: "/admin/media", icon: ImageIcon },
       ]
@@ -153,10 +155,19 @@
   ];
 
   function isActive(path: string): boolean {
+    // Si le path contient un query string, comparer avec l'URL complète
+    if (path.includes('?')) {
+      const currentUrl = $page.url.pathname + $page.url.search;
+      return currentUrl === path || currentUrl.startsWith(path + '&');
+    }
     return $page.url.pathname === path || $page.url.pathname.startsWith(path + "/");
   }
   
   function isExactPath(path: string): boolean {
+    // Si le path contient un query string, comparer avec l'URL complète
+    if (path.includes('?')) {
+      return ($page.url.pathname + $page.url.search) === path;
+    }
     return $page.url.pathname === path;
   }
 
@@ -272,7 +283,7 @@
             <Sidebar.Menu>
               {#each group.items as item}
                 <Sidebar.MenuItem>
-                  <Sidebar.MenuButton isActive={item.exact ? isExactPath(item.url) : isActive(item.url.split('?')[0])}>
+                  <Sidebar.MenuButton isActive={item.exact ? isExactPath(item.url) : (item.url.includes('?') ? isExactPath(item.url) : isActive(item.url))}>
                     {#snippet child({ props })}
                       <a href={item.url} {...props}>
                         <item.icon class="size-4" />
