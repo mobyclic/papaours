@@ -22,25 +22,32 @@ export const GET: RequestHandler = async () => {
 export const POST: RequestHandler = async ({ request }) => {
   try {
     const data = await request.json();
-    const { name, cycle_slug, grade_slug, subject_code, description, is_active } = data;
+    const { name, cycle_slug, grade_slug, grade_id, subject_code, description, is_active } = data;
 
-    if (!cycle_slug || !grade_slug || !subject_code) {
-      return json({ error: 'Cycle, classe et matière requis' }, { status: 400 });
+    if ((!grade_slug && !grade_id) || !subject_code) {
+      return json({ error: 'Classe et matière requis' }, { status: 400 });
     }
 
     const db = await getSurrealDB();
 
-    // Récupérer les IDs des relations
-    const [cycleResult] = await db.query<[any[]]>(`SELECT id FROM cycle WHERE slug = $slug`, { slug: cycle_slug });
-    const [gradeResult] = await db.query<[any[]]>(`SELECT id FROM grade WHERE slug = $slug`, { slug: grade_slug });
-    const [subjectResult] = await db.query<[any[]]>(`SELECT id, name FROM subject WHERE code = $code`, { code: subject_code });
-
-    if (!cycleResult?.length || !gradeResult?.length || !subjectResult?.length) {
-      return json({ error: 'Cycle, classe ou matière non trouvé' }, { status: 400 });
+    // Récupérer le grade (par ID ou slug)
+    let gradeResult;
+    if (grade_id) {
+      const cleanGradeId = grade_id.includes(':') ? grade_id.split(':')[1] : grade_id;
+      gradeResult = await db.query<[any[]]>(`SELECT id, slug, cycle.id AS cycle_id FROM type::thing("grade", $id)`, { id: cleanGradeId });
+    } else {
+      gradeResult = await db.query<[any[]]>(`SELECT id, slug, cycle.id AS cycle_id FROM grade WHERE slug = $slug`, { slug: grade_slug });
     }
 
-    const cycleId = cycleResult[0].id.toString().replace('cycle:', '');
-    const gradeId = gradeResult[0].id.toString().replace('grade:', '');
+    const [subjectResult] = await db.query<[any[]]>(`SELECT id, name FROM subject WHERE code = $code`, { code: subject_code });
+
+    if (!gradeResult?.[0]?.length || !subjectResult?.length) {
+      return json({ error: 'Classe ou matière non trouvée' }, { status: 400 });
+    }
+
+    const grade = gradeResult[0][0];
+    const gradeId = grade.id.toString().replace('grade:', '');
+    const cycleId = grade.cycle_id?.toString().replace('cycle:', '') || '';
     const subjectId = subjectResult[0].id.toString().replace('subject:', '');
     const subjectName = subjectResult[0].name;
 
@@ -56,7 +63,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     // Générer le nom si non fourni
-    const programName = name || `${subjectName} - ${grade_slug}`;
+    const programName = name || `${subjectName} - ${grade.slug || gradeId}`;
 
     // Créer le programme
     const [created] = await db.query<[any[]]>(`

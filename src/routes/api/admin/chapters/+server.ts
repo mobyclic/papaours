@@ -42,10 +42,14 @@ export const GET: RequestHandler = async ({ url }) => {
 export const POST: RequestHandler = async ({ request }) => {
   try {
     const data = await request.json();
-    const { program_id, name, slug, description, order, is_active } = data;
+    const { program_id, name, title, slug, description, order, sort_order, is_active } = data;
 
-    if (!program_id || !name) {
-      return json({ error: 'Programme et nom requis' }, { status: 400 });
+    // Supporter name ou title
+    const chapterName = name || title;
+    const chapterOrder = order ?? sort_order ?? 1;
+
+    if (!program_id || !chapterName) {
+      return json({ error: 'Programme et nom/titre requis' }, { status: 400 });
     }
 
     const db = await getSurrealDB();
@@ -62,29 +66,35 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     // Générer le slug si non fourni
-    const finalSlug = slug || name
+    const finalSlug = slug || chapterName
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
 
+    // Handle optional description field
+    const descriptionValue = description?.trim();
+    const descriptionSet = descriptionValue ? 'description = $description,' : '';
+
     // Créer le chapitre
     const [created] = await db.query<[any[]]>(`
       CREATE chapter SET
         name = $name,
+        title = $name,
         slug = $slug,
-        description = $description,
+        ${descriptionSet}
         official_program = type::thing("official_program", $programId),
         \`order\` = $order,
+        sort_order = $order,
         is_active = $is_active,
         created_at = time::now()
     `, {
-      name,
+      name: chapterName,
       slug: finalSlug,
-      description: description || null,
+      description: descriptionValue || undefined,
       programId: cleanProgramId,
-      order: order || 1,
+      order: chapterOrder,
       is_active: is_active ?? true
     });
 

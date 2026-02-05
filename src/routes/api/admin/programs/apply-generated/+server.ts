@@ -2,89 +2,137 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSurrealDB } from '$lib/server/db';
 
-export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) {
-    return json({ error: 'Non autorisé' }, { status: 401 });
-  }
+export const POST: RequestHandler = async ({ request }) => {
+  const { grade_slug, grade_id, subject_code, program_name, chapters } = await request.json();
 
-  const { grade_slug, subject_code, chapters } = await request.json();
-
-  if (!grade_slug || !subject_code || !chapters || !Array.isArray(chapters)) {
+  if ((!grade_slug && !grade_id) || !subject_code || !chapters || !Array.isArray(chapters)) {
     return json({ error: 'Paramètres invalides' }, { status: 400 });
   }
 
   const db = await getSurrealDB();
 
   try {
-    // Récupérer les infos de la classe
-    const gradeResult = await db.query<[any[]]>(`
-      SELECT *, cycle.slug as cycle_slug 
-      FROM grade 
-      WHERE slug = $slug
-      FETCH cycle
-    `, { slug: grade_slug });
+    // Récupérer les infos de la classe (par ID ou slug)
+    let gradeResult;
+    if (grade_id) {
+      const cleanId = grade_id.includes(':') ? grade_id.split(':')[1] : grade_id;
+      gradeResult = await db.query<[any[]]>(`
+        SELECT id, slug, cycle.id AS cycle_id
+        FROM type::thing("grade", $id)
+      `, { id: cleanId });
+    } else {
+      gradeResult = await db.query<[any[]]>(`
+        SELECT id, slug, cycle.id AS cycle_id
+        FROM grade 
+        WHERE slug = $slug
+      `, { slug: grade_slug });
+    }
 
     const grade = gradeResult[0]?.[0];
     if (!grade) {
       return json({ error: 'Classe introuvable' }, { status: 404 });
     }
 
-    const cycle_slug = grade.cycle_slug || grade.cycle?.slug;
+    // Récupérer la matière
+    const [subjectResult] = await db.query<[any[]]>(`
+      SELECT id, name FROM subject WHERE code = $code
+    `, { code: subject_code });
+
+    const subject = subjectResult?.[0];
+    if (!subject) {
+      return json({ error: 'Matière introuvable' }, { status: 404 });
+    }
+
+    const gradeId = grade.id.toString().replace('grade:', '');
+    const cycleId = grade.cycle_id?.toString().replace('cycle:', '') || '';
+    const subjectId = subject.id.toString().replace('subject:', '');
 
     // Vérifier si le programme existe déjà
-    const existingResult = await db.query<[any[]]>(`
+    const [existingResult] = await db.query<[any[]]>(`
       SELECT id FROM official_program 
-      WHERE grade_slug = $grade_slug AND subject_code = $subject_code
-    `, { grade_slug, subject_code });
+      WHERE grade = type::thing("grade", $gradeId) 
+        AND subject = type::thing("subject", $subjectId)
+    `, { gradeId, subjectId });
 
     let programId: string;
 
-    if (existingResult[0]?.[0]) {
-      // Programme existe, on le met à jour
-      programId = existingResult[0][0].id;
+    if (existingResult?.[0]) {
+      // Programme existe, on supprime les anciens chapitres
+      programId = existingResult[0].id.toString();
+      const cleanProgramId = programId.replace('official_program:', '');
       
-      // Supprimer les anciens chapitres
       await db.query(`
-        DELETE FROM chapter WHERE program = type::thing('official_program', $id)
-      `, { id: programId.replace('official_program:', '') });
+        DELETE chapter WHERE official_program = type::thing("official_program", $id)
+      `, { id: cleanProgramId });
+
+      // Mettre à jour le nom si fourni
+      if (program_name) {
+        await db.query(`
+          UPDATE type::thing("official_program", $id) SET name = $name, updated_at = time::now()
+        `, { id: cleanProgramId, name: program_name });
+      }
 
     } else {
       // Créer le programme
-      const createResult = await db.query<[any[]]>(`
+      const finalName = program_name || `${subject.name} - ${grade.slug}`;
+      
+      const [createResult] = await db.query<[any[]]>(`
         CREATE official_program SET
-          cycle_slug = $cycle_slug,
-          grade_slug = $grade_slug,
-          subject_code = $subject_code,
+          name = $name,
+          education_system = type::thing("education_system", "FR"),
+          cycle = type::thing("cycle", $cycleId),
+          grade = type::thing("grade", $gradeId),
+          subject = type::thing("subject", $subjectId),
           is_active = true,
-          created_at = time::now(),
-          updated_at = time::now()
-      `, { cycle_slug, grade_slug, subject_code });
+          created_at = time::now()
+      `, { 
+        name: finalName,
+        cycleId,
+        gradeId,
+        subjectId
+      });
 
-      programId = createResult[0]?.[0]?.id;
+      programId = createResult?.[0]?.id?.toString();
       if (!programId) {
         return json({ error: 'Erreur création programme' }, { status: 500 });
       }
     }
 
     // Créer les chapitres
-    const cleanProgramId = programId.toString().replace('official_program:', '');
+    const cleanProgramId = programId.replace('official_program:', '');
     
     for (let i = 0; i < chapters.length; i++) {
       const chapter = chapters[i];
+      const title = chapter.title || chapter.name;
+      
+      // Générer le slug
+      const slug = title
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      // Handle optional description field
+      const descriptionValue = chapter.description?.trim();
+      const descriptionSet = descriptionValue ? 'description = $description,' : '';
+
       await db.query(`
         CREATE chapter SET
-          program = type::thing('official_program', $program_id),
-          name = $name,
-          description = $description,
-          sort_order = $sort_order,
+          official_program = type::thing("official_program", $programId),
+          title = $title,
+          name = $title,
+          slug = $slug,
+          ${descriptionSet}
+          \`order\` = $order,
           is_active = true,
-          created_at = time::now(),
-          updated_at = time::now()
+          created_at = time::now()
       `, {
-        program_id: cleanProgramId,
-        name: chapter.name,
-        description: chapter.description || null,
-        sort_order: i + 1
+        programId: cleanProgramId,
+        title,
+        slug: `${slug}-${i + 1}`,
+        description: descriptionValue || undefined,
+        order: i + 1
       });
     }
 

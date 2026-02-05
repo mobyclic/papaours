@@ -40,16 +40,20 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     const data = await request.json();
     const { name, description, is_active } = data;
 
+    // Handle optional description field
+    const descriptionValue = description?.trim();
+    const descriptionSet = descriptionValue ? 'description = $description,' : 'description = NONE,';
+
     const [updated] = await db.query<[any[]]>(`
       UPDATE type::thing("official_program", $id) SET
         name = $name,
-        description = $description,
+        ${descriptionSet}
         is_active = $is_active,
         updated_at = time::now()
     `, {
       id,
       name,
-      description: description || null,
+      description: descriptionValue || undefined,
       is_active: is_active ?? true
     });
 

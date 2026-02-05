@@ -53,28 +53,32 @@ export const GET: RequestHandler = async ({ url }) => {
     
     const gradesResult = await db.query<any[]>(query, params);
     const rawGrades = gradesResult[0] || [];
-    
-    // Compter les programmes par grade_slug
+
+    // Compter les programmes par grade (via relation)
     const programCounts = await db.query<any[]>(`
-      SELECT grade_slug, count() as cnt
+      SELECT grade as grade_id, count() as cnt
       FROM official_program
-      GROUP BY grade_slug
+      GROUP BY grade
     `);
     const countMap: Record<string, number> = {};
     for (const row of (programCounts[0] || [])) {
-      if (row.grade_slug) {
-        countMap[row.grade_slug] = row.cnt || 0;
+      if (row.grade_id) {
+        const gradeIdStr = row.grade_id?.toString() || row.grade_id;
+        countMap[gradeIdStr] = row.cnt || 0;
       }
     }
-    
+
     // Ajouter le program_count à chaque grade
-    const grades = rawGrades.map((g: any) => ({
-      ...g,
-      id: g.id?.toString() || g.id,
-      cycle_id: g.cycle_id?.toString() || g.cycle_id,
-      track_id: g.track_id?.toString() || g.track_id,
-      program_count: countMap[g.slug] || 0
-    }));
+    const grades = rawGrades.map((g: any) => {
+      const gradeIdStr = g.id?.toString() || g.id;
+      return {
+        ...g,
+        id: gradeIdStr,
+        cycle_id: g.cycle_id?.toString() || g.cycle_id,
+        track_id: g.track_id?.toString() || g.track_id,
+        program_count: countMap[gradeIdStr] || 0
+      };
+    });
     
     // Récupérer les cycles pour le select
     const cycles = await db.query<any[]>(`

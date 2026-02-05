@@ -113,14 +113,18 @@ export const actions: Actions = {
     try {
       const db = await connectDB();
       
+      // Build update query conditionally for optional fields
+      const descriptionValue = description?.trim();
+      const descriptionSet = descriptionValue ? 'description = $description,' : 'description = NONE,';
+      
       await db.query(`
         UPDATE theme SET
           name = $name,
-          description = $description,
+          ${descriptionSet}
           is_active = $is_active,
           updated_at = time::now()
         WHERE slug = $slug AND subject.code = $code
-      `, { slug, code, name: name.trim(), description: description?.trim() || null, is_active });
+      `, { slug, code, name: name.trim(), description: descriptionValue || undefined, is_active });
       
       return { success: true };
     } catch (err) {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { currentUser, loadUser } from '$lib/stores/userStore.svelte';
+  import { currentUser, loadUser, logoutUser } from '$lib/stores/userStore.svelte';
   import { t, locale, availableLocales, setLocale, type Locale } from '$lib/i18n';
   import { Button } from '$lib/components/ui/button';
   
@@ -557,21 +557,22 @@
             </Button>
           {/if}
         </div>
-        
-        <!-- Logout option -->
-        <div class="text-center mt-6">
-          <button
-            type="button"
-            onclick={async () => {
-              await fetch('/api/auth/logout', { method: 'POST' });
-              window.location.href = '/';
-            }}
-            class="text-sm text-gray-500 hover:text-gray-300 underline transition-colors"
-          >
-            {$t('nav.logout')}
-          </button>
-        </div>
       {/if}
+    </div>
+    
+    <!-- Logout button - always visible -->
+    <div class="text-center mt-4">
+      <button
+        type="button"
+        onclick={async () => {
+          logoutUser(); // Clear localStorage
+          await fetch('/api/auth/logout', { method: 'POST' });
+          window.location.href = '/';
+        }}
+        class="text-sm text-gray-400 hover:text-amber-400 underline transition-colors"
+      >
+        🚪 {$t('nav.logout')}
+      </button>
     </div>
     
     <!-- Summary (shown from step 1) -->

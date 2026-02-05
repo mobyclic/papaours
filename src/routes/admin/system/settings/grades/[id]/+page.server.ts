@@ -4,7 +4,10 @@ import { error } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params }) => {
   const db = await getSurrealDB();
-  const { slug } = params;
+  const { id } = params;
+  
+  // Nettoyer l'ID (enlever le préfixe si présent)
+  const cleanId = id.includes(':') ? id.split(':')[1] : id;
 
   try {
     // Récupérer les infos de la classe
@@ -27,10 +30,9 @@ export const load: PageServerLoad = async ({ params }) => {
         education_system.id AS system_id,
         education_system.name AS system_name,
         education_system.code AS system_code
-      FROM grade
-      WHERE slug = $slug
+      FROM type::thing("grade", $id)
       FETCH cycle, track, education_system
-    `, { slug });
+    `, { id: cleanId });
 
     const grade = gradeResult?.[0];
     if (!grade) {
@@ -51,9 +53,9 @@ export const load: PageServerLoad = async ({ params }) => {
         subject.color AS subject_color,
         (SELECT count() FROM chapter WHERE official_program = $parent.id) AS chapters_count
       FROM official_program
-      WHERE grade.slug = $slug
+      WHERE grade = type::thing("grade", $id)
       ORDER BY subject_name ASC
-    `, { slug });
+    `, { id: cleanId });
 
     // Récupérer toutes les matières pour pouvoir en ajouter
     const [subjects] = await db.query<[any[]]>(`
@@ -68,10 +70,10 @@ export const load: PageServerLoad = async ({ params }) => {
       (programs || []).map(async (p) => {
         const programId = p.id?.toString() || p.id;
         const [chapters] = await db.query<[any[]]>(`
-          SELECT id, title, \`order\`, description
+          SELECT id, title, name, \`order\`, sort_order, description
           FROM chapter
           WHERE official_program = type::thing("official_program", $programId)
-          ORDER BY \`order\` ASC
+          ORDER BY \`order\` ASC, sort_order ASC
         `, { programId: programId.replace('official_program:', '') });
 
         return {
@@ -87,8 +89,8 @@ export const load: PageServerLoad = async ({ params }) => {
           chapters_count: p.chapters_count?.[0]?.count || 0,
           chapters: (chapters || []).map(c => ({
             id: c.id?.toString() || c.id,
-            title: c.title,
-            order: c.order,
+            title: c.title || c.name || 'Sans titre',
+            order: c.order ?? c.sort_order ?? 0,
             description: c.description
           }))
         };

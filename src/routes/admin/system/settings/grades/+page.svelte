@@ -321,7 +321,9 @@
   }
 
   function getGradeId(grade: Grade): string {
-    return typeof grade.id === 'string' ? grade.id : String(grade.id);
+    const id = typeof grade.id === 'string' ? grade.id : String(grade.id);
+    // Retourner l'ID sans le préfixe "grade:"
+    return id.includes(':') ? id.split(':')[1] : id;
   }
 </script>
 
@@ -446,7 +448,7 @@
                       <BookOpen class="w-4 h-4 text-blue-400" />
                       <span class="text-blue-400 font-medium">{grade.program_count || 0}</span>
                     </a>
-                    <a href="/admin/system/settings/grades/{grade.slug}" class="p-2 hover:bg-gray-800 rounded-lg" title="Gérer cette classe">
+                    <a href="/admin/system/settings/grades/{getGradeId(grade)}" class="p-2 hover:bg-gray-800 rounded-lg" title="Gérer cette classe">
                       <Edit2 class="w-4 h-4 text-gray-400" />
                     </a>
                     <button 

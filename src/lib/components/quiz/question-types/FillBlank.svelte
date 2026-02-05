@@ -110,12 +110,20 @@
     return 'border-gray-600 bg-gray-800 text-white focus:border-amber-500 focus:ring-amber-500/30';
   }
   
-  // Calcul de la largeur approximative basée sur la réponse correcte
+  // Calcul de la largeur basée sur la réponse correcte ET la saisie de l'utilisateur
   function getInputWidth(index: number): string {
-    const minWidth = 80;
+    const minWidth = 120; // Largeur minimum plus grande
+    const charWidth = 12; // Largeur par caractère
+    const padding = 50; // Padding
+    
     const correctAnswer = finalCorrectAnswers[index] || '';
-    const width = Math.max(minWidth, correctAnswer.length * 14 + 40);
-    return `${width}px`;
+    const userAnswer = answers[index] || '';
+    
+    // Prendre la plus longue des deux (réponse correcte ou saisie utilisateur)
+    const maxLength = Math.max(correctAnswer.length, userAnswer.length, 8);
+    const width = Math.max(minWidth, maxLength * charWidth + padding);
+    
+    return `${Math.min(width, 300)}px`; // Max 300px pour ne pas déborder
   }
 </script>
 

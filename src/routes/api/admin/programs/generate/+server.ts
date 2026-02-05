@@ -18,7 +18,7 @@ const AVAILABLE_MODELS = {
 
 type ModelId = keyof typeof AVAILABLE_MODELS;
 
-// Endpoint pour lister les modèles disponibles
+// GET - Liste des modèles disponibles
 export const GET: RequestHandler = async () => {
   const models = Object.entries(AVAILABLE_MODELS).map(([id, info]) => ({
     id,
@@ -28,53 +28,62 @@ export const GET: RequestHandler = async () => {
   return json({ models });
 };
 
-export const POST: RequestHandler = async ({ request, locals }) => {
-  if (!locals.user) {
-    return json({ error: 'Non autorisé' }, { status: 401 });
-  }
-
+// POST - Générer un programme complet (une ou toutes les matières)
+export const POST: RequestHandler = async ({ request }) => {
   const { 
-    grade_slug, 
-    subject_code, 
-    chapters_count = 6, 
-    include_descriptions = true,
-    model = 'gpt-4o-mini' 
+    grade_id,
+    subject_codes, // array de codes, ou ['all'] pour toutes
+    custom_prompt,
+    model = 'gpt-4o-mini',
+    existing_programs // programmes existants pour comparaison
   } = await request.json();
 
-  if (!grade_slug || !subject_code) {
-    return json({ error: 'Classe et matière requises' }, { status: 400 });
+  if (!grade_id) {
+    return json({ error: 'Classe requise' }, { status: 400 });
   }
 
   const githubToken = env.GITHUB_TOKEN;
   if (!githubToken) {
-    return json({ error: 'GITHUB_TOKEN non configuré' }, { status: 500 });
+    return json({ error: 'GITHUB_TOKEN non configuré. Ajoutez votre token GitHub dans les variables d\'environnement.' }, { status: 500 });
   }
 
   const db = await getSurrealDB();
 
   try {
-    // Récupérer les infos de la classe et de la matière
-    const [gradeResult, subjectResult] = await Promise.all([
-      db.query<[any[]]>(`
-        SELECT *, cycle.name as cycle_name 
-        FROM grade 
-        WHERE slug = $slug
-        FETCH cycle
-      `, { slug: grade_slug }),
-      db.query<[any[]]>(`
-        SELECT * FROM subject WHERE code = $code
-      `, { code: subject_code })
-    ]);
+    // Récupérer les infos de la classe
+    const cleanId = grade_id.includes(':') ? grade_id.split(':')[1] : grade_id;
+    const [gradeResult] = await db.query<[any[]]>(`
+      SELECT *, cycle.name as cycle_name, education_system.name as system_name
+      FROM type::thing("grade", $id)
+      FETCH cycle, education_system
+    `, { id: cleanId });
 
-    const grade = gradeResult[0]?.[0];
-    const subject = subjectResult[0]?.[0];
+    const grade = gradeResult?.[0];
+    if (!grade) {
+      return json({ error: 'Classe introuvable' }, { status: 404 });
+    }
 
-    if (!grade || !subject) {
-      return json({ error: 'Classe ou matière introuvable' }, { status: 404 });
+    // Récupérer les matières
+    let subjects: any[] = [];
+    if (subject_codes && subject_codes.length > 0 && subject_codes[0] !== 'all') {
+      const [subjectResult] = await db.query<[any[]]>(`
+        SELECT * FROM subject WHERE code IN $codes AND is_active = true
+      `, { codes: subject_codes });
+      subjects = subjectResult || [];
+    } else {
+      // Toutes les matières actives
+      const [subjectResult] = await db.query<[any[]]>(`
+        SELECT * FROM subject WHERE is_active = true ORDER BY name ASC
+      `);
+      subjects = subjectResult || [];
+    }
+
+    if (subjects.length === 0) {
+      return json({ error: 'Aucune matière trouvée' }, { status: 400 });
     }
 
     // Construire le prompt
-    const prompt = buildPrompt(grade, subject, chapters_count, include_descriptions);
+    const prompt = buildPrompt(grade, subjects, custom_prompt, existing_programs);
 
     // Appeler GitHub Models API
     const selectedModel = model in AVAILABLE_MODELS ? model : 'gpt-4o-mini';
@@ -90,7 +99,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         messages: [
           {
             role: 'system',
-            content: 'Tu es un expert en programmes scolaires français. Tu réponds uniquement en JSON valide.'
+            content: `Tu es un expert en programmes scolaires français. Tu connais parfaitement les programmes officiels de l'Éducation Nationale.
+Tu dois répondre UNIQUEMENT avec un objet JSON valide, sans texte avant ou après.
+Le JSON doit suivre exactement le format demandé.`
           },
           {
             role: 'user',
@@ -98,108 +109,163 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           }
         ],
         temperature: 0.7,
-        max_tokens: 4096
+        max_tokens: 4000
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('GitHub Models error:', errorText);
-      return json({ error: `Erreur API GitHub Models: ${response.status}` }, { status: 500 });
+      console.error('Erreur GitHub Models:', errorText);
+      return json({ error: `Erreur API IA: ${response.status} ${response.statusText}` }, { status: 500 });
     }
 
     const result = await response.json();
-    const textContent = result.choices?.[0]?.message?.content;
+    const content = result.choices?.[0]?.message?.content;
 
-    if (!textContent) {
-      return json({ error: 'Réponse vide de l\'IA' }, { status: 500 });
+    if (!content) {
+      return json({ error: 'Réponse IA vide' }, { status: 500 });
     }
 
-    const chapters = parseChaptersFromResponse(textContent, chapters_count);
+    // Parser le JSON de la réponse
+    let programs;
+    try {
+      let cleanContent = content.trim();
+      // Nettoyer les balises markdown
+      if (cleanContent.startsWith('```json')) {
+        cleanContent = cleanContent.slice(7);
+      }
+      if (cleanContent.startsWith('```')) {
+        cleanContent = cleanContent.slice(3);
+      }
+      if (cleanContent.endsWith('```')) {
+        cleanContent = cleanContent.slice(0, -3);
+      }
+      
+      const parsed = JSON.parse(cleanContent.trim());
+      programs = parsed.programs || [parsed];
+    } catch (e) {
+      console.error('Erreur parsing JSON:', content);
+      return json({ error: 'Erreur parsing réponse IA. Réessayez.' }, { status: 500 });
+    }
+
+    // Formater la réponse
+    const formattedPrograms = programs.map((p: any) => {
+      const existingProgram = existing_programs?.find((ep: any) => ep.subject_code === (p.subject_code || p.code));
+      
+      return {
+        subject_code: p.subject_code || p.code,
+        subject_name: p.subject_name || p.subject || subjects.find((s: any) => s.code === p.subject_code)?.name,
+        action: p.action || (existingProgram ? 'update' : 'create'),
+        existing_program: existingProgram ? {
+          id: existingProgram.id,
+          name: existingProgram.name,
+          chapters: existingProgram.chapters
+        } : null,
+        chapters: (p.chapters || []).map((c: any, i: number) => {
+          // Chercher si ce chapitre existe dans le programme existant
+          const existingChapter = existingProgram?.chapters?.find((ec: any) => 
+            ec.title?.toLowerCase() === c.title?.toLowerCase() || 
+            ec.title?.toLowerCase() === c.original_title?.toLowerCase()
+          );
+          
+          return {
+            id: `gen-${Date.now()}-${i}`,
+            order: c.order || i + 1,
+            title: c.title || c.name,
+            description: c.description || null,
+            action: c.action || (existingChapter ? 'update' : 'create'),
+            original_title: c.original_title || existingChapter?.title || null,
+            existing_id: existingChapter?.id || null,
+            enabled: c.action !== 'delete'
+          };
+        })
+      };
+    });
 
     return json({
       success: true,
-      model: selectedModel,
       grade: {
+        id: grade.id?.toString(),
         name: grade.name,
-        cycle_name: grade.cycle_name || grade.cycle?.name
+        cycle_name: grade.cycle_name
       },
-      subject: {
-        name: subject.name,
-        code: subject.code
-      },
-      chapters
+      programs: formattedPrograms,
+      model_used: selectedModel,
+      usage: result.usage
     });
 
   } catch (error) {
-    console.error('Erreur génération IA:', error);
-    return json({ 
-      error: error instanceof Error ? error.message : 'Erreur lors de la génération' 
-    }, { status: 500 });
+    console.error('Erreur génération programme:', error);
+    return json({ error: 'Erreur serveur: ' + (error instanceof Error ? error.message : 'Inconnue') }, { status: 500 });
   }
 };
 
-function buildPrompt(grade: any, subject: any, chaptersCount: number, includeDescriptions: boolean): string {
-  const cycleName = grade.cycle_name || grade.cycle?.name || '';
+function buildPrompt(
+  grade: any, 
+  subjects: any[], 
+  customPrompt?: string,
+  existingPrograms?: any[]
+): string {
+  const subjectsList = subjects.map(s => `- ${s.name} (code: ${s.code})`).join('\n');
   
-  return `Génère une liste de ${chaptersCount} chapitres pour le programme officiel français de **${subject.name}** en **${grade.name}** (${cycleName}).
+  let existingContext = '';
+  if (existingPrograms && existingPrograms.length > 0) {
+    existingContext = `
 
-IMPORTANT:
-- Base-toi sur les programmes officiels du Bulletin Officiel de l'Éducation Nationale
-- Les chapitres doivent être dans l'ordre logique d'enseignement sur une année scolaire
-- Utilise des titres concis et clairs
-${includeDescriptions ? '- Inclus une brève description (1-2 phrases) pour chaque chapitre' : '- Ne pas inclure de descriptions'}
+PROGRAMMES EXISTANTS pour cette classe (à prendre en compte pour proposer des modifications) :
+${existingPrograms.map(p => `
+### ${p.subject_name} (${p.subject_code})
+Chapitres actuels:
+${p.chapters?.map((c: any, i: number) => `${i + 1}. ${c.title}${c.description ? ' - ' + c.description : ''}`).join('\n') || 'Aucun chapitre'}
+`).join('\n')}
 
-FORMAT DE RÉPONSE (JSON strict):
+Pour les programmes existants, tu peux proposer :
+- action: "keep" = garder tel quel
+- action: "update" = modifier (avec les nouveaux chapitres)
+- action: "delete" = supprimer ce programme
+
+Pour les chapitres existants dans un programme modifié :
+- action: "keep" = garder ce chapitre
+- action: "update" = modifier le titre/description
+- action: "delete" = supprimer ce chapitre
+- action: "create" = nouveau chapitre à ajouter`;
+  }
+
+  const basePrompt = customPrompt || `Génère le programme scolaire officiel français avec tous les chapitres nécessaires.`;
+
+  return `${basePrompt}
+
+CONTEXTE :
+- Classe : ${grade.name}
+- Cycle : ${grade.cycle_name || 'Non spécifié'}
+- Système éducatif : ${grade.system_name || 'Français'}
+
+MATIÈRES À TRAITER :
+${subjectsList}
+${existingContext}
+
+INSTRUCTIONS :
+1. Pour chaque matière, génère les chapitres du programme officiel français
+2. Les chapitres doivent être dans l'ordre pédagogique logique
+3. Inclus une description courte pour chaque chapitre
+4. Sois précis et fidèle aux programmes officiels de l'Éducation Nationale
+
+FORMAT DE RÉPONSE (JSON uniquement) :
 {
-  "chapters": [
+  "programs": [
     {
-      "name": "Titre du chapitre"${includeDescriptions ? ',\n      "description": "Description brève du contenu"' : ''}
+      "subject_code": "CODE",
+      "subject_name": "Nom de la matière",
+      "action": "create",
+      "chapters": [
+        {
+          "order": 1,
+          "title": "Titre du chapitre",
+          "description": "Description courte",
+          "action": "create"
+        }
+      ]
     }
   ]
-}
-
-Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`;
-}
-
-function parseChaptersFromResponse(text: string, expectedCount: number): Array<{ name: string; description?: string }> {
-  try {
-    // Nettoyer le texte (enlever markdown code blocks si présents)
-    let cleanText = text.trim();
-    if (cleanText.startsWith('```json')) {
-      cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-    } else if (cleanText.startsWith('```')) {
-      cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
-    }
-
-    // Essayer de parser le JSON directement
-    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (parsed.chapters && Array.isArray(parsed.chapters)) {
-        return parsed.chapters.map((ch: any, index: number) => ({
-          name: ch.name || ch.title || `Chapitre ${index + 1}`,
-          description: ch.description || undefined
-        }));
-      }
-    }
-  } catch (e) {
-    console.error('Erreur parsing JSON:', e);
-  }
-
-  // Fallback: essayer de parser manuellement
-  const chapters: Array<{ name: string; description?: string }> = [];
-  const lines = text.split('\n').filter(l => l.trim());
-  
-  for (const line of lines) {
-    const match = line.match(/^[\d\-\*\.]+\s*(.+)/);
-    if (match && chapters.length < expectedCount) {
-      chapters.push({ name: match[1].trim() });
-    }
-  }
-
-  return chapters.length > 0 ? chapters : [
-    { name: 'Chapitre 1 - À définir' },
-    { name: 'Chapitre 2 - À définir' }
-  ];
+}`;
 }

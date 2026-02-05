@@ -3,24 +3,35 @@
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import * as Card from '$lib/components/ui/card';
-  import * as Select from '$lib/components/ui/select';
   import { Badge } from '$lib/components/ui/badge';
-  import { ArrowLeft, Save, Trash2, Eye, EyeOff } from 'lucide-svelte';
+  import { ArrowLeft, Save, Trash2, X } from 'lucide-svelte';
   
   let { data, form } = $props();
   
   let loading = $state(false);
   let deleteConfirm = $state(false);
   
-  const questionTypes = [
-    { value: 'qcm', label: 'QCM (choix unique)' },
-    { value: 'qcm_multiple', label: 'QCM (choix multiples)' },
-    { value: 'true_false', label: 'Vrai/Faux' },
-    { value: 'fill_blank', label: 'Texte à trous' },
-    { value: 'matching', label: 'Appariement' },
-    { value: 'ordering', label: 'Ordonnancement' },
-    { value: 'open', label: 'Question ouverte' }
-  ];
+  // Types de questions (pour affichage uniquement)
+  const questionTypeLabels: Record<string, string> = {
+    'qcm': 'QCM',
+    'qcm_multiple': 'QCM',
+    'true_false': 'Vrai/Faux',
+    'fill_blank': 'Texte à trous',
+    'matching': 'Appariement',
+    'ordering': 'Ordonnancement',
+    'open': 'Question ouverte'
+  };
+
+  // Fonction pour normaliser le type QCM (pour affichage)
+  function normalizeQcmType(type: string): string {
+    return type === 'qcm_multiple' ? 'qcm' : type;
+  }
+
+  // Calculer si c'est un QCM multiple (plusieurs bonnes réponses)
+  function isQcmMultiple(question: any): boolean {
+    if (question.type !== 'qcm' && question.type !== 'qcm_multiple') return false;
+    return Array.isArray(question.correct_answers) && question.correct_answers.length > 1;
+  }
   
   const difficultyLevels = [
     { value: 1, label: '1 - Très facile' },
@@ -30,15 +41,56 @@
     { value: 5, label: '5 - Très difficile' }
   ];
   
-  let selectedType = $state('');
-  let selectedDifficulty = $state('1');
-  let selectedTheme = $state('');
+  // État pour les thèmes sélectionnés (multiples)
+  let selectedThemeIds = $state<string[]>([]);
   
+  // État pour les difficultés par grade
+  let gradeDifficulties = $state<Array<{grade_id: string, difficulty: number, points: number}>>([]);
+  
+  // Initialiser les états à partir de data
   $effect(() => {
-    selectedType = data.question.type || '';
-    selectedDifficulty = data.question.difficulty?.toString() || '1';
-    selectedTheme = data.question.theme_slug || '';
+    selectedThemeIds = data.question.theme_ids || [];
+    gradeDifficulties = data.question.grade_difficulties || [];
   });
+  
+  // Fonction pour ajouter une difficulté pour un grade
+  function addGradeDifficulty(gradeId: string) {
+    if (!gradeDifficulties.find(gd => gd.grade_id === gradeId)) {
+      gradeDifficulties = [...gradeDifficulties, { grade_id: gradeId, difficulty: 3, points: 10 }];
+    }
+  }
+  
+  // Fonction pour supprimer une difficulté
+  function removeGradeDifficulty(gradeId: string) {
+    gradeDifficulties = gradeDifficulties.filter(gd => gd.grade_id !== gradeId);
+  }
+  
+  // Fonction pour mettre à jour une difficulté
+  function updateGradeDifficulty(gradeId: string, field: 'difficulty' | 'points', value: number) {
+    gradeDifficulties = gradeDifficulties.map(gd => 
+      gd.grade_id === gradeId ? { ...gd, [field]: value } : gd
+    );
+  }
+  
+  // Toggle un thème
+  function toggleTheme(themeId: string) {
+    if (selectedThemeIds.includes(themeId)) {
+      selectedThemeIds = selectedThemeIds.filter(id => id !== themeId);
+    } else {
+      selectedThemeIds = [...selectedThemeIds, themeId];
+    }
+  }
+  
+  // Récupérer le nom d'un grade par son ID
+  function getGradeName(gradeId: string): string {
+    const grade = data.grades?.find((g: any) => g.id === gradeId);
+    return grade?.name || gradeId;
+  }
+  
+  // Grades disponibles (non encore ajoutés)
+  let availableGrades = $derived(
+    data.grades?.filter((g: any) => !gradeDifficulties.find(gd => gd.grade_id === g.id)) || []
+  );
 </script>
 
 <div class="space-y-6">
@@ -50,9 +102,12 @@
       </a>
       <div>
         <h1 class="text-2xl font-bold">Modifier la question</h1>
-        <p class="text-muted-foreground text-sm">
-          {data.question.theme_name ? `Thème: ${data.question.theme_name}` : 'Sans thème'}
-        </p>
+        <div class="flex items-center gap-2 mt-1">
+          <Badge variant="outline">{questionTypeLabels[data.question.type] || data.question.type}</Badge>
+          {#if isQcmMultiple(data.question)}
+            <Badge variant="secondary" class="text-xs">Choix multiples</Badge>
+          {/if}
+        </div>
       </div>
     </div>
     <Badge variant={data.question.is_active ? 'default' : 'secondary'}>
@@ -112,35 +167,40 @@
         
         <!-- Type-specific fields -->
         {#if data.question.type === 'qcm' || data.question.type === 'qcm_multiple'}
+          {@const isMultiple = isQcmMultiple(data.question)}
           <Card.Root>
             <Card.Header>
-              <Card.Title>Options de réponse</Card.Title>
+              <Card.Title class="flex items-center gap-2">
+                Options de réponse
+                <Badge variant={isMultiple ? 'default' : 'secondary'} class="text-xs">
+                  {isMultiple ? 'Choix multiples' : 'Choix unique'}
+                </Badge>
+              </Card.Title>
             </Card.Header>
             <Card.Content>
               {#if data.question.options?.length}
+                {@const correctAnswers = data.question.correct_answers || 
+                  (data.question.correct_answer !== undefined ? [data.question.correct_answer] : [])}
                 <div class="space-y-2">
                   {#each data.question.options as option, i}
+                    {@const isCorrect = correctAnswers.includes(i)}
                     <div class="flex items-center gap-2 p-2 rounded border {
-                      (data.question.type === 'qcm' && data.question.correct_answer === i) ||
-                      (data.question.type === 'qcm_multiple' && data.question.correct_answers?.includes(i))
-                        ? 'bg-green-50 border-green-200' 
-                        : ''
+                      isCorrect ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700' : ''
                     }">
                       <span class="font-mono text-sm text-muted-foreground w-6">{String.fromCharCode(65 + i)}.</span>
                       <span class="flex-1">{option}</span>
-                      {#if (data.question.type === 'qcm' && data.question.correct_answer === i) ||
-                           (data.question.type === 'qcm_multiple' && data.question.correct_answers?.includes(i))}
+                      {#if isCorrect}
                         <Badge variant="default" class="text-xs">Correct</Badge>
                       {/if}
                     </div>
                   {/each}
                 </div>
+                <p class="text-xs text-muted-foreground mt-4">
+                  {correctAnswers.length} bonne(s) réponse(s) sur {data.question.options.length} options
+                </p>
               {:else}
                 <p class="text-muted-foreground">Aucune option définie</p>
               {/if}
-              <p class="text-xs text-muted-foreground mt-4">
-                Pour modifier les options, utilisez l'API ou l'éditeur avancé
-              </p>
             </Card.Content>
           </Card.Root>
         {/if}
@@ -263,55 +323,126 @@
       
       <!-- Sidebar -->
       <div class="space-y-6">
+        <!-- Hidden fields pour envoyer les données JSON -->
+        <input type="hidden" name="theme_ids" value={JSON.stringify(selectedThemeIds)} />
+        <input type="hidden" name="grade_difficulties" value={JSON.stringify(gradeDifficulties)} />
+        
+        <!-- Difficultés par niveau -->
         <Card.Root>
           <Card.Header>
-            <Card.Title>Paramètres</Card.Title>
+            <Card.Title class="text-base">Difficulté par niveau</Card.Title>
+            <p class="text-xs text-muted-foreground">
+              Définissez la difficulté et les points pour chaque niveau scolaire
+            </p>
           </Card.Header>
-          <Card.Content class="space-y-4">
-            <div>
-              <label for="type" class="block text-sm font-medium mb-1">Type de question</label>
-              <select 
-                id="type" 
-                name="type" 
-                bind:value={selectedType}
-                class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                {#each questionTypes as type}
-                  <option value={type.value}>{type.label}</option>
-                {/each}
-              </select>
-            </div>
+          <Card.Content class="space-y-3">
+            {#if gradeDifficulties.length === 0}
+              <p class="text-sm text-muted-foreground italic">
+                Aucun niveau configuré
+              </p>
+            {:else}
+              {#each gradeDifficulties as gd (gd.grade_id)}
+                <div class="p-3 border rounded-md space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="font-medium text-sm">{getGradeName(gd.grade_id)}</span>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm"
+                      onclick={() => removeGradeDifficulty(gd.grade_id)}
+                    >
+                      <X class="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="text-xs text-muted-foreground">Difficulté</label>
+                      <select 
+                        class="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                        value={gd.difficulty}
+                        onchange={(e) => updateGradeDifficulty(gd.grade_id, 'difficulty', parseInt(e.currentTarget.value))}
+                      >
+                        {#each difficultyLevels as level}
+                          <option value={level.value}>{level.value}</option>
+                        {/each}
+                      </select>
+                    </div>
+                    <div>
+                      <label class="text-xs text-muted-foreground">Points</label>
+                      <Input 
+                        type="number" 
+                        value={gd.points}
+                        min="1"
+                        max="100"
+                        class="h-8"
+                        onchange={(e) => updateGradeDifficulty(gd.grade_id, 'points', parseInt(e.currentTarget.value) || 10)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              {/each}
+            {/if}
             
-            <div>
-              <label for="difficulty" class="block text-sm font-medium mb-1">Difficulté</label>
-              <select 
-                id="difficulty" 
-                name="difficulty" 
-                bind:value={selectedDifficulty}
-                class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                {#each difficultyLevels as level}
-                  <option value={level.value}>{level.label}</option>
-                {/each}
-              </select>
-            </div>
-            
-            <div>
-              <label for="theme_slug" class="block text-sm font-medium mb-1">Thème</label>
-              <select 
-                id="theme_slug" 
-                name="theme_slug" 
-                bind:value={selectedTheme}
-                class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Sans thème</option>
+            {#if availableGrades.length > 0}
+              <div class="pt-2">
+                <select 
+                  class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  onchange={(e) => {
+                    if (e.currentTarget.value) {
+                      addGradeDifficulty(e.currentTarget.value);
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                >
+                  <option value="">+ Ajouter un niveau...</option>
+                  {#each availableGrades as grade}
+                    <option value={grade.id}>{grade.name}</option>
+                  {/each}
+                </select>
+              </div>
+            {/if}
+          </Card.Content>
+        </Card.Root>
+        
+        <!-- Thèmes (multiples) -->
+        <Card.Root>
+          <Card.Header>
+            <Card.Title class="text-base">Thèmes</Card.Title>
+            <p class="text-xs text-muted-foreground">
+              Sélectionnez un ou plusieurs thèmes
+            </p>
+          </Card.Header>
+          <Card.Content>
+            {#if data.themes?.length}
+              <div class="space-y-2 max-h-48 overflow-y-auto">
                 {#each data.themes as theme}
-                  <option value={theme.slug}>{theme.name}</option>
+                  {@const isSelected = selectedThemeIds.includes(theme.id)}
+                  <label 
+                    class="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted transition-colors {isSelected ? 'bg-primary/10' : ''}"
+                  >
+                    <input 
+                      type="checkbox"
+                      checked={isSelected}
+                      onchange={() => toggleTheme(theme.id)}
+                      class="h-4 w-4 rounded border-gray-300"
+                    />
+                    <span class="text-sm">{theme.name}</span>
+                  </label>
                 {/each}
-              </select>
-            </div>
-            
-            <div class="flex items-center gap-2 pt-2">
+              </div>
+            {:else}
+              <p class="text-sm text-muted-foreground italic">Aucun thème disponible</p>
+            {/if}
+          </Card.Content>
+        </Card.Root>
+        
+        <!-- Statut -->
+        <Card.Root>
+          <Card.Header>
+            <Card.Title class="text-base">Statut</Card.Title>
+          </Card.Header>
+          <Card.Content>
+            <div class="flex items-center gap-2">
               <input 
                 type="checkbox" 
                 id="is_active" 

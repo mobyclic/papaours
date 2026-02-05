@@ -67,6 +67,10 @@ export const load: PageServerLoad = async ({ params }) => {
       theme_name: questionData.theme_name,
       theme_slug: questionData.theme_slug,
       subject_name: questionData.subject_name,
+      // Multi-grade difficulties
+      grade_difficulties: questionData.grade_difficulties || [],
+      // Multi-themes
+      theme_ids: (questionData.theme_ids || []).map((t: any) => t?.toString?.() || t),
       created_at: questionData.created_at?.toISOString?.() || questionData.createdAt?.toISOString?.() || null,
       updated_at: questionData.updated_at?.toISOString?.() || questionData.updatedAt?.toISOString?.() || null
     };
@@ -82,9 +86,21 @@ export const load: PageServerLoad = async ({ params }) => {
       slug: t.slug
     })) || [];
     
+    // Récupérer les grades disponibles
+    const gradesResult = await db.query<any[]>(`
+      SELECT id, name, code FROM grade
+    `);
+    
+    const grades = (gradesResult[0] as any[])?.map((g: any) => ({
+      id: g.id?.toString(),
+      name: g.name,
+      code: g.code
+    })) || [];
+    
     return {
       question,
-      themes
+      themes,
+      grades
     };
   } catch (err) {
     console.error('Error loading question:', err);
@@ -99,11 +115,17 @@ export const actions: Actions = {
     const formData = await request.formData();
     
     const questionText = formData.get('question') as string;
-    const type = formData.get('type') as string;
-    const difficulty = parseInt(formData.get('difficulty') as string) || 1;
     const is_active = formData.get('is_active') === 'on';
     const explanation = formData.get('explanation') as string;
-    const theme_slug = formData.get('theme_slug') as string;
+    
+    // Récupérer les thèmes multiples
+    const themeIdsJson = formData.get('theme_ids') as string;
+    const themeIds: string[] = themeIdsJson ? JSON.parse(themeIdsJson) : [];
+    
+    // Récupérer les difficultés par grade
+    const gradeDifficultiesJson = formData.get('grade_difficulties') as string;
+    const gradeDifficulties: Array<{grade_id: string, difficulty: number, points: number}> = 
+      gradeDifficultiesJson ? JSON.parse(gradeDifficultiesJson) : [];
     
     if (!questionText?.trim()) {
       return fail(400, { error: 'La question est requise' });
@@ -112,34 +134,32 @@ export const actions: Actions = {
     try {
       const db = await connectDB();
       
+      // Construire les références aux thèmes
+      const themeRefs = themeIds.map(id => {
+        const cleanThemeId = id.includes(':') ? id.split(':')[1] : id;
+        return `type::thing("theme", "${cleanThemeId}")`;
+      }).join(', ');
+      
       // Construire la query de mise à jour
-      let updateFields = `
-        question = $question,
-        questionType = $type,
-        difficulty = $difficulty,
-        isActive = $is_active,
-        explanation = $explanation,
-        updatedAt = time::now()
+      let updateQuery = `
+        UPDATE type::thing("question", $cleanId) SET
+          question = $question,
+          isActive = $is_active,
+          explanation = $explanation,
+          grade_difficulties = $grade_difficulties,
+          theme_ids = [${themeRefs}],
+          updatedAt = time::now()
       `;
       
       const queryParams: Record<string, any> = {
         cleanId,
         question: questionText.trim(),
-        type,
-        difficulty,
         is_active,
-        explanation: explanation?.trim() || null
+        explanation: explanation?.trim() || null,
+        grade_difficulties: gradeDifficulties
       };
       
-      // Mettre à jour le thème si fourni
-      if (theme_slug) {
-        updateFields += `, theme = (SELECT id FROM theme WHERE slug = $theme_slug LIMIT 1)[0]`;
-        queryParams.theme_slug = theme_slug;
-      }
-      
-      await db.query(`
-        UPDATE type::thing("question", $cleanId) SET ${updateFields}
-      `, queryParams);
+      await db.query(updateQuery, queryParams);
       
       return { success: true };
     } catch (err) {

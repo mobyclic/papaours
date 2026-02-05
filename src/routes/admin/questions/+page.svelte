@@ -61,10 +61,10 @@
   let saving = $state(false);
   
   // Types de questions disponibles
+  // Note: qcm et qcm_multiple sont fusionnés en "QCM" - la variante est déterminée automatiquement
   const questionTypes = [
-    { value: 'qcm', label: 'QCM classique', icon: FileQuestion },
+    { value: 'qcm', label: 'QCM', icon: FileQuestion },  // Inclut qcm_multiple
     { value: 'qcm_image', label: 'QCM avec images', icon: Image },
-    { value: 'qcm_multiple', label: 'QCM multiple', icon: ListChecks },
     { value: 'true_false', label: 'Vrai/Faux', icon: ToggleLeft },
     { value: 'fill_blank', label: 'Texte à trous', icon: FileText },
     { value: 'matching', label: 'Association', icon: Layers },
@@ -72,6 +72,19 @@
     { value: 'open_short', label: 'Réponse courte', icon: MessageSquare },
     { value: 'open_long', label: 'Réponse longue', icon: MessageSquare },
   ];
+
+  // Normaliser le type pour l'affichage (qcm_multiple -> qcm)
+  function normalizeTypeForDisplay(type: string): string {
+    return type === 'qcm_multiple' ? 'qcm' : type;
+  }
+
+  // Déterminer si un QCM a plusieurs bonnes réponses
+  function isMultipleChoice(question: any): boolean {
+    const type = question.questionType || question.type;
+    if (type !== 'qcm' && type !== 'qcm_multiple') return false;
+    const answers = question.correctAnswers || question.correct_answers;
+    return Array.isArray(answers) && answers.length > 1;
+  }
   
   const difficulties = [
     { value: 'easy', label: 'Facile', color: 'bg-green-500/20 text-green-400 border border-green-500/30' },
@@ -118,7 +131,9 @@
   }
   
   function getTypeInfo(type: string) {
-    return questionTypes.find(t => t.value === type) || questionTypes[0];
+    // Normaliser qcm_multiple vers qcm pour l'affichage
+    const normalizedType = normalizeTypeForDisplay(type);
+    return questionTypes.find(t => t.value === normalizedType) || questionTypes[0];
   }
   
   function getDifficultyInfo(diff: string) {
@@ -160,10 +175,30 @@
       const url = isNew ? '/api/admin/questions' : `/api/admin/questions/${editingQuestion.id.split(':')[1] || editingQuestion.id}`;
       const method = isNew ? 'POST' : 'PUT';
       
+      // Normaliser le type QCM: déterminer automatiquement si c'est qcm ou qcm_multiple
+      // basé sur le nombre de bonnes réponses
+      let questionToSave = { ...editingQuestion };
+      if (questionToSave.questionType === 'qcm' || questionToSave.questionType === 'qcm_multiple') {
+        const hasMultipleAnswers = Array.isArray(questionToSave.correctAnswers) && questionToSave.correctAnswers.length > 1;
+        questionToSave.questionType = hasMultipleAnswers ? 'qcm_multiple' : 'qcm';
+        
+        // Normaliser les données de réponse
+        if (hasMultipleAnswers) {
+          // Pour qcm_multiple, utiliser correctAnswers
+          questionToSave.correctAnswer = undefined;
+        } else {
+          // Pour qcm simple, utiliser correctAnswer
+          if (Array.isArray(questionToSave.correctAnswers) && questionToSave.correctAnswers.length === 1) {
+            questionToSave.correctAnswer = questionToSave.correctAnswers[0];
+          }
+          questionToSave.correctAnswers = undefined;
+        }
+      }
+      
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingQuestion)
+        body: JSON.stringify(questionToSave)
       });
       
       if (res.ok) {
@@ -455,9 +490,15 @@
             <td class="px-4 py-3">
               {#if typeInfo.icon}
                 {@const Icon = typeInfo.icon}
+                {@const isMultiple = isMultipleChoice(question)}
                 <div class="flex items-center gap-2">
                   <Icon class="w-4 h-4 text-gray-400" />
-                  <span class="text-sm text-gray-300">{typeInfo.label}</span>
+                  <span class="text-sm text-gray-300">
+                    {typeInfo.label}
+                    {#if isMultiple}
+                      <span class="text-xs text-purple-400 ml-1">(multi)</span>
+                    {/if}
+                  </span>
                 </div>
               {:else}
                 <span class="text-sm text-gray-300">{typeInfo.label}</span>
@@ -618,13 +659,52 @@
         
         <!-- Options pour QCM -->
         {#if ['qcm', 'qcm_image', 'qcm_multiple'].includes(editingQuestion.questionType)}
+          {@const hasMultipleCorrect = Array.isArray(editingQuestion.correctAnswers) && editingQuestion.correctAnswers.length > 0}
           <div>
             <!-- svelte-ignore a11y_label_has_associated_control -->
             <label class="block text-sm font-medium text-gray-700 mb-1">Options</label>
+            
+            <!-- Toggle pour choix unique/multiple -->
+            <div class="flex items-center gap-3 mb-3 p-2 bg-gray-100 rounded-lg">
+              <span class="text-sm text-gray-600">Mode :</span>
+              <label class="flex items-center gap-1 cursor-pointer">
+                <input
+                  type="radio"
+                  name="qcmMode"
+                  checked={!hasMultipleCorrect}
+                  onchange={() => {
+                    // Convertir en choix unique: garder seulement la première réponse
+                    if (editingQuestion.correctAnswers?.length > 0) {
+                      editingQuestion.correctAnswer = editingQuestion.correctAnswers[0];
+                    }
+                    editingQuestion.correctAnswers = [];
+                  }}
+                  class="w-4 h-4"
+                />
+                <span class="text-sm">Choix unique</span>
+              </label>
+              <label class="flex items-center gap-1 cursor-pointer">
+                <input
+                  type="radio"
+                  name="qcmMode"
+                  checked={hasMultipleCorrect}
+                  onchange={() => {
+                    // Convertir en choix multiple: utiliser correctAnswer comme première réponse
+                    editingQuestion.correctAnswers = editingQuestion.correctAnswer !== undefined 
+                      ? [editingQuestion.correctAnswer] 
+                      : [];
+                    editingQuestion.correctAnswer = undefined;
+                  }}
+                  class="w-4 h-4"
+                />
+                <span class="text-sm">Choix multiples</span>
+              </label>
+            </div>
+            
             <div class="space-y-2">
               {#each editingQuestion.options as option, i}
                 <div class="flex items-center gap-2">
-                  {#if editingQuestion.questionType === 'qcm_multiple'}
+                  {#if hasMultipleCorrect}
                     <input
                       type="checkbox"
                       checked={(editingQuestion.correctAnswers || []).includes(i)}

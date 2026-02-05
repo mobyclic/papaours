@@ -50,12 +50,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '');
 
+      // Handle optional description field
+      const descriptionValue = chapter.description?.trim();
+      const descriptionSet = descriptionValue ? 'description = $description,' : '';
+
       const [created] = await db.query<[any[]]>(`
         CREATE chapter SET
           title = $title,
           name = $title,
           slug = $slug,
-          description = $description,
+          ${descriptionSet}
           official_program = type::thing("official_program", $programId),
           \`order\` = $order,
           is_active = true,
@@ -63,7 +67,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       `, {
         title,
         slug: `${slug}-${i + 1}`,
-        description: chapter.description || null,
+        description: descriptionValue || undefined,
         programId: cleanProgramId,
         order: chapter.order || i + 1
       });
