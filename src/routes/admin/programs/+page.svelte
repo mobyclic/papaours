@@ -6,7 +6,7 @@
   import { 
     Plus, Pencil, Trash2, BookOpen, ChevronRight, Library, FileText,
     Sparkles, AlertTriangle, CheckCircle, ChevronDown, GraduationCap,
-    Wand2, Loader2, ExternalLink
+    Wand2, Loader2, ExternalLink, Globe, Save
   } from 'lucide-svelte';
   import { invalidateAll, goto } from '$app/navigation';
   import { page } from '$app/stores';
@@ -14,7 +14,9 @@
   let { data }: { data: PageData } = $props();
 
   // États de navigation - gérés localement, pas dépendants des props
-  let selectedCycleSlug = $state('all');
+  let selectedSystemSlug = $state('');
+  let selectedCycleSlug = $state('');
+  let selectedTrackSlug = $state('');
   let selectedGradeSlug = $state('');
   let initialized = $state(false);
   
@@ -23,10 +25,21 @@
     if (!initialized) {
       // Lire les paramètres de l'URL directement
       const url = new URL(window.location.href);
+      const systemParam = url.searchParams.get('system');
       const cycleParam = url.searchParams.get('cycle');
+      const trackParam = url.searchParams.get('track');
       const gradeParam = url.searchParams.get('grade');
+      if (systemParam) selectedSystemSlug = systemParam;
       if (cycleParam) selectedCycleSlug = cycleParam;
+      if (trackParam) selectedTrackSlug = trackParam;
       if (gradeParam) selectedGradeSlug = gradeParam;
+      
+      // Si pas de système sélectionné, présélectionner France
+      if (!selectedSystemSlug) {
+        const france = data.educationSystems.find((s: any) => s.code === 'FR');
+        if (france) selectedSystemSlug = france.code;
+      }
+      
       initialized = true;
     }
   });
@@ -68,10 +81,26 @@
     { id: 'Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B', provider: 'meta' },
   ]);
 
-  // Grades filtrés par cycle sélectionné dans le nav
+  // Tracks (filières) filtrés par cycle sélectionné
+  let tracksForSelectedCycle = $derived.by(() => {
+    if (!selectedCycleSlug) return [];
+    return data.tracks.filter(t => t.cycle_slug === selectedCycleSlug);
+  });
+
+  // Est-ce que le cycle sélectionné a des filières ?
+  let cycleHasTracks = $derived(tracksForSelectedCycle.length > 0);
+
+  // Grades filtrés par cycle et track sélectionnés dans le nav
   let gradesForSelectedCycle = $derived.by(() => {
-    if (selectedCycleSlug === 'all') return data.grades;
-    return data.grades.filter(g => g.cycle_slug === selectedCycleSlug);
+    if (!selectedCycleSlug) return data.grades;
+    let result = data.grades.filter(g => g.cycle_slug === selectedCycleSlug);
+    
+    // Si une filière est sélectionnée, filtrer aussi par track
+    if (selectedTrackSlug) {
+      result = result.filter(g => g.track_slug === selectedTrackSlug);
+    }
+    
+    return result;
   });
 
   // Grades filtrés par cycle du formulaire
@@ -80,11 +109,11 @@
     return data.grades.filter(g => g.cycle_slug === form.cycle_slug);
   });
 
-  // Programmes filtrés par cycle et classe
+  // Programmes filtrés par cycle, track et classe
   let filteredPrograms = $derived.by(() => {
     let result = data.programs;
     
-    if (selectedCycleSlug !== 'all') {
+    if (selectedCycleSlug) {
       result = result.filter(p => p.cycle_slug === selectedCycleSlug);
     }
     
@@ -128,31 +157,61 @@
     });
   });
 
-  // Changer de cycle
-  function selectCycle(slug: string) {
-    selectedCycleSlug = slug;
-    selectedGradeSlug = '';
-    // Mettre à jour l'URL sans recharger
+  // Helper pour mettre à jour l'URL
+  function updateURL() {
     const url = new URL(window.location.href);
-    if (slug === 'all') {
-      url.searchParams.delete('cycle');
+    
+    if (selectedSystemSlug) {
+      url.searchParams.set('system', selectedSystemSlug);
     } else {
-      url.searchParams.set('cycle', slug);
+      url.searchParams.delete('system');
     }
-    url.searchParams.delete('grade');
-    history.pushState({}, '', url);
-  }
-
-  // Changer de classe
-  function selectGrade(slug: string) {
-    selectedGradeSlug = slug;
-    const url = new URL(window.location.href);
-    if (slug) {
-      url.searchParams.set('grade', slug);
+    
+    if (selectedCycleSlug) {
+      url.searchParams.set('cycle', selectedCycleSlug);
+    } else {
+      url.searchParams.delete('cycle');
+    }
+    
+    if (selectedTrackSlug) {
+      url.searchParams.set('track', selectedTrackSlug);
+    } else {
+      url.searchParams.delete('track');
+    }
+    
+    if (selectedGradeSlug) {
+      url.searchParams.set('grade', selectedGradeSlug);
     } else {
       url.searchParams.delete('grade');
     }
+    
     history.pushState({}, '', url);
+  }
+
+  // Changer de système
+  function handleSystemChange() {
+    selectedCycleSlug = '';
+    selectedTrackSlug = '';
+    selectedGradeSlug = '';
+    updateURL();
+  }
+
+  // Changer de cycle
+  function handleCycleChange() {
+    selectedTrackSlug = '';
+    selectedGradeSlug = '';
+    updateURL();
+  }
+
+  // Changer de filière
+  function handleTrackChange() {
+    selectedGradeSlug = '';
+    updateURL();
+  }
+
+  // Changer de classe
+  function handleGradeChange() {
+    updateURL();
   }
 
   // Ouvrir modal création/édition
@@ -368,8 +427,8 @@
         Gérez les programmes scolaires par cycle, classe et matière
       </p>
     </div>
-    <div class="flex items-center gap-3">
-      <Button variant="outline" onclick={openAIModal} class="flex items-center gap-2">
+    <div class="flex items-center gap-3 ">
+      <Button variant="outline" onclick={openAIModal} class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 bg-gray-800/50 text-gray-400 hover:bg-gray-700/50">
         <Wand2 class="w-4 h-4" />
         Générer avec IA
       </Button>
@@ -411,70 +470,92 @@
     </div>
   </div>
 
-  <!-- Navigation par cycles -->
-  <div class="flex gap-2 mb-4 flex-wrap">
-    <button
-      onclick={() => selectCycle('all')}
-      class="px-4 py-2 rounded-lg text-sm font-medium transition-colors {selectedCycleSlug === 'all' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white' : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
-    >
-      Tous les cycles
-    </button>
-    {#each coverageByClycle as cycle}
-      <button
-        onclick={() => selectCycle(cycle.slug)}
-        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 {selectedCycleSlug === cycle.slug ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white' : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'}"
-      >
-        {cycle.name}
-        <span class="text-xs opacity-75">
-          ({cycle.gradesWithPrograms}/{cycle.gradesCount})
-        </span>
-        {#if cycle.gradesWithoutPrograms > 0}
-          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-        {/if}
-      </button>
-    {/each}
-  </div>
-
-  <!-- Sélecteur de classe -->
-  {#if selectedCycleSlug !== 'all'}
-    <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-4 mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-medium text-gray-400">Sélectionner une classe</h3>
-        {#if selectedGrade}
-          <button 
-            onclick={() => selectGrade('')}
-            class="text-xs text-gray-500 hover:text-white"
-          >
-            Voir toutes les classes
-          </button>
-        {/if}
+  <!-- Filtres avec selects -->
+  <div class="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold flex items-center gap-2">
+        <GraduationCap class="w-5 h-5 text-amber-400" />
+        Filtres
+      </h3>
+    </div>
+    
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Zone éducative -->
+      <div>
+        <label for="system-select" class="block text-sm font-medium text-gray-400 mb-2">
+          <Globe class="w-4 h-4 inline mr-1" />
+          Zone éducative
+        </label>
+        <select
+          id="system-select"
+          bind:value={selectedSystemSlug}
+          onchange={handleSystemChange}
+          class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+        >
+          <option value="">Toutes les zones</option>
+          {#each data.educationSystems as system}
+            <option value={system.code}>{system.flag} {system.name}</option>
+          {/each}
+        </select>
       </div>
-      <div class="flex flex-wrap gap-2">
-        {#each gradesForSelectedCycle as grade}
-          {@const hasPrograms = grade.programs_count > 0}
-          {@const hasChapters = grade.programs_with_chapters > 0}
-          <button
-            onclick={() => selectGrade(grade.slug)}
-            class="px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-2
-              {selectedGradeSlug === grade.slug 
-                ? 'bg-white text-gray-900 font-medium shadow-lg' 
-                : hasPrograms 
-                  ? 'bg-gray-800 text-white hover:bg-gray-700' 
-                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50 border border-dashed border-gray-600'}"
+
+      <!-- Cycle -->
+      <div>
+        <label for="cycle-select" class="block text-sm font-medium text-gray-400 mb-2">Cycle</label>
+        <select
+          id="cycle-select"
+          bind:value={selectedCycleSlug}
+          onchange={handleCycleChange}
+          class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+        >
+          <option value="">Tous les cycles</option>
+          {#each data.cycles as cycle}
+            {@const coverage = coverageByClycle.find(c => c.slug === cycle.slug)}
+            <option value={cycle.slug}>
+              {cycle.name} ({coverage?.gradesWithPrograms || 0}/{coverage?.gradesCount || 0})
+            </option>
+          {/each}
+        </select>
+      </div>
+
+      <!-- Filière (conditionnelle) -->
+      {#if cycleHasTracks}
+        <div>
+          <label for="track-select" class="block text-sm font-medium text-gray-400 mb-2">Filière</label>
+          <select
+            id="track-select"
+            bind:value={selectedTrackSlug}
+            onchange={handleTrackChange}
+            class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
           >
-            {grade.name}
-            {#if hasPrograms}
-              <span class="text-xs px-1.5 py-0.5 rounded {hasChapters ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}">
-                {grade.programs_count}
-              </span>
-            {:else}
-              <AlertTriangle class="w-3 h-3 text-amber-400" />
-            {/if}
-          </button>
-        {/each}
+            <option value="">Toutes les filières</option>
+            {#each tracksForSelectedCycle as track}
+              <option value={track.slug}>{track.name}</option>
+            {/each}
+          </select>
+        </div>
+      {/if}
+
+      <!-- Niveau / Classe -->
+      <div>
+        <label for="grade-select" class="block text-sm font-medium text-gray-400 mb-2">Niveau / Classe</label>
+        <select
+          id="grade-select"
+          bind:value={selectedGradeSlug}
+          onchange={handleGradeChange}
+          class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+        >
+          <option value="">Tous les niveaux</option>
+          {#each gradesForSelectedCycle as grade}
+            {@const hasPrograms = grade.programs_count > 0}
+            <option value={grade.slug}>
+              {grade.name} {hasPrograms ? `(${grade.programs_count})` : '⚠️'}
+            </option>
+          {/each}
+        </select>
       </div>
     </div>
-  {/if}
+  </div>
 
   <!-- Contenu principal -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -486,7 +567,7 @@
             <Library class="w-5 h-5 text-purple-400" />
             {#if selectedGrade}
               Programmes - {selectedGrade.name}
-            {:else if selectedCycleSlug !== 'all'}
+            {:else if selectedCycleSlug}
               Programmes - {data.cycles.find(c => c.slug === selectedCycleSlug)?.name}
             {:else}
               Tous les programmes
@@ -650,7 +731,7 @@
         <div class="p-4 space-y-2">
           <Button 
             variant="outline" 
-            class="w-full justify-start gap-2"
+            class="w-full justify-start gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 bg-gray-800/50 text-gray-400 hover:bg-gray-700/50"
             onclick={openAIModal}
           >
             <Wand2 class="w-4 h-4" />
@@ -658,7 +739,7 @@
           </Button>
           <Button 
             variant="outline" 
-            class="w-full justify-start gap-2"
+            class="w-full justify-start gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 bg-gray-800/50 text-gray-400 hover:bg-gray-700/50"
             onclick={() => openModal()}
           >
             <Plus class="w-4 h-4" />

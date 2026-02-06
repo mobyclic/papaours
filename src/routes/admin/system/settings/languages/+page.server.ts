@@ -5,12 +5,12 @@ export const load: PageServerLoad = async () => {
   try {
     const db = await connectDB();
     
-    const result = await db.query<any[]>('SELECT * FROM langue WHERE is_active = true');
+    const result = await db.query<any[]>('SELECT * FROM language WHERE is_active = true');
     const languages = (result[0] || []).sort((a: any, b: any) => {
       // Default language first, then alphabetically
       if (a.is_default) return -1;
       if (b.is_default) return 1;
-      return (a.name_fr || '').localeCompare(b.name_fr || '');
+      return (a.name || a.native_name || '').localeCompare(b.name || b.native_name || '');
     });
     
     // Serialize RecordIds

@@ -6,9 +6,34 @@ export const load: PageServerLoad = async ({ url }) => {
     const db = await getSurrealDB();
     
     // Paramètres de filtre depuis l'URL
+    const selectedSystem = url.searchParams.get('system') || null;
     const selectedCycle = url.searchParams.get('cycle') || null;
+    const selectedTrack = url.searchParams.get('track') || null;
     const selectedGrade = url.searchParams.get('grade') || null;
     
+    // Récupérer les systèmes éducatifs
+    const [educationSystems] = await db.query<[any[]]>(`
+      SELECT id, code, name, flag 
+      FROM education_system 
+      WHERE is_active = true 
+      ORDER BY name
+    `);
+
+    // Récupérer les filières (tracks)
+    const [tracks] = await db.query<[any[]]>(`
+      SELECT 
+        id, 
+        code, 
+        name, 
+        slug,
+        cycle.id AS cycle_id,
+        cycle.slug AS cycle_slug,
+        \`order\` AS track_order
+      FROM track 
+      WHERE is_active = true 
+      ORDER BY cycle.order ASC, track_order ASC
+    `);
+
     // Récupérer les programmes officiels avec leurs relations
     const [programs] = await db.query<[any[]]>(`
       SELECT 
@@ -149,12 +174,33 @@ export const load: PageServerLoad = async ({ url }) => {
       color: s.color
     }));
 
+    const serializeEducationSystems = (educationSystems || []).map(s => ({
+      id: s.id?.toString() || s.id,
+      code: s.code,
+      name: s.name,
+      flag: s.flag
+    }));
+
+    const serializeTracks = (tracks || []).map(t => ({
+      id: t.id?.toString() || t.id,
+      code: t.code,
+      name: t.name,
+      slug: t.slug,
+      cycle_id: t.cycle_id?.toString() || t.cycle_id,
+      cycle_slug: t.cycle_slug,
+      track_order: t.track_order
+    }));
+
     return {
       programs: serializePrograms,
       cycles: serializeCycles,
       grades: serializedGrades,
       subjects: serializeSubjects,
+      educationSystems: serializeEducationSystems,
+      tracks: serializeTracks,
+      selectedSystem,
       selectedCycle,
+      selectedTrack,
       selectedGrade,
       stats: {
         totalGrades,
@@ -174,7 +220,11 @@ export const load: PageServerLoad = async ({ url }) => {
       cycles: [],
       grades: [],
       subjects: [],
+      educationSystems: [],
+      tracks: [],
+      selectedSystem: null,
       selectedCycle: null,
+      selectedTrack: null,
       selectedGrade: null,
       stats: {
         totalGrades: 0,

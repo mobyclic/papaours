@@ -31,8 +31,8 @@
         <tr>
           <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Drapeau</th>
           <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Code</th>
-          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Nom (FR)</th>
-          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Nom (EN)</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Nom</th>
+          <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Nom natif</th>
           <th class="px-6 py-3 text-left text-sm font-semibold text-gray-300">Statut</th>
         </tr>
       </thead>
@@ -41,8 +41,8 @@
           <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
             <td class="px-6 py-4 text-2xl">{language.flag || ''}</td>
             <td class="px-6 py-4 text-sm font-mono text-gray-400 uppercase">{language.code}</td>
-            <td class="px-6 py-4 text-sm font-medium text-white">{language.name_fr}</td>
-            <td class="px-6 py-4 text-sm text-gray-400">{language.name_en}</td>
+            <td class="px-6 py-4 text-sm font-medium text-white">{language.name}</td>
+            <td class="px-6 py-4 text-sm text-gray-400">{language.native_name}</td>
             <td class="px-6 py-4 text-sm">
               {#if language.is_default}
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">

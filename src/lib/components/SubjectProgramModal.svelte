@@ -443,7 +443,7 @@
         <div class="pt-4 border-t border-gray-800">
           <Button 
             variant="outline"
-            class="w-full border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+            class="w-full border-amber-500/30 text-amber-400 bg-gray-700  cursor-pointer"
             onclick={() => { open = false; goto(`/explore?subject=${subject?.code}`); }}
           >
             Explorer tous les quiz de {subject?.name}
