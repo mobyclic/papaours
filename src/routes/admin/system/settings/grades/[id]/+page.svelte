@@ -13,6 +13,9 @@
   import { invalidateAll } from '$app/navigation';
 
   let { data } = $props();
+  
+  // Derived grade - évite les problèmes de réactivité
+  let grade = $derived(data.grade);
 
   // États UI
   let expandedPrograms = $state<Set<string>>(new Set());
@@ -94,9 +97,9 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          grade_id: data.grade.id,
+          grade_id: grade.id,
           subject_code: newProgramSubject,
-          name: `Programme ${data.allSubjects.find((s: any) => s.code === newProgramSubject)?.name || ''} - ${data.grade.name}`
+          name: `Programme ${data.allSubjects.find((s: any) => s.code === newProgramSubject)?.name || ''} - ${grade.name}`
         })
       });
 
@@ -179,7 +182,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          grade_id: data.grade.id,
+          grade_id: grade.id,
           subject_codes: subjectCodes,
           custom_prompt: customPrompt,
           model: selectedModel,
@@ -239,9 +242,9 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            grade_id: data.grade.id,
+            grade_id: grade.id,
             subject_code: program.subject_code,
-            program_name: `${program.subject_name} - ${data.grade.name}`,
+            program_name: `${program.subject_name} - ${grade.name}`,
             chapters: enabledChapters
           })
         });
@@ -459,9 +462,10 @@
 </script>
 
 <svelte:head>
-  <title>{data.grade.name} - Gestion classe</title>
+  <title>{grade?.name ?? 'Chargement...'} - Gestion classe</title>
 </svelte:head>
 
+{#if grade}
 <div class="flex-1 p-8 overflow-auto">
   <!-- Header -->
   <div class="mb-8">
@@ -474,19 +478,19 @@
       <div>
         <div class="flex items-center gap-3">
           <h1 class="text-4xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-            {data.grade.name}
+            {grade.name}
           </h1>
-          {#if data.grade.short_name}
-            <span class="px-3 py-1 bg-gray-800 rounded-lg text-sm text-gray-400">{data.grade.short_name}</span>
+          {#if grade.short_name}
+            <span class="px-3 py-1 bg-gray-800 rounded-lg text-sm text-gray-400">{grade.short_name}</span>
           {/if}
         </div>
         <p class="text-gray-400 mt-2">
-          {data.grade.cycle_name}
-          {#if data.grade.track_name}
-            <span class="mx-2">•</span> {data.grade.track_name}
+          {grade.cycle_name}
+          {#if grade.track_name}
+            <span class="mx-2">•</span> {grade.track_name}
           {/if}
-          {#if data.grade.system_name}
-            <span class="mx-2">•</span> {data.grade.system_name}
+          {#if grade.system_name}
+            <span class="mx-2">•</span> {grade.system_name}
           {/if}
         </p>
       </div>
@@ -765,7 +769,7 @@
         Générer un programme avec l'IA
       </Dialog.Title>
       <Dialog.Description class="text-gray-400">
-        L'IA va générer le programme officiel avec les chapitres pour {data.grade.name}
+        L'IA va générer le programme officiel avec les chapitres pour {grade.name}
       </Dialog.Description>
     </Dialog.Header>
     
@@ -1395,3 +1399,8 @@
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
+{:else}
+<div class="flex-1 p-8 flex items-center justify-center">
+  <p class="text-gray-400">Chargement de la classe...</p>
+</div>
+{/if}

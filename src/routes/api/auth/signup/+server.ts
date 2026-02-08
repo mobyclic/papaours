@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { connectDB } from '$lib/db';
-import { sendVerificationEmail } from '$lib/server/email';
+import { sendVerificationCode } from '$lib/server/email';
 import type { RequestHandler } from './$types';
 
 // Hash simple pour le mot de passe (en production, utiliser bcrypt ou argon2)
@@ -9,6 +9,11 @@ async function hashPassword(password: string): Promise<string> {
   const data = encoder.encode(password + 'kweez_salt_2024');
   const hash = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Générer un code OTP à 6 chiffres
+function generateOTPCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 // Générer un slug unique pour le tuteur
@@ -82,9 +87,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       }
     }
 
-    // Générer un token de vérification email
-    const verificationToken = crypto.randomUUID();
-
     const userData: any = {
       email: email.toLowerCase().trim(),
       nom,
@@ -107,28 +109,32 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     const created = await db.create('user', userData);
     const user = Array.isArray(created) ? created[0] : created;
 
-    // Créer le token de vérification email
+    // Générer le code OTP à 6 chiffres pour la vérification email
+    const otpCode = generateOTPCode();
+
+    // Créer le token de vérification email (avec OTP code)
     await db.query(`
       CREATE email_verification SET 
-        verification_token = $verificationToken,
+        verification_code = $otpCode,
         user = $userId,
         created_at = time::now(),
-        expires_at = time::now() + 24h
+        expires_at = time::now() + 15m
     `, { 
-      verificationToken: verificationToken,
+      otpCode: otpCode,
       userId: user.id 
     });
 
-    // Envoyer l'email de vérification
-    await sendVerificationEmail(email.toLowerCase().trim(), prenom, verificationToken);
+    // Envoyer l'email avec le code de vérification
+    await sendVerificationCode(email.toLowerCase().trim(), prenom, otpCode);
 
     // Ne pas créer de session tant que l'email n'est pas vérifié
-    // L'utilisateur devra cliquer sur le lien de vérification puis se connecter
+    // L'utilisateur devra entrer le code reçu par email
 
     return json({
       success: true,
       requiresVerification: true,
-      message: 'Compte créé ! Vérifiez votre email pour activer votre compte.'
+      email: email.toLowerCase().trim(),
+      message: 'Compte créé ! Entrez le code reçu par email pour activer votre compte.'
     }, { status: 201 });
 
   } catch (error) {

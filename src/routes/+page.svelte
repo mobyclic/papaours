@@ -6,15 +6,24 @@
   import { loadThemeColor, setThemeColor, THEME_COLORS, type ThemeColorId } from '$lib/stores/themeStore.svelte';
   import { locale, availableLocales, type Locale } from '$lib/i18n';
   import ColorPicker from '$lib/components/ColorPicker.svelte';
-  import { Eye, EyeOff, BookOpen, Trophy, Users, Sparkles, Brain, Target, Zap, ChevronRight, GraduationCap, Calculator, Globe, Atom, Palette, Music, ChevronDown, Sun, Moon, Menu, X, CheckCircle, BarChart3, Gamepad2, School, Heart, Star, Play, ArrowRight, ChevronLeft, Building2, ArrowUp, ArrowDown, Check, XIcon } from 'lucide-svelte';
+  import { Eye, EyeOff, BookOpen, Trophy, Users, Sparkles, Brain, Target, Zap, ChevronRight, GraduationCap, Calculator, Globe, Atom, Palette, Music, ChevronDown, Sun, Moon, Menu, X, CheckCircle, BarChart3, Gamepad2, School, Heart, Star, Play, ArrowRight, ChevronLeft, Building2, ArrowUp, ArrowDown, Check, XIcon, Mail } from 'lucide-svelte';
+  import * as InputOTP from '$lib/components/ui/input-otp';
   
   // Dark/Light mode
   let darkMode = $state(true);
   
-  // Modes: login, signup
-  let mode = $state<'login' | 'signup'>('login');
+  // Modes: login, signup, reset-password, verify-otp
+  let mode = $state<'login' | 'signup' | 'reset-password' | 'verify-otp'>('login');
   let showAuthModal = $state(false);
   let showMobileMenu = $state(false);
+  let resetPasswordSent = $state(false);
+  
+  // OTP verification state
+  let otpCode = $state('');
+  let otpEmail = $state('');
+  let otpResendLoading = $state(false);
+  let otpResendSuccess = $state(false);
+  let otpResendCooldown = $state(0);
   
   // Quiz slider
   let currentQuizSlide = $state(0);
@@ -53,6 +62,14 @@
   let demoShowResult = $state(false);
   let demoDraggedIndex = $state<number | null>(null);
   let demoDragOverIndex = $state<number | null>(null);
+  
+  // Score tracking for quiz demo
+  let demoScores = $state<Record<string, boolean>>({});
+  let demoQuizCompleted = $state(false);
+  
+  // Derived: total correct answers
+  let demoTotalCorrect = $derived(Object.values(demoScores).filter(Boolean).length);
+  let demoTotalQuestions = $derived(Object.keys(demoScores).length);
   
   // Matching connectors state
   let matchingContainerRef = $state<HTMLDivElement | null>(null);
@@ -198,6 +215,29 @@
     const q = currentQuestions.ordering;
     demoOrderingItems = [...q.items].sort(() => Math.random() - 0.5);
   }
+  
+  // Full quiz reset (for replay)
+  function resetFullQuiz() {
+    demoScores = {};
+    demoQuizCompleted = false;
+    currentQuizSlide = 0;
+    randomizeQuestion('QCM');
+    resetDemoState();
+  }
+  
+  // Go to next question
+  function goToNextQuestion() {
+    if (currentQuizSlide < quizTypes.length - 1) {
+      currentQuizSlide = currentQuizSlide + 1;
+      randomizeQuestion(quizTypes[currentQuizSlide]);
+      resetDemoState();
+    }
+  }
+  
+  // Show final results
+  function showQuizResults() {
+    demoQuizCompleted = true;
+  }
 
   function changeSlide(newIndex: number) {
     currentQuizSlide = newIndex;
@@ -214,6 +254,8 @@
   // QCM: Validate answer
   function validateQcm() {
     if (demoSelectedAnswer === null) return;
+    const isCorrect = demoSelectedAnswer === currentQuestions.qcm.correctIndex;
+    demoScores = { ...demoScores, 'QCM': isCorrect };
     demoShowResult = true;
   }
 
@@ -226,12 +268,16 @@
   // VraiFaux: Validate answer
   function validateTrueFalse() {
     if (demoTrueFalseAnswer === null) return;
+    const isCorrect = demoTrueFalseAnswer === currentQuestions.trueFalse.correctAnswer;
+    demoScores = { ...demoScores, 'Vrai/Faux': isCorrect };
     demoShowResult = true;
   }
 
   // FillBlank: Validate text answer
   function validateFillBlank() {
     if (!demoFillBlankAnswer.trim()) return;
+    const isCorrect = isFillBlankCorrect();
+    demoScores = { ...demoScores, 'Texte à trous': isCorrect };
     demoShowResult = true;
   }
 
@@ -267,6 +313,8 @@
   function validateMatching() {
     const q = currentQuestions.matching;
     if (Object.keys(demoMatches).length < q.pairs.length) return;
+    const isCorrect = isMatchingAllCorrect();
+    demoScores = { ...demoScores, 'Association': isCorrect };
     demoShowResult = true;
   }
 
@@ -326,6 +374,8 @@
 
   // Ordering: Validate
   function validateOrdering() {
+    const isCorrect = isOrderingAllCorrect();
+    demoScores = { ...demoScores, 'Classement': isCorrect };
     demoShowResult = true;
   }
 
@@ -452,15 +502,134 @@
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
   }
 
-  function openAuthModal(authMode: 'login' | 'signup') {
+  function openAuthModal(authMode: 'login' | 'signup' | 'reset-password' | 'verify-otp') {
     mode = authMode;
     showAuthModal = true;
     authError = '';
+    resetPasswordSent = false;
+    otpCode = '';
+    otpResendSuccess = false;
   }
 
   function closeAuthModal() {
     showAuthModal = false;
     authError = '';
+    resetPasswordSent = false;
+    otpCode = '';
+    otpEmail = '';
+    otpResendSuccess = false;
+  }
+  
+  async function submitOtpVerification(e?: Event) {
+    e?.preventDefault();
+    if (otpCode.length !== 6) return;
+    
+    authLoading = true;
+    authError = '';
+    
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: otpEmail, code: otpCode })
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        authError = data.message || 'Code invalide';
+        authLoading = false;
+        return;
+      }
+      
+      // Stocker l'utilisateur et rediriger vers l'onboarding
+      if (data.user) {
+        setUser(data.user);
+        closeAuthModal();
+        goto('/onboarding');
+      }
+    } catch (err) {
+      authError = 'Erreur de connexion au serveur';
+    } finally {
+      authLoading = false;
+    }
+  }
+  
+  async function resendOtpCode() {
+    if (otpResendCooldown > 0) return;
+    
+    otpResendLoading = true;
+    authError = '';
+    otpResendSuccess = false;
+    
+    try {
+      const res = await fetch('/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: otpEmail })
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        if (data.retryAfter) {
+          otpResendCooldown = data.retryAfter;
+          startResendCooldown();
+        }
+        authError = data.message || 'Erreur lors du renvoi';
+        return;
+      }
+      
+      otpResendSuccess = true;
+      otpResendCooldown = 120; // 2 minutes cooldown
+      startResendCooldown();
+    } catch (err) {
+      authError = 'Erreur de connexion au serveur';
+    } finally {
+      otpResendLoading = false;
+    }
+  }
+  
+  function startResendCooldown() {
+    const interval = setInterval(() => {
+      otpResendCooldown--;
+      if (otpResendCooldown <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+  }
+  
+  async function submitResetPassword(e: Event) {
+    e.preventDefault();
+    authLoading = true;
+    authError = '';
+    
+    try {
+      if (!validateEmail(email)) {
+        authError = 'Email invalide';
+        authLoading = false;
+        return;
+      }
+      
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        authError = data.message || 'Erreur lors de la demande';
+        return;
+      }
+      
+      resetPasswordSent = true;
+    } catch (err) {
+      authError = 'Erreur de connexion au serveur';
+    } finally {
+      authLoading = false;
+    }
   }
 
   async function submitAuth(e: Event) {
@@ -510,7 +679,26 @@
       
       const data = await res.json();
       if (!res.ok) {
+        // Login: Handle unverified email - offer to resend code
+        if (mode === 'login' && data.requiresVerification && data.email) {
+          otpEmail = data.email;
+          mode = 'verify-otp';
+          otpResendSuccess = false;
+          authError = '';
+          authLoading = false;
+          // Automatically send a new code
+          resendOtpCode();
+          return;
+        }
         authError = data.message || 'Erreur';
+        return;
+      }
+      
+      // Signup: Switch to OTP verification mode
+      if (mode === 'signup' && data.requiresVerification) {
+        otpEmail = data.email || email.toLowerCase().trim();
+        mode = 'verify-otp';
+        authLoading = false;
         return;
       }
       
@@ -854,7 +1042,75 @@
         <!-- Interactive Quiz Demo -->
         <div class="max-w-2xl mx-auto">
           <div class="relative {darkMode ? 'bg-slate-800' : 'bg-white'} rounded-3xl p-6 sm:p-8 border {darkMode ? 'border-slate-700' : 'border-slate-200'} shadow-2xl {darkMode ? 'shadow-black/20' : 'shadow-slate-200/50'}">
+            
+            {#if demoQuizCompleted}
+            <!-- Results View -->
+            <div class="text-center">
+              <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 {demoTotalCorrect === quizTypes.length ? 'bg-green-500/20' : demoTotalCorrect >= 3 ? 'bg-amber-500/20' : 'bg-red-500/20'}">
+                <Trophy class="w-10 h-10 {demoTotalCorrect === quizTypes.length ? 'text-green-500' : demoTotalCorrect >= 3 ? 'text-amber-500' : 'text-red-500'}" />
+              </div>
+              
+              <h3 class="text-2xl font-bold mb-2">Quiz terminé !</h3>
+              <p class="{darkMode ? 'text-slate-400' : 'text-slate-500'} mb-6">Voici ton score :</p>
+              
+              <div class="text-5xl font-bold mb-2 {demoTotalCorrect === quizTypes.length ? 'text-green-500' : demoTotalCorrect >= 3 ? 'text-amber-500' : 'text-red-500'}">
+                {demoTotalCorrect}/{quizTypes.length}
+              </div>
+              <p class="{darkMode ? 'text-slate-400' : 'text-slate-500'} text-sm mb-6">
+                {demoTotalCorrect === quizTypes.length ? 'Parfait ! 🎉' : demoTotalCorrect >= 3 ? 'Bien joué ! 👍' : 'Continue à t\'entraîner ! 💪'}
+              </p>
+              
+              <!-- Detail by question type -->
+              <div class="space-y-2 mb-6 text-left">
+                {#each quizTypes as type}
+                  {@const result = demoScores[type]}
+                  <div class="flex items-center justify-between p-3 rounded-xl {darkMode ? 'bg-slate-900/50' : 'bg-slate-50'}">
+                    <span class="font-medium">{type}</span>
+                    {#if result !== undefined}
+                      <span class="flex items-center gap-1 {result ? 'text-green-500' : 'text-red-500'}">
+                        {#if result}
+                          <Check class="w-4 h-4" />
+                          Correct
+                        {:else}
+                          <XIcon class="w-4 h-4" />
+                          Incorrect
+                        {/if}
+                      </span>
+                    {:else}
+                      <span class="text-slate-400">Non répondu</span>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+              
+              <div class="text-lg font-semibold text-amber-500 mb-6">
+                + {demoTotalCorrect * 15} XP gagnés
+              </div>
+              
+              <button
+                onclick={resetFullQuiz}
+                class="w-full py-3 px-6 rounded-xl font-semibold bg-amber-500 hover:bg-amber-400 text-white transition-all flex items-center justify-center gap-2"
+              >
+                <Play class="w-5 h-5" />
+                Rejouer
+              </button>
+            </div>
+            
+            {:else}
+            
             {#each [currentQuestion] as q}
+            <!-- Progress indicator -->
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-xs font-medium {darkMode ? 'text-slate-400' : 'text-slate-500'}">
+                Question {currentQuizSlide + 1}/{quizTypes.length}
+              </span>
+              <div class="flex gap-1">
+                {#each quizTypes as _, i}
+                  <div class="w-2 h-2 rounded-full transition-all {i < currentQuizSlide ? (demoScores[quizTypes[i]] ? 'bg-green-500' : 'bg-red-500') : i === currentQuizSlide ? 'bg-amber-500' : darkMode ? 'bg-slate-600' : 'bg-slate-300'}"></div>
+                {/each}
+              </div>
+            </div>
+            
             <!-- Header -->
             <div class="flex items-center gap-3 mb-6">
               <div class="w-12 h-12 rounded-2xl {darkMode ? 'bg-amber-500/20' : 'bg-amber-100'} flex items-center justify-center">
@@ -1238,11 +1494,34 @@
                 </div>
                 <div class="{isCorrect ? 'text-green-500' : 'text-red-500'} font-semibold">{isCorrect ? '+15 XP' : '+0 XP'}</div>
               </div>
+              
+              <!-- Next / Results button -->
+              <div class="mt-4">
+                {#if currentQuizSlide < quizTypes.length - 1}
+                  <button
+                    onclick={goToNextQuestion}
+                    class="w-full py-3 px-6 rounded-xl font-semibold bg-amber-500 hover:bg-amber-400 text-white transition-all flex items-center justify-center gap-2"
+                  >
+                    Question suivante
+                    <ChevronRight class="w-5 h-5" />
+                  </button>
+                {:else}
+                  <button
+                    onclick={showQuizResults}
+                    class="w-full py-3 px-6 rounded-xl font-semibold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white transition-all flex items-center justify-center gap-2"
+                  >
+                    <Trophy class="w-5 h-5" />
+                    Voir mes résultats
+                  </button>
+                {/if}
+              </div>
             {/if}
             {/each}
+            {/if}
           </div>
           
-          <!-- Slider Controls -->
+          <!-- Slider Controls (hidden when results shown) -->
+          {#if !demoQuizCompleted}
           <div class="flex items-center justify-center gap-4 mt-8">
             <button 
               onclick={() => changeSlide(currentQuizSlide > 0 ? currentQuizSlide - 1 : quizTypes.length - 1)}
@@ -1270,6 +1549,7 @@
               <ChevronRight class="w-5 h-5" />
             </button>
           </div>
+          {/if}
         </div>
       </div>
     </section>
@@ -1518,8 +1798,8 @@
                 <span class="text-xl font-black text-white">K</span>
               </div>
               <div>
-                <h2 class="text-xl font-bold">{mode === 'login' ? 'Connexion' : 'Inscription'}</h2>
-                <p class="text-sm {darkMode ? 'text-slate-400' : 'text-slate-500'}">Apprendre en s'amusant</p>
+                <h2 class="text-xl font-bold">{mode === 'login' ? 'Connexion' : mode === 'signup' ? 'Inscription' : mode === 'verify-otp' ? 'Vérification' : 'Mot de passe oublié'}</h2>
+                <p class="text-sm {darkMode ? 'text-slate-400' : 'text-slate-500'}">{mode === 'verify-otp' ? 'Code envoyé par email' : 'Apprendre en s\'amusant'}</p>
               </div>
             </div>
             <button 
@@ -1534,8 +1814,64 @@
             <div class="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm">{authError}</div>
           {/if}
 
-          <form onsubmit={submitAuth} class="space-y-4">
-            {#if mode === 'login'}
+          <form onsubmit={mode === 'reset-password' ? submitResetPassword : mode === 'verify-otp' ? submitOtpVerification : submitAuth} class="space-y-4">
+            {#if mode === 'verify-otp'}
+              <!-- OTP Verification Form -->
+              <div class="text-center py-4">
+                <div class="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4">
+                  <Mail class="w-8 h-8 text-amber-500" />
+                </div>
+                <p class="{darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2">
+                  Entre le code à 6 chiffres envoyé à
+                </p>
+                <p class="text-amber-500 font-semibold mb-6">{otpEmail}</p>
+                
+                <div class="flex justify-center">
+                  <InputOTP.Root maxlength={6} bind:value={otpCode} onComplete={submitOtpVerification}>
+                    {#snippet children({ cells })}
+                      <InputOTP.Group class="flex gap-2">
+                        {#each cells as cell}
+                          <InputOTP.Slot 
+                            {cell}
+                            class="w-12 h-14 text-2xl font-bold text-center rounded-xl border-2 transition-all flex items-center justify-center {darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'} {cell.isActive ? 'border-amber-500 ring-2 ring-amber-500/50' : ''}"
+                          />
+                        {/each}
+                      </InputOTP.Group>
+                    {/snippet}
+                  </InputOTP.Root>
+                </div>
+                
+                {#if otpResendSuccess}
+                  <p class="text-green-500 text-sm mt-4">Nouveau code envoyé !</p>
+                {/if}
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={authLoading || otpCode.length !== 6} 
+                class="w-full h-12 rounded-full bg-amber-500 hover:bg-amber-400 text-white font-semibold disabled:opacity-50 transition-all shadow-lg shadow-amber-500/20"
+              >
+                {authLoading ? 'Vérification...' : 'Valider le code'}
+              </button>
+              
+              <div class="text-center pt-2">
+                <button 
+                  type="button" 
+                  onclick={resendOtpCode}
+                  disabled={otpResendLoading || otpResendCooldown > 0}
+                  class="text-sm {darkMode ? 'text-slate-400' : 'text-slate-500'} hover:text-amber-500 transition-colors disabled:opacity-50"
+                >
+                  {#if otpResendCooldown > 0}
+                    Renvoyer le code ({otpResendCooldown}s)
+                  {:else if otpResendLoading}
+                    Envoi...
+                  {:else}
+                    <span class="text-amber-500 font-medium">Renvoyer</span> le code
+                  {/if}
+                </button>
+              </div>
+              
+            {:else if mode === 'login'}
               <div>
                 <label for="login-email" class="block text-sm font-medium {darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2">Email</label>
                 <input 
@@ -1571,9 +1907,9 @@
                   </button>
                 </div>
                 <div class="text-right mt-2">
-                  <a href="/reset-password" class="text-sm text-amber-500 hover:text-amber-400 transition-colors">
+                  <button type="button" onclick={() => mode = 'reset-password'} class="text-sm text-amber-500 hover:text-amber-400 transition-colors">
                     Mot de passe oublié ?
-                  </a>
+                  </button>
                 </div>
               </div>
 
@@ -1591,7 +1927,7 @@
                 </button>
               </div>
 
-            {:else}
+            {:else if mode === 'signup'}
               <div class="grid gap-4 grid-cols-2">
                 <div>
                   <label for="signup-prenom" class="block text-sm font-medium {darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2">Prénom</label>
@@ -1659,6 +1995,60 @@
                   Déjà inscrit ? <span class="text-amber-500 font-medium">Se connecter</span>
                 </button>
               </div>
+            
+            {:else}
+              <!-- Reset Password Form -->
+              {#if resetPasswordSent}
+                <div class="text-center py-6">
+                  <div class="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle class="w-8 h-8 text-green-500" />
+                  </div>
+                  <h3 class="text-lg font-semibold mb-2">Email envoyé !</h3>
+                  <p class="{darkMode ? 'text-slate-400' : 'text-slate-500'} text-sm mb-4">
+                    Si un compte existe avec l'adresse <strong class="text-amber-500">{email}</strong>, 
+                    tu recevras un lien pour réinitialiser ton mot de passe.
+                  </p>
+                  <p class="{darkMode ? 'text-slate-500' : 'text-slate-400'} text-xs">
+                    Pense à vérifier tes spams si tu ne reçois rien.
+                  </p>
+                </div>
+                <button 
+                  type="button" 
+                  onclick={() => mode = 'login'}
+                  class="w-full h-12 rounded-full bg-amber-500 hover:bg-amber-400 text-white font-semibold transition-all shadow-lg shadow-amber-500/20"
+                >
+                  Retour à la connexion
+                </button>
+              {:else}
+                <p class="{darkMode ? 'text-slate-400' : 'text-slate-500'} text-sm mb-4">
+                  Entre ton adresse email et nous t'enverrons un lien pour réinitialiser ton mot de passe.
+                </p>
+                <div>
+                  <label for="reset-email" class="block text-sm font-medium {darkMode ? 'text-slate-300' : 'text-slate-700'} mb-2">Email</label>
+                  <input 
+                    id="reset-email" 
+                    type="email" 
+                    bind:value={email} 
+                    required 
+                    class="w-full h-12 px-4 rounded-xl {darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder-slate-400'} border focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all" 
+                    placeholder="votre@email.com" 
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={authLoading} 
+                  class="w-full h-12 rounded-full bg-amber-500 hover:bg-amber-400 text-white font-semibold disabled:opacity-50 transition-all shadow-lg shadow-amber-500/20"
+                >
+                  {authLoading ? 'Envoi en cours...' : 'Envoyer le lien'}
+                </button>
+                
+                <div class="text-center pt-2">
+                  <button type="button" onclick={() => mode = 'login'} class="text-sm {darkMode ? 'text-slate-400' : 'text-slate-500'} hover:text-amber-500 transition-colors">
+                    <span class="text-amber-500 font-medium">← Retour</span> à la connexion
+                  </button>
+                </div>
+              {/if}
             {/if}
           </form>
         </div>

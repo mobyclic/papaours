@@ -109,6 +109,7 @@ export const GET: RequestHandler = async ({ params }) => {
               items, correctOrder,
               placeholder, sampleAnswers, expectedKeywords, minWords, maxWords, minLength, maxLength,
               answers, requireJustification,
+              svgContent, svg_content, expectedAnswers, expected_answers, choices,
               matiere_id, theme_ids, grade_difficulties,
               matiere_id.name as matiere_name,
               theme_ids.*.name as theme_names
@@ -174,15 +175,28 @@ export const GET: RequestHandler = async ({ params }) => {
     }
     
     if (questionType === 'qcm_multiple') {
-      // Pour QCM multiple, mélanger les réponses de manière déterministe
-      const originalAnswers = question.answers || [];
-      const answerSeed = `${params.sessionId}-${questionIdStr}`;
-      const answerShuffleOrder = seededShuffle(originalAnswers.length, answerSeed);
+      // Pour QCM multiple, mélanger les options de manière déterministe
+      // Support both formats:
+      // 1. options[] + correctAnswers[] (new format)
+      // 2. answers[{text, is_correct}] (legacy format)
       
-      // Mélanger les answers et créer les options
-      const shuffledAnswers = answerShuffleOrder.map((origIdx: number) => originalAnswers[origIdx]);
-      clientQuestion.answers = shuffledAnswers.map((a: any) => ({ text: a.text }));
-      clientQuestion.options = shuffledAnswers.map((a: any) => a.text);
+      const answerSeed = `${params.sessionId}-${questionIdStr}`;
+      
+      if (question.options && Array.isArray(question.options) && question.options.length > 0) {
+        // New format: options + correctAnswers
+        const originalOptions = question.options;
+        const answerShuffleOrder = seededShuffle(originalOptions.length, answerSeed);
+        const shuffledOptions = answerShuffleOrder.map((origIdx: number) => originalOptions[origIdx]);
+        clientQuestion.options = shuffledOptions;
+        // correctAnswers will be recalculated server-side during validation
+      } else if (question.answers && Array.isArray(question.answers)) {
+        // Legacy format: answers with is_correct
+        const originalAnswers = question.answers;
+        const answerShuffleOrder = seededShuffle(originalAnswers.length, answerSeed);
+        const shuffledAnswers = answerShuffleOrder.map((origIdx: number) => originalAnswers[origIdx]);
+        clientQuestion.answers = shuffledAnswers.map((a: any) => ({ text: a.text }));
+        clientQuestion.options = shuffledAnswers.map((a: any) => a.text);
+      }
     }
     
     if (questionType === 'matching') {
@@ -214,6 +228,14 @@ export const GET: RequestHandler = async ({ params }) => {
       clientQuestion.minWords = question.minWords || 0;
       clientQuestion.maxWords = question.maxWords || 0;
       // Ne pas envoyer sampleAnswers ni expectedKeywords
+    }
+    
+    if (questionType === 'map_labels') {
+      // Carte interactive - envoyer le SVG, les zones attendues et les choix
+      clientQuestion.svgContent = question.svgContent || question.svg_content || '';
+      clientQuestion.expectedAnswers = question.expectedAnswers || question.expected_answers || [];
+      clientQuestion.choices = question.choices || [];
+      // Ne pas envoyer les réponses correctes (mapping index -> label)
     }
 
     // Vérifier si cette question a déjà été répondue

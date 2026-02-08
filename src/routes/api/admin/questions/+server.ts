@@ -77,6 +77,22 @@ export const POST: RequestHandler = async ({ request }) => {
       questionData.expectedKeywords = data.expectedKeywords;
     }
     
+    // Champs spécifiques aux questions carte (map_labels)
+    if (data.svgContent) {
+      questionData.svgContent = data.svgContent;
+    }
+    if (data.expectedAnswers && Array.isArray(data.expectedAnswers)) {
+      questionData.expectedAnswers = data.expectedAnswers;
+    }
+    
+    // Champs texte à trous
+    if (data.textWithBlanks) {
+      questionData.textWithBlanks = data.textWithBlanks;
+    }
+    if (data.correctAnswers && Array.isArray(data.correctAnswers)) {
+      questionData.correctAnswers = data.correctAnswers;
+    }
+    
     const question = await db.create('question', questionData);
 
     return json(question);

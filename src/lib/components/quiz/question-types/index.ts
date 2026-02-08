@@ -5,3 +5,4 @@ export { default as FillBlank } from './FillBlank.svelte';
 export { default as Matching } from './Matching.svelte';
 export { default as Ordering } from './Ordering.svelte';
 export { default as OpenAnswer } from './OpenAnswer.svelte';
+export { default as MapLabels } from './MapLabels.svelte';

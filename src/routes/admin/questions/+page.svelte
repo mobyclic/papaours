@@ -4,7 +4,7 @@
   import { 
     Search, Plus, Pencil, Trash2, Filter, ChevronLeft, ChevronRight,
     Check, X, Image, FileQuestion, ListChecks, ToggleLeft, Layers, 
-    ArrowUpDown, MessageSquare, FileText
+    ArrowUpDown, MessageSquare, FileText, Map
   } from 'lucide-svelte';
   import AIQuestionGenerator from '$lib/components/admin/AIQuestionGenerator.svelte';
   
@@ -16,7 +16,7 @@
       pageSize: number;
       matieres: any[];
       themes: any[];
-      classes: any[];
+      grades: any[];
       filters: {
         search: string;
         type: string;
@@ -71,6 +71,7 @@
     { value: 'ordering', label: 'Classement', icon: ArrowUpDown },
     { value: 'open_short', label: 'Réponse courte', icon: MessageSquare },
     { value: 'open_long', label: 'Réponse longue', icon: MessageSquare },
+    { value: 'map_labels', label: 'Carte interactive', icon: Map },
   ];
 
   // Normaliser le type pour l'affichage (qcm_multiple -> qcm)
@@ -343,7 +344,7 @@
       <AIQuestionGenerator 
         matieres={data.matieres.map(m => ({ id: m.id, name: m.name, slug: m.slug || '' }))}
         themes={data.themes.map(t => ({ id: t.id, name: t.name, matiere_id: t.matiere_ids?.[0] }))}
-        classes={data.classes}
+        classes={data.grades || []}
         onSaveQuestion={handleAIQuestion}
       />
       
@@ -473,19 +474,20 @@
         {#each data.questions as question}
           {@const typeInfo = getTypeInfo(question.questionType)}
           {@const diffInfo = getDifficultyInfo(question.difficulty)}
+          {@const questionId = question.id.includes(':') ? question.id.split(':')[1] : question.id}
           <tr class="hover:bg-gray-800/50">
             <td class="px-4 py-3">
-              <div class="flex items-start gap-3">
+              <a href="/admin/questions/{questionId}" class="flex items-start gap-3 group">
                 {#if question.imageUrl}
                   <img src={question.imageUrl} alt="" class="w-12 h-12 object-cover rounded" />
                 {/if}
                 <div class="min-w-0">
-                  <p class="font-medium text-white line-clamp-2">{question.question}</p>
+                  <p class="font-medium text-white line-clamp-2 group-hover:text-purple-400 transition-colors">{question.question}</p>
                   {#if question.explanation}
                     <p class="text-xs text-gray-500 mt-1 line-clamp-1">{question.explanation}</p>
                   {/if}
                 </div>
-              </div>
+              </a>
             </td>
             <td class="px-4 py-3">
               {#if typeInfo.icon}
@@ -521,13 +523,13 @@
             </td>
             <td class="px-4 py-3">
               <div class="flex items-center justify-end gap-2">
-                <button
-                  onclick={() => openEditModal(question)}
+                <a
+                  href="/admin/questions/{question.id.includes(':') ? question.id.split(':')[1] : question.id}"
                   class="p-1.5 text-gray-400 hover:text-purple-400 hover:bg-purple-500/20 rounded"
                   title="Modifier"
                 >
                   <Pencil class="w-4 h-4" />
-                </button>
+                </a>
                 <button
                   onclick={() => openDeleteModal(question)}
                   class="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded"
@@ -792,6 +794,90 @@
               class="w-full border rounded-lg px-3 py-2"
               placeholder="France, Paris"
             />
+          </div>
+        {/if}
+        
+        <!-- Carte interactive (map_labels) -->
+        {#if editingQuestion.questionType === 'map_labels'}
+          <div class="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h4 class="font-medium text-blue-800">Configuration de la carte</h4>
+            
+            <div>
+              <label for="edit-svg" class="block text-sm font-medium text-gray-700 mb-1">
+                Contenu SVG (coller le code SVG avec des zones id="rep_0", "rep_1", etc.)
+              </label>
+              <textarea
+                id="edit-svg"
+                bind:value={editingQuestion.svgContent}
+                rows="8"
+                class="w-full border rounded-lg px-3 py-2 font-mono text-sm"
+                placeholder='<svg viewBox="0 0 800 600">
+  <rect id="rep_0" x="100" y="100" width="50" height="50"/>
+  <circle id="rep_1" cx="300" cy="200" r="30"/>
+  ...
+</svg>'
+              ></textarea>
+              <p class="text-xs text-gray-500 mt-1">
+                Les éléments avec id="rep_X" seront les zones cliquables
+              </p>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Réponses attendues (une par zone rep_X)
+              </label>
+              {#if !editingQuestion.expectedAnswers}
+                {(() => { editingQuestion.expectedAnswers = []; return ''; })()}
+              {/if}
+              
+              <div class="space-y-2">
+                {#each editingQuestion.expectedAnswers as answer, i}
+                  <div class="flex gap-2 items-center">
+                    <span class="text-sm font-medium text-gray-500 w-16">rep_{answer.index}</span>
+                    <input
+                      type="text"
+                      bind:value={answer.label}
+                      placeholder="Réponse attendue"
+                      class="flex-1 border rounded-lg px-3 py-2"
+                    />
+                    <input
+                      type="text"
+                      bind:value={answer.hint}
+                      placeholder="Indice (optionnel)"
+                      class="flex-1 border rounded-lg px-3 py-2"
+                    />
+                    <button
+                      type="button"
+                      onclick={() => editingQuestion.expectedAnswers = editingQuestion.expectedAnswers.filter((_: any, idx: number) => idx !== i)}
+                      class="p-2 text-red-500 hover:bg-red-50 rounded"
+                    >
+                      <Trash2 class="w-4 h-4" />
+                    </button>
+                  </div>
+                {/each}
+              </div>
+              
+              <button
+                type="button"
+                onclick={() => {
+                  const nextIndex = editingQuestion.expectedAnswers.length;
+                  editingQuestion.expectedAnswers = [...editingQuestion.expectedAnswers, { index: nextIndex, label: '', hint: '' }];
+                }}
+                class="mt-2 px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
+              >
+                + Ajouter une zone
+              </button>
+            </div>
+            
+            <!-- Prévisualisation -->
+            {#if editingQuestion.svgContent}
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Prévisualisation</label>
+                <div class="border rounded-lg p-2 bg-white max-h-64 overflow-auto">
+                  {@html editingQuestion.svgContent}
+                </div>
+              </div>
+            {/if}
           </div>
         {/if}
         

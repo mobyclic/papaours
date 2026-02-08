@@ -5,18 +5,20 @@
   import { t, locale, availableLocales, setLocale, type Locale } from '$lib/i18n';
   import { Button } from '$lib/components/ui/button';
   
-  // Types pour les données éducatives
+  // Types pour les données
+  interface Country { id: string; code: string; name: string; native_name: string; flag: string; default_language: string; slug: string; }
   interface EducationSystem { id: string; code: string; name: string; flag: string; }
   interface Cycle { id: string; code: string; name: string; order: number; }
   interface Track { id: string; code: string; name: string; }
   interface Grade { id: string; code: string; name: string; track?: string; }
   interface Specialty { id: string; code: string; name: string; }
   
-  // État du wizard - Étape 0 = langue, 1-4 = éducation
+  // État du wizard - Étape 0 = pays+langue, 1-3 = éducation
   let step = $state(0);
-  const totalSteps = 5; // langue + 4 étapes éducation
+  const totalSteps = 4; // pays+langue + 3 étapes éducation
   
   // Données chargées depuis la DB
+  let countries = $state<Country[]>([]);
   let systems = $state<EducationSystem[]>([]);
   let cycles = $state<Cycle[]>([]);
   let tracks = $state<Track[]>([]);
@@ -24,6 +26,7 @@
   let specialties = $state<Specialty[]>([]);
   
   // Sélections utilisateur
+  let selectedCountry = $state<string>('');
   let selectedLanguage = $state<string>($locale);
   let selectedSystem = $state<string>('');
   let selectedCycle = $state<string>('');
@@ -48,13 +51,12 @@
   // Derived: est-ce qu'on peut passer à l'étape suivante ?
   let canProceed = $derived.by(() => {
     switch (step) {
-      case 0: return !!selectedLanguage;
-      case 1: return !!selectedSystem;
-      case 2: return !!selectedCycle;
-      case 3: 
+      case 0: return !!selectedCountry && !!selectedLanguage;
+      case 1: return !!selectedCycle;
+      case 2: 
         if (needsTrack && !selectedTrack) return false;
         return !!selectedGrade;
-      case 4:
+      case 3:
         if (needsSpecialties && selectedSpecialties.length < 2) return false;
         return true;
       default: return false;
@@ -62,10 +64,9 @@
   });
   
   // SVG flags pour les langues
-  // SVG Flags pour les langues
   const languageFlags: Record<string, string> = {
-    fr: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" class="w-8 h-6"><path fill="#fff" d="M0 0h640v480H0z"/><path fill="#000091" d="M0 0h213.3v480H0z"/><path fill="#e1000f" d="M426.7 0H640v480H426.7z"/></svg>`,
-    en: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" class="w-8 h-6"><path fill="#012169" d="M0 0h640v480H0z"/><path fill="#FFF" d="m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0h75z"/><path fill="#C8102E" d="m424 281 216 159v40L369 281h55zm-184 20 6 35L54 480H0l240-179zM640 0v3L391 191l2-44L590 0h50zM0 0l239 176h-60L0 42V0z"/><path fill="#FFF" d="M241 0v480h160V0H241zM0 160v160h640V160H0z"/><path fill="#C8102E" d="M0 193v96h640v-96H0zM273 0v480h96V0h-96z"/></svg>`
+    fr: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" class="w-6 h-4"><path fill="#fff" d="M0 0h640v480H0z"/><path fill="#000091" d="M0 0h213.3v480H0z"/><path fill="#e1000f" d="M426.7 0H640v480H426.7z"/></svg>`,
+    en: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" class="w-6 h-4"><path fill="#012169" d="M0 0h640v480H0z"/><path fill="#FFF" d="m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0h75z"/><path fill="#C8102E" d="m424 281 216 159v40L369 281h55zm-184 20 6 35L54 480H0l240-179zM640 0v3L391 191l2-44L590 0h50zM0 0l239 176h-60L0 42V0z"/><path fill="#FFF" d="M241 0v480h160V0H241zM0 160v160h640V160H0z"/><path fill="#C8102E" d="M0 193v96h640v-96H0zM273 0v480h96V0h-96z"/></svg>`
   };
   
   // Helper pour obtenir le nom de la langue
@@ -85,19 +86,46 @@
     // Initialiser la langue sélectionnée
     selectedLanguage = $locale;
     
-    // Charger les systèmes éducatifs
-    await loadSystems();
+    // Charger les pays
+    await loadCountries();
     loading = false;
   });
+  
+  async function loadCountries() {
+    try {
+      const res = await fetch('/api/countries');
+      if (res.ok) {
+        countries = await res.json();
+        // Présélectionner France si disponible
+        const france = countries.find(c => c.code === 'FR');
+        if (france) {
+          selectedCountry = france.id;
+          // Définir la langue par défaut du pays
+          const langCode = france.default_language.includes(':') 
+            ? france.default_language.split(':')[1] 
+            : france.default_language;
+          if (availableLocales.some(l => l.code === langCode)) {
+            selectedLanguage = langCode;
+            setLocale(langCode as Locale);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load countries:', e);
+    }
+  }
   
   async function loadSystems() {
     try {
       const res = await fetch('/api/education/systems');
       if (res.ok) {
         systems = await res.json();
-        // Présélectionner France si disponible
-        const france = systems.find(s => s.code === 'FR');
-        if (france) selectedSystem = france.id;
+        // Auto-sélectionner le système du pays
+        const countryCode = selectedCountry.includes(':') 
+          ? selectedCountry.split(':')[1] 
+          : selectedCountry;
+        const countrySystem = systems.find(s => s.code === countryCode);
+        if (countrySystem) selectedSystem = countrySystem.id;
       }
     } catch (e) {
       console.error('Failed to load systems:', e);
@@ -152,6 +180,13 @@
   
   // Watchers pour charger les données en cascade
   $effect(() => {
+    if (selectedCountry) {
+      // Charger les systèmes éducatifs quand un pays est sélectionné
+      loadSystems();
+    }
+  });
+  
+  $effect(() => {
     if (selectedSystem) {
       loadCycles(selectedSystem);
       selectedCycle = '';
@@ -180,25 +215,37 @@
     }
   });
   
+  function selectCountry(countryId: string) {
+    selectedCountry = countryId;
+    const country = countries.find(c => c.id === countryId);
+    if (country) {
+      // Auto-sélectionner la langue du pays
+      const langCode = country.default_language.includes(':') 
+        ? country.default_language.split(':')[1] 
+        : country.default_language;
+      if (availableLocales.some(l => l.code === langCode)) {
+        selectedLanguage = langCode;
+        setLocale(langCode as Locale);
+      }
+    }
+  }
+  
   function selectLanguage(lang: string) {
     selectedLanguage = lang;
     setLocale(lang as Locale);
   }
   
   function nextStep() {
-    if (step === 2 && !needsTrack) {
-      // Pas de filière → passer directement à l'étape 3
-      step = 3;
-    } else if (step === 3 && !needsSpecialties) {
-      // Pas de spécialités → terminer
+    if (step === 2 && !needsSpecialties) {
+      // Pas de spécialités nécessaires → terminer
       saveAndFinish();
       return;
     } else if (step < totalSteps - 1) {
       step++;
     }
     
-    // Si étape 4 et pas de spécialités nécessaires, sauvegarder
-    if (step === 4 && !needsSpecialties) {
+    // Si étape 3 et pas de spécialités nécessaires, sauvegarder
+    if (step === 3 && !needsSpecialties) {
       saveAndFinish();
     }
   }
@@ -224,6 +271,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          country: selectedCountry,
           education_system: selectedSystem,
           current_cycle: selectedCycle,
           current_track: selectedTrack || null,
@@ -255,6 +303,10 @@
   }
   
   // Helpers pour l'affichage
+  function getSelectedCountryName() {
+    return countries.find(c => c.id === selectedCountry)?.name || '';
+  }
+  
   function getSelectedSystemName() {
     return systems.find(s => s.id === selectedSystem)?.name || '';
   }
@@ -329,66 +381,69 @@
           <p class="mt-4 text-gray-400">{$t('common.loading')}</p>
         </div>
       {:else}
-        <!-- Step 0: Langue -->
+        <!-- Step 0: Pays + Langue -->
         {#if step === 0}
-          <div class="text-center mb-8">
-            <div class="text-4xl mb-4">🌐</div>
-            <h1 class="text-2xl font-bold text-white">{$t('onboarding.selectLanguage')}</h1>
-            <p class="text-gray-400 mt-2">{$t('onboarding.chooseLanguage')}</p>
-          </div>
-          
-          <div class="grid grid-cols-1 gap-3">
-            {#each availableLocales as lang}
-              <button
-                type="button"
-                onclick={() => selectLanguage(lang.code)}
-                class="flex items-center gap-4 p-4 rounded-xl border-2 transition-all
-                  {selectedLanguage === lang.code 
-                    ? 'border-amber-500 bg-amber-500/10' 
-                    : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}"
-              >
-                <span class="flex-shrink-0">
-                  {@html languageFlags[lang.code] || lang.flag}
-                </span>
-                <span class="font-medium text-white">{lang.nativeName}</span>
-                {#if selectedLanguage === lang.code}
-                  <span class="ml-auto text-amber-500">✓</span>
-                {/if}
-              </button>
-            {/each}
-          </div>
-        {/if}
-        
-        <!-- Step 1: Pays / Système éducatif -->
-        {#if step === 1}
-          <div class="text-center mb-8">
+          <div class="text-center mb-6">
             <div class="text-4xl mb-4">🌍</div>
-            <h1 class="text-2xl font-bold text-white">{$t('onboarding.welcome')}</h1>
-            <p class="text-gray-400 mt-2">{$t('onboarding.selectCountry')}</p>
+            <h1 class="text-2xl font-bold text-white">{$t('onboarding.selectCountryLanguage')}</h1>
+            <p class="text-gray-400 mt-2">{$t('onboarding.chooseCountryLanguage')}</p>
           </div>
           
-          <div class="grid grid-cols-1 gap-3">
-            {#each systems as system}
-              <button
-                type="button"
-                onclick={() => selectedSystem = system.id}
-                class="flex items-center gap-4 p-4 rounded-xl border-2 transition-all
-                  {selectedSystem === system.id 
-                    ? 'border-amber-500 bg-amber-500/10' 
-                    : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}"
-              >
-                <span class="text-3xl">{system.flag}</span>
-                <span class="font-medium text-white">{system.name}</span>
-                {#if selectedSystem === system.id}
-                  <span class="ml-auto text-amber-500">✓</span>
-                {/if}
-              </button>
-            {/each}
+          <!-- Sélection du pays -->
+          <div class="mb-6">
+            <div class="block text-sm font-medium text-gray-300 mb-2">
+              {$t('onboarding.yourCountry')}
+            </div>
+            <div class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+              {#each countries as country}
+                <button
+                  type="button"
+                  onclick={() => selectCountry(country.id)}
+                  class="flex items-center gap-4 p-3 rounded-xl border-2 transition-all
+                    {selectedCountry === country.id 
+                      ? 'border-amber-500 bg-amber-500/10' 
+                      : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}"
+                >
+                  <span class="text-2xl">{country.flag}</span>
+                  <span class="font-medium text-white">{country.native_name}</span>
+                  {#if selectedCountry === country.id}
+                    <span class="ml-auto text-amber-500">✓</span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          </div>
+          
+          <!-- Sélection de la langue -->
+          <div>
+            <div class="block text-sm font-medium text-gray-300 mb-2">
+              {$t('onboarding.yourLanguage')}
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              {#each availableLocales as lang}
+                <button
+                  type="button"
+                  onclick={() => selectLanguage(lang.code)}
+                  class="flex items-center gap-3 p-3 rounded-xl border-2 transition-all
+                    {selectedLanguage === lang.code 
+                      ? 'border-amber-500 bg-amber-500/10' 
+                      : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}"
+                >
+                  <span class="flex-shrink-0">
+                    {@html languageFlags[lang.code] || lang.flag}
+                  </span>
+                  <span class="font-medium text-white text-sm">{lang.nativeName}</span>
+                  {#if selectedLanguage === lang.code}
+                    <span class="ml-auto text-amber-500">✓</span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
           </div>
         {/if}
         
-        <!-- Step 2: Cycle -->
-        {#if step === 2}
+        <!-- Step 1: Cycle -->
+        {#if step === 1}
           <div class="text-center mb-8">
             <div class="text-4xl mb-4">📚</div>
             <h1 class="text-2xl font-bold text-white">{$t('onboarding.selectLevel')}</h1>
@@ -423,8 +478,8 @@
           </div>
         {/if}
         
-        <!-- Step 3: Filière + Classe -->
-        {#if step === 3}
+        <!-- Step 2: Filière + Classe -->
+        {#if step === 2}
           <div class="text-center mb-8">
             <div class="text-4xl mb-4">🎯</div>
             <h1 class="text-2xl font-bold text-white">{$t('onboarding.selectGrade')}</h1>
@@ -481,8 +536,8 @@
           {/if}
         {/if}
         
-        <!-- Step 4: Spécialités (si lycée général) -->
-        {#if step === 4 && needsSpecialties}
+        <!-- Step 3: Spécialités (si lycée général) -->
+        {#if step === 3 && needsSpecialties}
           <div class="text-center mb-8">
             <div class="text-4xl mb-4">⭐</div>
             <h1 class="text-2xl font-bold text-white">{$t('onboarding.selectSpecialties')}</h1>
@@ -536,7 +591,7 @@
             <div></div>
           {/if}
           
-          {#if step === 4 || (step === 3 && !needsSpecialties)}
+          {#if step === 3 || (step === 2 && !needsSpecialties)}
             <Button
               onclick={saveAndFinish}
               disabled={!canProceed || saving}
@@ -579,14 +634,14 @@
     {#if step > 0 && !loading}
       <div class="mt-4 p-4 bg-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-800 text-sm">
         <div class="flex flex-wrap gap-2">
+          {#if selectedCountry}
+            <span class="px-3 py-1 bg-gray-800 rounded-full text-gray-300 border border-gray-700">
+              {countries.find(c => c.id === selectedCountry)?.flag} {getSelectedCountryName()}
+            </span>
+          {/if}
           {#if selectedLanguage}
             <span class="px-3 py-1 bg-gray-800 rounded-full text-gray-300 border border-gray-700">
               {getLanguageName(selectedLanguage)}
-            </span>
-          {/if}
-          {#if selectedSystem}
-            <span class="px-3 py-1 bg-gray-800 rounded-full text-gray-300 border border-gray-700">
-              {systems.find(s => s.id === selectedSystem)?.flag} {getSelectedSystemName()}
             </span>
           {/if}
           {#if selectedCycle}

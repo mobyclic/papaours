@@ -32,15 +32,16 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
   }
   
   const data = await request.json();
-  const { education_system, current_cycle, current_track, current_grade, specialties, preferred_language } = data;
+  const { country, education_system, current_cycle, current_track, current_grade, specialties, preferred_language } = data;
   
-  if (!education_system || !current_cycle || !current_grade) {
+  if (!country || !education_system || !current_cycle || !current_grade) {
     return json({ error: 'Données incomplètes' }, { status: 400 });
   }
   
   try {
     // Extraire les IDs clean
     const cleanUserId = userId.includes(':') ? userId.split(':')[1] : userId;
+    const cleanCountryId = country.includes(':') ? country.split(':')[1] : country;
     const cleanSystemId = education_system.includes(':') ? education_system.split(':')[1] : education_system;
     const cleanCycleId = current_cycle.includes(':') ? current_cycle.split(':')[1] : current_cycle;
     const cleanGradeId = current_grade.includes(':') ? current_grade.split(':')[1] : current_grade;
@@ -57,6 +58,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     // Construire la requête UPDATE dynamiquement
     let updateQuery = `
       UPDATE user:${cleanUserId} SET
+        country = type::thing("country", $countryId),
         education_system = type::thing("education_system", $systemId),
         current_cycle = type::thing("cycle", $cycleId),
         current_grade = type::thing("grade", $gradeId),
@@ -66,6 +68,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     `;
     
     const params: Record<string, any> = {
+      countryId: cleanCountryId,
       systemId: cleanSystemId,
       cycleId: cleanCycleId,
       gradeId: cleanGradeId,

@@ -212,6 +212,10 @@
   "onboarding": {
     "selectLanguage": "Choose your language",
     "chooseLanguage": "In which language do you want to use Kweez?",
+    "selectCountryLanguage": "Your country & language",
+    "chooseCountryLanguage": "Where do you live and in which language do you want to use Kweez?",
+    "yourCountry": "Your country",
+    "yourLanguage": "Your language",
     "welcome": "Welcome to Kweez!",
     "selectCountry": "What country do you study in?",
     "selectLevel": "What's your level?",

@@ -46,6 +46,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     if (data.sampleAnswers !== undefined) sets.push(`sampleAnswers = ${JSON.stringify(data.sampleAnswers)}`);
     if (data.expectedKeywords !== undefined) sets.push(`expectedKeywords = ${JSON.stringify(data.expectedKeywords)}`);
     
+    // Map Labels (carte interactive)
+    if (data.svgContent !== undefined) sets.push(`svgContent = ${JSON.stringify(data.svgContent)}`);
+    if (data.expectedAnswers !== undefined) sets.push(`expectedAnswers = ${JSON.stringify(data.expectedAnswers)}`);
+    
     // Metadata (options de validation avancées)
     if (data.metadata !== undefined) {
       if (data.metadata && Object.keys(data.metadata).length > 0) {

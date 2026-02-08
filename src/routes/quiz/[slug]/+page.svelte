@@ -10,7 +10,7 @@
   import ShareButton from '$lib/components/ShareButton.svelte';
   
   // Composants de types de questions
-  import { QcmMultiple, TrueFalse, FillBlank, Matching, Ordering, OpenAnswer } from '$lib/components/quiz/question-types';
+  import { QcmMultiple, TrueFalse, FillBlank, Matching, Ordering, OpenAnswer, MapLabels } from '$lib/components/quiz/question-types';
   
   // === STATE ===
   let quiz = $state<any>(null);
@@ -35,6 +35,7 @@
   let matchingAnswers = $state<Record<string, string>>({});
   let orderingAnswer = $state<string[]>([]);
   let openTextAnswer = $state('');
+  let mapLabelsAnswers = $state<Record<string, string>>({});
   
   // Mode révision state
   let showExplanation = $state(false);
@@ -211,6 +212,7 @@
     matchingAnswers = {};
     orderingAnswer = [];
     openTextAnswer = '';
+    mapLabelsAnswers = {};
     showExplanation = false;
     lastAnswerCorrect = false;
     lastExplanation = '';
@@ -238,6 +240,8 @@
       case 'open_short':
       case 'open_long':
         return openTextAnswer;
+      case 'map_labels':
+        return mapLabelsAnswers;
       default:
         return selectedAnswer;
     }
@@ -263,6 +267,8 @@
       case 'open_short':
       case 'open_long':
         return openTextAnswer.trim() !== '';
+      case 'map_labels':
+        return Object.keys(mapLabelsAnswers).length > 0;
       default:
         return selectedAnswer !== null;
     }
@@ -603,7 +609,7 @@
                 selectedAnswers={selectedAnswers}
                 disabled={(showExplanation && !isEpreuveMode) || submitting}
                 showResult={showExplanation && !isEpreuveMode}
-                correctAnswers={showExplanation && lastCorrectAnswer ? (Array.isArray(lastCorrectAnswer) ? lastCorrectAnswer : [lastCorrectAnswer]) : (currentQuestion.answers?.map((a: any, i: number) => a.is_correct ? i : -1).filter((i: number) => i >= 0) || [])}
+                correctAnswers={showExplanation && lastCorrectAnswer ? (Array.isArray(lastCorrectAnswer) ? lastCorrectAnswer : [lastCorrectAnswer]) : (currentQuestion.correctAnswers || [])}
                 onSelect={(answers) => {
                   selectedAnswers = answers;
                   if (isEpreuveMode) saveAnswerForEpreuve(answers as any);
@@ -695,6 +701,22 @@
                 onAnswerChange={(answer) => {
                   openTextAnswer = answer;
                   // Pas de sauvegarde auto pour open en épreuve (trop de traffic)
+                }}
+              />
+            </div>
+          {:else if currentQuestion.questionType === 'map_labels'}
+            <!-- Carte interactive -->
+            <div class="mb-6">
+              <MapLabels
+                svgContent={currentQuestion.svgContent || ''}
+                expectedAnswers={currentQuestion.expectedAnswers || []}
+                choices={currentQuestion.choices || []}
+                answers={mapLabelsAnswers}
+                disabled={(showExplanation && !isEpreuveMode) || submitting}
+                showResult={showExplanation && !isEpreuveMode}
+                onAnswerChange={(answers) => {
+                  mapLabelsAnswers = answers;
+                  if (isEpreuveMode) saveAnswerForEpreuve(answers as any);
                 }}
               />
             </div>

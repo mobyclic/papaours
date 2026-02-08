@@ -297,17 +297,32 @@ async function verifyAnswerMultiType(
     
     case 'qcm_multiple': {
       // Plusieurs bonnes réponses possibles
-      // Les options ont été mélangées côté client, il faut recalculer les indices corrects
-      const originalAnswers = question.answers || [];
+      // Support both formats: 
+      // 1. correctAnswers: number[] (array of correct indices)
+      // 2. answers: {text, is_correct}[] (legacy format)
+      
+      const options = question.options || [];
       const seed = `${sessionId}-${questionId}`;
-      const shuffleOrder = seededShuffle(originalAnswers.length, seed);
+      const shuffleOrder = seededShuffle(options.length, seed);
+      
+      // Get original correct indices
+      let originalCorrectIndices: number[] = [];
+      if (question.correctAnswers && Array.isArray(question.correctAnswers)) {
+        // New format: correctAnswers is array of indices
+        originalCorrectIndices = question.correctAnswers;
+      } else if (question.answers && Array.isArray(question.answers)) {
+        // Legacy format: answers with is_correct property
+        originalCorrectIndices = question.answers
+          .map((a: any, i: number) => a?.is_correct ? i : -1)
+          .filter((i: number) => i >= 0);
+      }
       
       // shuffleOrder[i] = index original de l'option affichée à la position i
       // On doit trouver les positions mélangées des bonnes réponses
       const correctShuffledIndices: number[] = [];
       for (let shuffledIdx = 0; shuffledIdx < shuffleOrder.length; shuffledIdx++) {
         const originalIdx = shuffleOrder[shuffledIdx];
-        if (originalAnswers[originalIdx]?.is_correct) {
+        if (originalCorrectIndices.includes(originalIdx)) {
           correctShuffledIndices.push(shuffledIdx);
         }
       }
@@ -322,7 +337,9 @@ async function verifyAnswerMultiType(
       // Score partiel: combien de bonnes réponses sur le total
       const correctSelected = [...selectedSet].filter(i => correctSet.has(i)).length;
       const incorrectSelected = [...selectedSet].filter(i => !correctSet.has(i)).length;
-      const partialScore = Math.max(0, (correctSelected - incorrectSelected) / correctShuffledIndices.length);
+      const partialScore = correctShuffledIndices.length > 0 
+        ? Math.max(0, (correctSelected - incorrectSelected) / correctShuffledIndices.length)
+        : 0;
       
       return {
         isCorrect: isExactMatch,
@@ -586,6 +603,38 @@ async function verifyAnswerMultiType(
       return {
         isCorrect: expectedKeywords.length > 0 ? isCorrect : false,
         correctAnswer: sampleAnswers,
+        explanation,
+        partialScore
+      };
+    }
+    
+    case 'map_labels': {
+      // Carte interactive - valider les labels positionnés par l'utilisateur
+      const expectedAnswers = question.expectedAnswers || question.expected_answers || [];
+      const userAnswers = answer || {}; // { "REP_0": "Europe", "REP_1": "Asie", ... }
+      
+      let correctCount = 0;
+      const totalZones = expectedAnswers.length;
+      
+      for (const expected of expectedAnswers) {
+        const zoneId = `REP_${expected.index}`;
+        const userAnswer = (userAnswers[zoneId] || '').toLowerCase().trim();
+        const correctLabel = (expected.label || '').toLowerCase().trim();
+        
+        // Correspondance exacte ou partielle (tolérance aux typos mineures)
+        if (userAnswer === correctLabel || 
+            correctLabel.includes(userAnswer) || 
+            userAnswer.includes(correctLabel)) {
+          correctCount++;
+        }
+      }
+      
+      const isCorrect = correctCount === totalZones;
+      const partialScore = totalZones > 0 ? correctCount / totalZones : 0;
+      
+      return {
+        isCorrect,
+        correctAnswer: expectedAnswers,
         explanation,
         partialScore
       };

@@ -105,6 +105,32 @@ export async function sendVerificationEmail(
 }
 
 /**
+ * Envoyer un code de vérification OTP par email
+ */
+export async function sendVerificationCode(
+  to: string,
+  userName: string,
+  code: string
+): Promise<EmailResult> {
+  const html = baseTemplate(`
+    <h2>Votre code de vérification 🔐</h2>
+    <p>Bonjour ${userName},</p>
+    <p>Merci de vous être inscrit sur ${APP_NAME} ! Pour activer votre compte, entrez le code ci-dessous :</p>
+    <div class="code-box">
+      <span class="code">${code}</span>
+    </div>
+    <p style="text-align: center; font-size: 14px; color: #6b7280;">
+      Ce code expire dans <strong>15 minutes</strong>.
+    </p>
+    <p style="font-size: 12px; color: #9ca3af; margin-top: 30px;">
+      Si vous n'avez pas créé de compte sur ${APP_NAME}, ignorez simplement cet email.
+    </p>
+  `, `Votre code de vérification ${APP_NAME} : ${code}`);
+
+  return sendEmail(to, `Votre code de vérification - ${APP_NAME}`, html);
+}
+
+/**
  * Envoyer un email de réinitialisation de mot de passe (tuteurs)
  */
 export async function sendPasswordResetEmail(
